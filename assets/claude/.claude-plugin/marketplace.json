@@ -1,0 +1,32 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "prax",
+  "description": "Prax Claude Code integration assets",
+  "owner": {
+    "name": "Prax"
+  },
+  "metadata": {
+    "description": "Prax managed Claude Code workflow assets"
+  },
+  "plugins": [
+    {
+      "name": "prax",
+      "source": "./",
+      "description": "Prax runtime-aware Claude Code integration plugin",
+      "version": "0.1.0",
+      "author": {
+        "name": "Prax"
+      },
+      "homepage": "https://github.com/ChanningLua/prax-agent",
+      "repository": "https://github.com/ChanningLua/prax-agent",
+      "license": "MIT",
+      "category": "workflow",
+      "tags": [
+        "runtime",
+        "verification",
+        "claude-code"
+      ],
+      "strict": false
+    }
+  ]
+}

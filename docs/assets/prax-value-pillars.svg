@@ -1,0 +1,55 @@
+<svg width="1200" height="560" viewBox="0 0 1200 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="48" y1="28" x2="1152" y2="532" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#172033"/>
+    </linearGradient>
+    <linearGradient id="line" x1="96" y1="92" x2="1104" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F97316"/>
+      <stop offset="0.5" stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="24" y="24" width="1152" height="512" rx="32" fill="url(#bg)"/>
+  <rect x="96" y="88" width="1008" height="8" rx="4" fill="url(#line)"/>
+
+  <text x="96" y="156" fill="#F8FAFC" font-size="40" font-family="Helvetica, Arial, sans-serif" font-weight="700">Why Prax Feels Different</text>
+  <text x="96" y="194" fill="#94A3B8" font-size="20" font-family="Helvetica, Arial, sans-serif">A harness is only useful when it can plan, remember, verify, and converge inside a real repository.</text>
+
+  <g>
+    <rect x="96" y="246" width="234" height="208" rx="24" fill="#27140A" stroke="#F97316"/>
+    <text x="124" y="292" fill="#FED7AA" font-size="16" font-family="Helvetica, Arial, sans-serif">01</text>
+    <text x="124" y="334" fill="#F8FAFC" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">Orchestration</text>
+    <text x="124" y="376" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">Explicit routing, fallback,</text>
+    <text x="124" y="404" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">and agent decomposition.</text>
+    <text x="124" y="438" fill="#FDBA74" font-size="16" font-family="Helvetica, Arial, sans-serif">Built for multi-model repo work</text>
+  </g>
+
+  <g>
+    <rect x="352" y="246" width="234" height="208" rx="24" fill="#0C2438" stroke="#0EA5E9"/>
+    <text x="380" y="292" fill="#BAE6FD" font-size="16" font-family="Helvetica, Arial, sans-serif">02</text>
+    <text x="380" y="334" fill="#F8FAFC" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">Memory</text>
+    <text x="380" y="376" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">Session context and project</text>
+    <text x="380" y="404" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">facts survive beyond one turn.</text>
+    <text x="380" y="438" fill="#7DD3FC" font-size="16" font-family="Helvetica, Arial, sans-serif">Local, SQLite, and vector backends</text>
+  </g>
+
+  <g>
+    <rect x="608" y="246" width="234" height="208" rx="24" fill="#052E2B" stroke="#14B8A6"/>
+    <text x="636" y="292" fill="#99F6E4" font-size="16" font-family="Helvetica, Arial, sans-serif">03</text>
+    <text x="636" y="334" fill="#F8FAFC" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">Middleware</text>
+    <text x="636" y="376" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">Verification, hooks, safety,</text>
+    <text x="636" y="404" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">and summarization compose cleanly.</text>
+    <text x="636" y="438" fill="#5EEAD4" font-size="16" font-family="Helvetica, Arial, sans-serif">Behavior is easier to tune and debug</text>
+  </g>
+
+  <g>
+    <rect x="864" y="246" width="240" height="208" rx="24" fill="#172554" stroke="#3B82F6"/>
+    <text x="892" y="292" fill="#BFDBFE" font-size="16" font-family="Helvetica, Arial, sans-serif">04</text>
+    <text x="892" y="334" fill="#F8FAFC" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">Repo-Fix Proof</text>
+    <text x="892" y="376" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">Benchmark-guided fixes moved</text>
+    <text x="892" y="404" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">Prax from 8/10 to 10/10.</text>
+    <text x="892" y="438" fill="#93C5FD" font-size="16" font-family="Helvetica, Arial, sans-serif">The harness got better, not just the prompt</text>
+  </g>
+</svg>

@@ -1,0 +1,69 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="panel" x1="64" y1="48" x2="1136" y2="712" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1324"/>
+      <stop offset="1" stop-color="#172033"/>
+    </linearGradient>
+    <linearGradient id="barA" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#F97316"/>
+      <stop offset="1" stop-color="#FB923C"/>
+    </linearGradient>
+    <linearGradient id="barB" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="24" y="24" width="1152" height="712" rx="32" fill="url(#panel)"/>
+  <text x="88" y="112" fill="#F8FAFC" font-size="42" font-family="Helvetica, Arial, sans-serif" font-weight="700">Prax Repo-Fix Benchmark Improvement</text>
+  <text x="88" y="152" fill="#94A3B8" font-size="20" font-family="Helvetica, Arial, sans-serif">Same 10-case suite • Claude direct API path • benchmark-driven harness fixes</text>
+
+  <g>
+    <rect x="88" y="214" width="320" height="198" rx="24" fill="#111827" stroke="#334155"/>
+    <text x="120" y="264" fill="#CBD5E1" font-size="20" font-family="Helvetica, Arial, sans-serif">Original cross-framework baseline</text>
+    <text x="120" y="334" fill="#F8FAFC" font-size="72" font-family="Helvetica, Arial, sans-serif" font-weight="700">8/10</text>
+    <text x="120" y="374" fill="#FCA5A5" font-size="18" font-family="Helvetica, Arial, sans-serif">58.44s average • 2 timeouts</text>
+  </g>
+
+  <g>
+    <rect x="440" y="214" width="320" height="198" rx="24" fill="#06291D" stroke="#14532D"/>
+    <text x="472" y="264" fill="#DCFCE7" font-size="20" font-family="Helvetica, Arial, sans-serif">Latest Prax-only rerun</text>
+    <text x="472" y="334" fill="#F8FAFC" font-size="72" font-family="Helvetica, Arial, sans-serif" font-weight="700">10/10</text>
+    <text x="472" y="374" fill="#86EFAC" font-size="18" font-family="Helvetica, Arial, sans-serif">29.56s average • 0 timeouts</text>
+  </g>
+
+  <g>
+    <rect x="792" y="214" width="320" height="198" rx="24" fill="#0C2440" stroke="#1D4ED8"/>
+    <text x="824" y="264" fill="#DBEAFE" font-size="20" font-family="Helvetica, Arial, sans-serif">What changed</text>
+    <text x="824" y="314" fill="#F8FAFC" font-size="18" font-family="Helvetica, Arial, sans-serif">• safe verification lane</text>
+    <text x="824" y="344" fill="#F8FAFC" font-size="18" font-family="Helvetica, Arial, sans-serif">• SandboxBash verification downgrade</text>
+    <text x="824" y="374" fill="#F8FAFC" font-size="18" font-family="Helvetica, Arial, sans-serif">• verification guidance middleware</text>
+  </g>
+
+  <text x="88" y="480" fill="#F8FAFC" font-size="26" font-family="Helvetica, Arial, sans-serif" font-weight="700">Before / After at a Glance</text>
+  <text x="88" y="516" fill="#94A3B8" font-size="18" font-family="Helvetica, Arial, sans-serif">Normalized bars: higher is better for solve rate, lower is better for average duration.</text>
+
+  <text x="88" y="576" fill="#CBD5E1" font-size="18" font-family="Helvetica, Arial, sans-serif">Solve rate</text>
+  <rect x="220" y="552" width="420" height="26" rx="13" fill="#1E293B"/>
+  <rect x="220" y="552" width="336" height="26" rx="13" fill="url(#barA)"/>
+  <rect x="220" y="592" width="420" height="26" rx="13" fill="#1E293B"/>
+  <rect x="220" y="592" width="420" height="26" rx="13" fill="url(#barB)"/>
+  <text x="664" y="571" fill="#FDBA74" font-size="16" font-family="Helvetica, Arial, sans-serif">baseline 8/10</text>
+  <text x="664" y="611" fill="#86EFAC" font-size="16" font-family="Helvetica, Arial, sans-serif">latest 10/10</text>
+
+  <text x="88" y="670" fill="#CBD5E1" font-size="18" font-family="Helvetica, Arial, sans-serif">Average duration</text>
+  <rect x="220" y="646" width="420" height="26" rx="13" fill="#1E293B"/>
+  <rect x="220" y="646" width="420" height="26" rx="13" fill="url(#barA)"/>
+  <rect x="220" y="686" width="420" height="26" rx="13" fill="#1E293B"/>
+  <rect x="220" y="686" width="213" height="26" rx="13" fill="url(#barB)"/>
+  <text x="664" y="665" fill="#FDBA74" font-size="16" font-family="Helvetica, Arial, sans-serif">baseline 58.44s</text>
+  <text x="664" y="705" fill="#86EFAC" font-size="16" font-family="Helvetica, Arial, sans-serif">latest 29.56s</text>
+
+  <g>
+    <rect x="760" y="520" width="352" height="192" rx="24" fill="#111827" stroke="#334155"/>
+    <text x="792" y="566" fill="#F8FAFC" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">Key story</text>
+    <text x="792" y="608" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">Prax did not need a new model or a new architecture.</text>
+    <text x="792" y="638" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">It needed a cleaner verification path and stronger</text>
+    <text x="792" y="668" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">repair convergence after test feedback.</text>
+  </g>
+</svg>

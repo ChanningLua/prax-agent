@@ -1,0 +1,71 @@
+<svg width="1200" height="680" viewBox="0 0 1200 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="40" x2="1120" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="100" x2="1080" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1200" height="680" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#020617" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect x="32" y="24" width="1136" height="632" rx="32" fill="url(#bg)"/>
+  <rect x="96" y="84" width="1008" height="8" rx="4" fill="url(#accent)" opacity="0.9"/>
+
+  <text x="96" y="154" fill="#F8FAFC" font-size="40" font-family="Helvetica, Arial, sans-serif" font-weight="700">Claude Repo-Fix Benchmark</text>
+  <text x="96" y="194" fill="#94A3B8" font-size="20" font-family="Helvetica, Arial, sans-serif">10 repeated rounds per framework • same repository-fix task family • preserved session state</text>
+
+  <g filter="url(#shadow)">
+    <rect x="96" y="238" width="220" height="300" rx="24" fill="#172554" stroke="#1D4ED8"/>
+    <text x="124" y="286" fill="#E0F2FE" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">Prax</text>
+    <text x="124" y="334" fill="#F8FAFC" font-size="64" font-family="Helvetica, Arial, sans-serif" font-weight="700">8/10</text>
+    <text x="124" y="368" fill="#93C5FD" font-size="20" font-family="Helvetica, Arial, sans-serif">cross-framework baseline</text>
+    <text x="124" y="430" fill="#E2E8F0" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">58.44s avg</text>
+    <text x="124" y="470" fill="#CBD5E1" font-size="18" font-family="Helvetica, Arial, sans-serif">2 timeout rounds</text>
+    <text x="124" y="516" fill="#BFDBFE" font-size="18" font-family="Helvetica, Arial, sans-serif">Strong repair loop</text>
+    <text x="124" y="542" fill="#BFDBFE" font-size="18" font-family="Helvetica, Arial, sans-serif">Verification path was the bottleneck</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="340" y="238" width="220" height="300" rx="24" fill="#0F3D2E" stroke="#22C55E"/>
+    <text x="368" y="286" fill="#DCFCE7" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">Hermes</text>
+    <text x="368" y="334" fill="#F8FAFC" font-size="64" font-family="Helvetica, Arial, sans-serif" font-weight="700">8/10</text>
+    <text x="368" y="368" fill="#86EFAC" font-size="20" font-family="Helvetica, Arial, sans-serif">cross-framework baseline</text>
+    <text x="368" y="430" fill="#E2E8F0" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">56.99s avg</text>
+    <text x="368" y="470" fill="#CBD5E1" font-size="18" font-family="Helvetica, Arial, sans-serif">2 timeout rounds</text>
+    <text x="368" y="516" fill="#BBF7D0" font-size="18" font-family="Helvetica, Arial, sans-serif">Most balanced all-around</text>
+    <text x="368" y="542" fill="#BBF7D0" font-size="18" font-family="Helvetica, Arial, sans-serif">production profile</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="584" y="238" width="220" height="300" rx="24" fill="#3F1D0D" stroke="#F59E0B"/>
+    <text x="612" y="286" fill="#FEF3C7" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">HyperAgents</text>
+    <text x="612" y="334" fill="#F8FAFC" font-size="64" font-family="Helvetica, Arial, sans-serif" font-weight="700">1/10</text>
+    <text x="612" y="368" fill="#FDE68A" font-size="20" font-family="Helvetica, Arial, sans-serif">cross-framework baseline</text>
+    <text x="612" y="430" fill="#E2E8F0" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">58.72s avg</text>
+    <text x="612" y="470" fill="#CBD5E1" font-size="18" font-family="Helvetica, Arial, sans-serif">mostly unstable rounds</text>
+    <text x="612" y="516" fill="#FDE68A" font-size="18" font-family="Helvetica, Arial, sans-serif">Research-oriented codebase</text>
+    <text x="612" y="542" fill="#FDE68A" font-size="18" font-family="Helvetica, Arial, sans-serif">needed benchmark adapter</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="828" y="238" width="276" height="300" rx="24" fill="#083344" stroke="#06B6D4"/>
+    <text x="856" y="286" fill="#CFFAFE" font-size="28" font-family="Helvetica, Arial, sans-serif" font-weight="700">oh-my-openagent</text>
+    <text x="856" y="334" fill="#F8FAFC" font-size="64" font-family="Helvetica, Arial, sans-serif" font-weight="700">8/10</text>
+    <text x="856" y="368" fill="#67E8F9" font-size="20" font-family="Helvetica, Arial, sans-serif">cross-framework baseline</text>
+    <text x="856" y="430" fill="#E2E8F0" font-size="22" font-family="Helvetica, Arial, sans-serif" font-weight="700">55.32s avg</text>
+    <text x="856" y="470" fill="#CBD5E1" font-size="18" font-family="Helvetica, Arial, sans-serif">2 timeout rounds</text>
+    <text x="856" y="516" fill="#A5F3FC" font-size="18" font-family="Helvetica, Arial, sans-serif">Strong after adapter work</text>
+    <text x="856" y="542" fill="#A5F3FC" font-size="18" font-family="Helvetica, Arial, sans-serif">but runtime story still uneven</text>
+  </g>
+
+  <g>
+    <rect x="96" y="574" width="1008" height="46" rx="14" fill="#0B1220" stroke="#1E293B"/>
+    <text x="124" y="604" fill="#E2E8F0" font-size="18" font-family="Helvetica, Arial, sans-serif">Benchmark takeaway:</text>
+    <text x="302" y="604" fill="#F8FAFC" font-size="18" font-family="Helvetica, Arial, sans-serif" font-weight="700">Prax was already competitive, and focused harness fixes lifted it to a 10/10 local repo-fix rerun.</text>
+  </g>
+</svg>

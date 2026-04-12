@@ -1,0 +1,36 @@
+# Task classification rules
+# Pattern: keyword match -> tier -> model selection
+
+rules:
+  - name: simple_query
+    keywords: ["解释", "说明", "是什么", "explain", "what is"]
+    tier: low
+    description: "Simple Q&A tasks"
+
+  - name: code_read
+    keywords: ["读取", "查看", "分析", "read", "analyze", "review"]
+    tier: standard
+    description: "Code reading and analysis"
+
+  - name: code_write
+    keywords: ["编写", "实现", "创建", "write", "implement", "create"]
+    tier: standard
+    description: "Code writing tasks"
+
+  - name: code_refactor
+    keywords: ["重构", "优化", "refactor", "optimize"]
+    tier: high
+    description: "Code refactoring"
+
+  - name: architecture
+    keywords: ["架构", "设计", "architecture", "design"]
+    tier: premium
+    description: "Architecture design"
+
+# Tier to model mapping (uses first available)
+tier_models:
+  low: ["gpt-4.1-mini", "gpt-4.1"]
+  standard: ["gpt-4.1", "claude-sonnet-4-6"]
+  high: ["claude-sonnet-4-6", "gpt-4.1"]
+  premium: ["claude-sonnet-4-6", "o3"]
+  ultra: ["claude-opus-4-6"]

@@ -1,0 +1,1 @@
+"""Prax command registry."""

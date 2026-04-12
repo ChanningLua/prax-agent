@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+venv_*/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+.hypothesis/
+
+# Project specific
+.prax/sessions/
+.prax/memory.json
+.prax/todos.json
+.prax/tasks/
+*.log
+.env
+.env.local
+.claude/settings.local.json
+
+# Internal reports and evaluations (not for open source)
+EVALUATION_REPORT.md
+IMPLEMENTATION_REPORT.md
+IMPLEMENTATION_SUMMARY.md
+COMPARISON_REPORT.md
+docs/evals/
+docs/EVAL_IMPLEMENTATION_REPORT.md
+docs/comparison-matrix.md
+tests/evals/
+tests/test_cli_benchmark_helpers.py
+tests/test_claude_cli_executor.py
+tests/e2e_read_file.py
+tests/e2e_test_file.txt
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# OS
+Thumbs.db
+
+# Node (for reference frameworks)
+node_modules/
+package-lock.json
+
+# Temporary directories
+tmp*/
+
+# Reference frameworks (not part of this project)
+参考框架/
+
+# Misc (local dev artifacts, not part of the project)
+add.py
+planb-config/
+evaluation/
+plugin.json
+verify_eval_suite.py
+verify_implementation.py
+
+# Node/TS artifacts (demo outputs, not core)
+package.json
+tsconfig.json
+vitest.config.ts
+src/
+
+# Local task state
+.prax/tasks/

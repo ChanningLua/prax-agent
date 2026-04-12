@@ -1,0 +1,56 @@
+# Prax Configuration Example
+# Copy this to .prax/config.yaml and customize
+# Global overrides can be placed in ~/.prax/config.yaml
+
+# ── Memory Backend ────────────────────────────────────────────────────────────
+# Controls how Prax stores and retrieves cross-session memory.
+#
+# Three-layer memory model:
+#   project facts   — structured facts extracted per-project
+#                     stored in .prax/memory.json
+#   global experiences — cross-project DeerFlow-style experience records
+#                     stored in ~/.prax/experiences.json
+#   work context    — workContext / topOfMind summaries per project
+#
+# backend options:
+#   "local"       — (default) pure file-based, no external service needed
+#   "openviking"  — delegate to an OpenViking gRPC service; falls back to
+#                   "local" automatically if the service is unreachable
+#   "my.module.MyBackend" — custom class path (must subclass MemoryBackend)
+
+memory:
+  backend: local   # "local" | "openviking" | dotted.class.Path
+
+  # Settings for backend: local
+  local:
+    max_facts: 100                    # max facts per project (highest confidence kept)
+    fact_confidence_threshold: 0.7    # facts below this are not persisted
+    max_experiences: 500              # max global experiences (most recent kept)
+
+  # Settings for backend: openviking
+  # openviking:
+  #   host: localhost
+  #   port: 50051
+  #   ping_timeout_seconds: 2   # fall back to local if ping exceeds this
+
+# ── MCP (Model Context Protocol) Servers ─────────────────────────────────────
+# Dynamically load tools from external MCP servers
+mcp_servers:
+  # GitHub integration via MCP
+  - name: github
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+
+  # Filesystem operations via MCP
+  - name: filesystem
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+  # Example: Custom MCP server
+  # - name: custom
+  #   command: /path/to/custom-mcp-server
+  #   args: ["--config", "config.json"]
+  #   env:
+  #     API_KEY: "${MY_API_KEY}"

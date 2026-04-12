@@ -1,0 +1,121 @@
+direction: right
+
+vars: {
+  d2-config: {
+    theme-id: 0
+    pad: 20
+    layout-engine: elk
+  }
+}
+
+task: Task {
+  shape: rectangle
+  style: {
+    fill: "#667eea"
+    stroke: "#667eea"
+    font-color: "#ffffff"
+    border-radius: 12
+    font-size: 18
+    bold: true
+  }
+}
+
+run: Run Tests {
+  shape: rectangle
+  style: {
+    fill: "#f093fb"
+    stroke: "#f093fb"
+    font-color: "#ffffff"
+    border-radius: 12
+    font-size: 18
+    bold: true
+  }
+}
+
+check: Tests Pass? {
+  shape: diamond
+  style: {
+    fill: "#4facfe"
+    stroke: "#4facfe"
+    font-color: "#ffffff"
+    font-size: 16
+    bold: true
+  }
+}
+
+analyze: Analyze\nFailures {
+  shape: rectangle
+  style: {
+    fill: "#fa709a"
+    stroke: "#fa709a"
+    font-color: "#ffffff"
+    border-radius: 12
+    font-size: 18
+    bold: true
+  }
+}
+
+fix: Edit Code {
+  shape: rectangle
+  style: {
+    fill: "#fee140"
+    stroke: "#fee140"
+    font-color: "#2d3748"
+    border-radius: 12
+    font-size: 18
+    bold: true
+  }
+}
+
+done: Done {
+  shape: rectangle
+  style: {
+    fill: "#30cfd0"
+    stroke: "#30cfd0"
+    font-color: "#ffffff"
+    border-radius: 12
+    font-size: 18
+    bold: true
+  }
+}
+
+memory: Memory\nJSON · SQLite\nVector {
+  shape: cylinder
+  style: {
+    fill: "#a8edea"
+    stroke: "#a8edea"
+    font-color: "#2d3748"
+    font-size: 14
+    bold: true
+  }
+}
+
+task -> run
+run -> check
+check -> analyze: ✗ Fail {
+  style.stroke: "#fa709a"
+  style.font-color: "#fa709a"
+  style.bold: true
+  style.stroke-width: 3
+}
+analyze -> fix
+fix -> run
+check -> done: ✓ Pass {
+  style.stroke: "#30cfd0"
+  style.font-color: "#30cfd0"
+  style.bold: true
+  style.stroke-width: 3
+}
+
+memory -> analyze: context {
+  style.stroke-dash: 5
+  style.stroke: "#a8edea"
+  style.font-color: "#718096"
+  style.stroke-width: 2
+}
+fix -> memory: store {
+  style.stroke-dash: 5
+  style.stroke: "#a8edea"
+  style.font-color: "#718096"
+  style.stroke-width: 2
+}

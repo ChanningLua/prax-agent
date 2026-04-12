@@ -1,0 +1,122 @@
+providers:
+  zhipu:
+    base_url: "https://open.bigmodel.cn/api/paas/v4"
+    api_key_env: "ZHIPU_API_KEY"
+    format: "openai"
+    models:
+      - name: glm-4-flash
+        aliases: ["glm-flash"]
+        tier: low
+        cost_per_1m_tokens: 0.1
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: false
+        supports_thinking: false
+      - name: glm-4
+        aliases: ["glm"]
+        tier: standard
+        cost_per_1m_tokens: 1.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: false
+        supports_thinking: false
+      - name: glm-5
+        aliases: ["glm-pro"]
+        tier: high
+        cost_per_1m_tokens: 2.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: false
+        supports_thinking: false
+
+  openai:
+    base_url: "https://api.openai.com/v1"
+    api_key_env: "OPENAI_API_KEY"
+    format: "openai"
+    models:
+      - name: gpt-4.1-mini
+        aliases: ["mini"]
+        tier: low
+        cost_per_1m_tokens: 1.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: false
+        supports_thinking: false
+      - name: gpt-4.1
+        aliases: ["gpt", "gpt4"]
+        tier: standard
+        cost_per_1m_tokens: 5.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: false
+        supports_thinking: false
+      - name: o3
+        aliases: ["reasoning"]
+        tier: premium
+        cost_per_1m_tokens: 10.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: true
+        supports_thinking: false
+        default_reasoning_effort: medium
+      - name: codex
+        api_model: "<replace-with-codex-model>"
+        aliases: ["responses"]
+        request_mode: "responses"
+        tier: high
+        cost_per_1m_tokens: 0.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: true
+        supports_thinking: false
+        default_reasoning_effort: medium
+
+  anthropic:
+    base_url: "https://api.anthropic.com"
+    base_url_env: "ANTHROPIC_BASE_URL"
+    api_key_env: ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]
+    format: "anthropic"
+    models:
+      - name: claude-sonnet-4-6
+        aliases: ["sonnet"]
+        tier: premium
+        cost_per_1m_tokens: 15.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: false
+        supports_thinking: true
+        default_thinking_budget_tokens: 12000
+      - name: claude-opus-4-6
+        aliases: ["opus"]
+        tier: ultra
+        cost_per_1m_tokens: 75.0
+        supports_tools: true
+        supports_streaming: true
+        supports_reasoning_effort: false
+        supports_thinking: true
+        default_thinking_budget_tokens: 32000
+
+default_model: gpt-4.1
+
+# Upgrade chain: when quality check fails, try next model
+upgrade_chain:
+  - gpt-4.1
+  - claude-sonnet-4-6
+  - claude-opus-4-6
+
+# Multi-model routing (ModelRouter)
+routing:
+  rules:
+    complex_reasoning: claude-opus-4-6
+    architecture: claude-opus-4-6
+    code_review: claude-opus-4-6
+    deep_research: gpt-4.1
+    debugging: gpt-4.1
+    chinese_content: glm-5
+    quick_tasks: glm-4-flash
+    translation: glm-5
+    default: gpt-4.1
+  fallback_chain:
+    - claude-opus-4-6
+    - gpt-4.1
+    - glm-4-flash

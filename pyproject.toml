@@ -1,0 +1,92 @@
+[project]
+name = "prax"
+version = "0.1.0"
+description = "Open-source coding agent runtime for repository work"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Prax Contributors", email = "543370794@qq.com"}
+]
+keywords = ["agent", "coding", "automation", "claude", "llm", "workflow"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    "httpx>=0.27",
+    "jsonschema>=4.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ChanningLua/prax-agent"
+Repository = "https://github.com/ChanningLua/prax-agent"
+Documentation = "https://github.com/ChanningLua/prax-agent#readme"
+Changelog = "https://github.com/ChanningLua/prax-agent/blob/main/CHANGELOG.md"
+Issues = "https://github.com/ChanningLua/prax-agent/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+prax = "prax.main:main"
+
+[tool.setuptools.package-dir]
+prax = "."
+
+[tool.setuptools]
+packages = [
+    "prax",
+    "prax.agents",
+    "prax.assets",
+    "prax.assets.claude",
+    "prax.commands",
+    "prax.core",
+    "prax.core.memory",
+    "prax.core.sandbox",
+    "prax.integrations",
+    "prax.integrations.claude_code",
+    "prax.runtime",
+    "prax.tools",
+    "prax.tui",
+    "prax.tui.widgets",
+    "prax.workflows",
+]
+
+[tool.setuptools.package-data]
+prax = [
+    "assets/claude/agents/*.md",
+    "assets/claude/.claude-plugin/*.json",
+    "assets/claude/commands/*.md",
+    "assets/claude/hooks/*.md",
+    "assets/claude/prax/hooks/*.sh",
+    "assets/claude/rules/*/*.md",
+    "assets/claude/skills/*/SKILL.md",
+    "skills/*/SKILL.md",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "asyncio: run test inside a local asyncio event loop",
+    "eval: evaluation tests that call real LLM APIs",
+    "eval_category: category of evaluation test",
+]
