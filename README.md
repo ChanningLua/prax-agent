@@ -53,6 +53,10 @@ For reproducible debugging and benchmarking, pin `--runtime-path native`.
   <img src="./docs/assets/verification-loop.svg" alt="Verification Loop" width="800">
 </p>
 
+<p align="center">
+  <img src="./docs/assets/capabilities.svg" alt="Agent Capabilities" width="800">
+</p>
+
 Most tools send a prompt and hope for the best. Prax runs a **test-verify-fix loop**: it executes your test suite, analyzes failures, edits code, and re-runs until tests pass. The verification layer is first-class — not an afterthought.
 
 **Benchmark-proven**: 10/10 repository repair tasks solved in 29.56s average (vs 8/10 baseline across peer frameworks).
