@@ -34,18 +34,15 @@ Prax inspects your codebase, runs checks, edits files, and verifies the result i
 
 > Prax can execute shell commands on your behalf. It defaults to `workspace-write` mode — files outside the project are off-limits. Use `--permission-mode read-only` for safe exploration.
 
-By default, `prax` runs in `auto` mode:
-
-- if the `claude` binary is available, Prax uses the Claude CLI bridge
-- otherwise it uses the native runtime
-
-For reproducible debugging and benchmarking, pin `--runtime-path native`.
-
 ---
 
 ## Why Prax
 
 **Prax isn't just another LLM wrapper — it's a production-grade agent runtime built for real repository work.**
+
+<p align="center">
+  <img src="./docs/assets/capabilities.svg" alt="Agent Capabilities" width="800">
+</p>
 
 ### Verification-First Architecture
 
@@ -53,39 +50,19 @@ For reproducible debugging and benchmarking, pin `--runtime-path native`.
   <img src="./docs/assets/verification-loop.svg" alt="Verification Loop" width="800">
 </p>
 
-<p align="center">
-  <img src="./docs/assets/capabilities.svg" alt="Agent Capabilities" width="800">
-</p>
-
 Most tools send a prompt and hope for the best. Prax runs a **test-verify-fix loop**: it executes your test suite, analyzes failures, edits code, and re-runs until tests pass. The verification layer is first-class — not an afterthought.
 
 **Benchmark-proven**: 10/10 repository repair tasks solved in 29.56s average (vs 8/10 baseline across peer frameworks).
 
-### Persistent Memory Across Sessions
-Context doesn't vanish when you close the terminal. Prax stores decisions, architectural insights, and project facts locally. Follow-up tasks pick up where you left off — no need to re-explain your codebase every time.
+**Persistent Memory** — Context doesn't vanish when you close the terminal. Three backends: JSON (zero-config), SQLite (full-text search), OpenViking (vector embeddings).
 
-**Three memory backends**: JSON (zero-config), SQLite (full-text search), OpenViking (vector embeddings).
+**Multi-Model Orchestration** — Claude, GPT, GLM, and custom models with explicit routing, fallback chains, and cost tracking. Switch models mid-session with `/model claude-opus-4-6`.
 
-### Multi-Model Orchestration
-Not locked into one provider. Prax supports **Claude, GPT, GLM, and custom models** with explicit routing, fallback chains, and cost tracking. Switch models mid-session with `/model claude-opus-4-6`.
+**Security by Design** — Permission modes (`read-only`, `workspace-write`, `danger-full-access`), schema validation, workspace boundaries, and full audit trail.
 
-### Security by Design
-- **Permission modes**: `read-only`, `workspace-write`, `danger-full-access` — you control what the agent can touch
-- **Schema validation**: All tool inputs validated before execution
-- **Workspace boundaries**: File operations blocked outside project root by default
-- **Audit trail**: Full session logs for every action
+**Built for Real Codebases** — 25+ built-in tools, middleware pipeline (loop detection, quality gates), multi-language support, and interactive REPL mode.
 
-### Built for Real Codebases
-- **25+ built-in tools**: Read, Edit, Grep, Bash, Git, VerifyCommand, and more
-- **Middleware pipeline**: Loop detection, quality gates, verification guidance
-- **Multi-language support**: Python, JavaScript, Rust, Go — if it has tests, Prax can fix it
-- **REPL mode**: Interactive debugging with slash commands (`/plan`, `/cost`, `/session list`)
-
-### Transparent & Measurable
-- Real-time cost tracking (`/cost`)
-- Session history and replay
-- Benchmark suite included (see [docs/BENCHMARKS.md](./docs/BENCHMARKS.md))
-- Open architecture — extend with custom agents, tools, and middleware
+**Transparent & Measurable** — Real-time cost tracking, session history and replay, benchmark suite included, open architecture for custom extensions.
 
 ---
 

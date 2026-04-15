@@ -34,18 +34,15 @@ Prax 会检查你的代码库、运行测试、编辑文件，并在循环中验
 
 > Prax 可以代你执行 shell 命令。默认使用 `workspace-write` 模式——项目外的文件不可触碰。使用 `--permission-mode read-only` 可安全浏览。
 
-默认情况下，`prax` 以 `auto` 模式运行：
-
-- 如果 `claude` 二进制可用，Prax 使用 Claude CLI 桥接
-- 否则使用原生运行时
-
-如需可复现的调试和基准测试，请指定 `--runtime-path native`。
-
 ---
 
 ## 为什么选 Prax
 
 **Prax 不只是又一个 LLM 封装——它是为真实仓库工作打造的生产级 Agent 运行时。**
+
+<p align="center">
+  <img src="./docs/assets/capabilities.zh-CN.svg" alt="Agent Capabilities" width="800">
+</p>
 
 ### 验证优先架构
 
@@ -57,31 +54,15 @@ Prax 会检查你的代码库、运行测试、编辑文件，并在循环中验
 
 **基准验证**: 10/10 仓库修复任务全部解决，平均 29.56 秒（对比同类框架基线 8/10）。
 
-### 跨会话持久记忆
-关闭终端不会丢失上下文。Prax 在本地存储决策、架构洞察和项目事实。后续任务从上次中断处继续——无需每次重新解释你的代码库。
+**跨会话持久记忆** — 关闭终端不会丢失上下文。三种记忆后端：JSON（零配置）、SQLite（全文搜索）、OpenViking（向量嵌入）。
 
-**三种记忆后端**: JSON（零配置）、SQLite（全文搜索）、OpenViking（向量嵌入）。
+**多模型编排** — Claude、GPT、GLM 及自定义模型，具备显式路由、降级链和成本追踪。会话中随时切换模型 `/model claude-opus-4-6`。
 
-### 多模型编排
-不锁定单一供应商。Prax 支持 **Claude、GPT、GLM 及自定义模型**，具备显式路由、降级链和成本追踪。会话中随时切换模型 `/model claude-opus-4-6`。
+**安全内建** — 权限模式（`read-only`、`workspace-write`、`danger-full-access`）、Schema 校验、工作区边界、完整审计追踪。
 
-### 安全内建
-- **权限模式**: `read-only`、`workspace-write`、`danger-full-access`——你控制 Agent 能触碰什么
-- **Schema 校验**: 所有工具输入执行前校验
-- **工作区边界**: 默认阻止项目根目录外的文件操作
-- **审计追踪**: 每个操作都有完整会话日志
+**为真实代码库而生** — 25+ 内置工具、中间件管线（循环检测、质量门禁）、多语言支持、交互式 REPL 模式。
 
-### 为真实代码库而生
-- **25+ 内置工具**: Read、Edit、Grep、Bash、Git、VerifyCommand 等
-- **中间件管线**: 循环检测、质量门禁、验证引导
-- **多语言支持**: Python、JavaScript、Rust、Go——只要有测试，Prax 就能修
-- **REPL 模式**: 交互式调试，支持斜杠命令（`/plan`、`/cost`、`/session list`）
-
-### 透明可度量
-- 实时成本追踪（`/cost`）
-- 会话历史与回放
-- 内置基准测试套件（见 [docs/BENCHMARKS.md](./docs/BENCHMARKS.md)）
-- 开放架构——可扩展自定义 Agent、工具和中间件
+**透明可度量** — 实时成本追踪、会话历史与回放、内置基准测试套件、开放架构可扩展自定义组件。
 
 ---
 

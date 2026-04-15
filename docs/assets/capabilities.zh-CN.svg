@@ -17,56 +17,57 @@
     <clipPath id="c6"><rect x="610" y="218" width="270" height="145" rx="10"/></clipPath>
   </defs>
 
-  <!-- Card 1: Verification-First -->
+  <!-- Card 1: 验证优先 -->
   <g clip-path="url(#c1)">
     <rect x="20" y="38" width="270" height="155" rx="10" class="card-bg"/>
     <rect x="20" y="38" width="6" height="155" fill="#667eea"/>
   </g>
-  <text x="46" y="80" class="title-lg">Verification-First</text>
-  <text x="46" y="108" class="desc">Test-verify-fix loop</text>
-  <text x="46" y="126" class="desc">with bounded retries</text>
+  <text x="46" y="80" class="title-lg">验证优先</text>
+  <text x="46" y="108" class="desc">测试-验证-修复循环</text>
+  <text x="46" y="126" class="desc">有界重试机制</text>
 
-  <!-- Card 2: Persistent Memory -->
+  <!-- Card 2: 持久记忆 -->
   <g clip-path="url(#c2)">
     <rect x="315" y="38" width="270" height="155" rx="10" class="card-bg"/>
     <rect x="315" y="38" width="6" height="155" fill="#4facfe"/>
   </g>
-  <text x="341" y="80" class="title-lg">Persistent Memory</text>
-  <text x="341" y="108" class="desc">JSON · SQLite · Vector backends</text>
-  <text x="341" y="126" class="desc">across sessions</text>
+  <text x="341" y="80" class="title-lg">持久记忆</text>
+  <text x="341" y="108" class="desc">JSON · SQLite · 向量后端</text>
+  <text x="341" y="126" class="desc">跨会话保留上下文</text>
 
-  <!-- Card 3: Multi-Model -->
+  <!-- Card 3: 多模型编排 -->
   <g clip-path="url(#c3)">
     <rect x="610" y="38" width="270" height="155" rx="10" class="card-bg"/>
     <rect x="610" y="38" width="6" height="155" fill="#f093fb"/>
   </g>
-  <text x="636" y="80" class="title-lg">Multi-Model</text>
-  <text x="636" y="108" class="desc">Claude, GPT, GLM with</text>
-  <text x="636" y="126" class="desc">routing &amp; fallback</text>
-  <!-- Card 4: Secure by Default -->
+  <text x="636" y="80" class="title-lg">多模型编排</text>
+  <text x="636" y="108" class="desc">Claude、GPT、GLM</text>
+  <text x="636" y="126" class="desc">智能路由与降级</text>
+
+  <!-- Card 4: 安全内建 -->
   <g clip-path="url(#c4)">
     <rect x="20" y="218" width="270" height="145" rx="10" class="card-bg"/>
     <rect x="20" y="218" width="6" height="145" fill="#fa709a"/>
   </g>
-  <text x="46" y="256" class="title-sm">Secure by Default</text>
-  <text x="46" y="280" class="desc-sm">Permission modes, sandbox,</text>
-  <text x="46" y="296" class="desc-sm">audit trail</text>
+  <text x="46" y="256" class="title-sm">安全内建</text>
+  <text x="46" y="280" class="desc-sm">权限模式、沙箱隔离、</text>
+  <text x="46" y="296" class="desc-sm">审计追踪</text>
 
-  <!-- Card 5: 25+ Built-in Tools -->
+  <!-- Card 5: 25+ 内置工具 -->
   <g clip-path="url(#c5)">
     <rect x="315" y="218" width="270" height="145" rx="10" class="card-bg"/>
     <rect x="315" y="218" width="6" height="145" fill="#30cfd0"/>
   </g>
-  <text x="341" y="256" class="title-sm">25+ Built-in Tools</text>
-  <text x="341" y="280" class="desc-sm">Read, Edit, Grep, Bash,</text>
-  <text x="341" y="296" class="desc-sm">Git, Verify</text>
+  <text x="341" y="256" class="title-sm">25+ 内置工具</text>
+  <text x="341" y="280" class="desc-sm">Read、Edit、Grep、Bash、</text>
+  <text x="341" y="296" class="desc-sm">Git、Verify</text>
 
-  <!-- Card 6: Measurable -->
+  <!-- Card 6: 透明可度量 -->
   <g clip-path="url(#c6)">
     <rect x="610" y="218" width="270" height="145" rx="10" class="card-bg"/>
     <rect x="610" y="218" width="6" height="145" fill="#fee140"/>
   </g>
-  <text x="636" y="256" class="title-sm">Measurable</text>
-  <text x="636" y="280" class="desc-sm">Cost tracking, benchmarks,</text>
-  <text x="636" y="296" class="desc-sm">session replay</text>
+  <text x="636" y="256" class="title-sm">透明可度量</text>
+  <text x="636" y="280" class="desc-sm">成本追踪、基准测试、</text>
+  <text x="636" y="296" class="desc-sm">会话回放</text>
 </svg>
