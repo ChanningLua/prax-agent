@@ -1078,6 +1078,39 @@ class TestAgentLoop:
         assert "safety limit" in result or "Circuit breaker" in result
 
     @pytest.mark.asyncio
+    async def test_circuit_breaker_emits_completion_report(self, tmp_path):
+        events: list[object] = []
+
+        mock_client = AsyncMock(spec=LLMClient)
+        mock_client.complete.side_effect = RuntimeError("network timeout")
+
+        ctx = Context(cwd=str(tmp_path))
+        cfg = ModelConfig(
+            provider="test", model="test",
+            base_url="http://test", api_key="k", api_format="openai",
+        )
+
+        def _on_complete(event: object) -> None:
+            events.append(event)
+
+        result = await run_agent_loop(
+            "trigger failures",
+            context=ctx,
+            llm_client=mock_client,
+            model_config=cfg,
+            tools=[],
+            on_complete=_on_complete,
+        )
+
+        assert "Circuit breaker" in result
+        assert any(
+            isinstance(event, AgentRunReport) and event.stop_reason == "circuit_breaker"
+            for event in events
+        ) or any(
+            getattr(event, "stop_reason", "") == "circuit_breaker" for event in events
+        )
+
+    @pytest.mark.asyncio
     async def test_existing_message_history_is_reused(self, tmp_path):
         message_history = [
             {"role": "user", "content": "previous task"},

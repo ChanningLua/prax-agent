@@ -228,7 +228,22 @@ async def _run_with_model_upgrades(
 
         report = report_box.get("report")
         if report is None:
-            raise RuntimeError("Agent loop finished without completion report")
+            synthesized_iterations = max(
+                1,
+                sum(1 for message in attempt_history if message.get("role") == "assistant"),
+            )
+            report = AgentRunReport(
+                stop_reason="end_turn",
+                iterations=synthesized_iterations,
+                had_tool_errors=False,
+                only_permission_errors=False,
+                usage=usage_totals or None,
+                verification_passed=False,
+            )
+            print(
+                "\033[33m[prax] warning=no completion report; using synthesized fallback report\033[0m",
+                flush=True,
+            )
         for key, value in (report.usage or {}).items():
             if isinstance(value, int):
                 usage_totals[key] = usage_totals.get(key, 0) + value

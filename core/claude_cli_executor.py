@@ -74,7 +74,7 @@ class ClaudeCliExecutor:
         tool_calls: list[dict[str, Any]] = []
         seen_tool_call_ids: set[str] = set()
 
-        async for raw_line in proc.stdout:
+        async for raw_line in self._iter_stdout_lines(proc.stdout):
             line = raw_line.decode().strip()
             if not line:
                 continue
@@ -136,3 +136,26 @@ class ClaudeCliExecutor:
             session_id=result_session_id,
             tool_calls=tool_calls,
         )
+
+    async def _iter_stdout_lines(self, stdout: Any) -> Any:
+        """Yield newline-delimited stdout records without StreamReader line limits."""
+        if not hasattr(stdout, "read"):
+            async for raw_line in stdout:
+                yield raw_line
+            return
+
+        buffer = b""
+        while True:
+            chunk = await stdout.read(65536)
+            if not chunk:
+                if buffer:
+                    yield buffer
+                break
+            buffer += chunk
+            while True:
+                newline_index = buffer.find(b"\n")
+                if newline_index == -1:
+                    break
+                line = buffer[:newline_index]
+                buffer = buffer[newline_index + 1 :]
+                yield line

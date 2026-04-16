@@ -282,6 +282,24 @@ async def run_agent_loop(
                 "phase": "llm_call",
             })
             if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                stop_event = MessageStopEvent(
+                    session_id=session_id,
+                    stop_reason="circuit_breaker",
+                    iterations=iteration + 1,
+                    usage=usage_totals or None,
+                    had_tool_errors=had_tool_errors,
+                    verification_passed=verification_passed,
+                )
+                await bus.emit(stop_event)
+                report = AgentRunReport(
+                    stop_reason="circuit_breaker",
+                    iterations=iteration + 1,
+                    had_tool_errors=had_tool_errors,
+                    only_permission_errors=only_permission_errors if had_tool_errors else False,
+                    usage=usage_totals or None,
+                    verification_passed=verification_passed,
+                )
+                await bus.emit(report)  # type: ignore[arg-type]
                 await bus.emit(SpanEndEvent(
                     trace_id=root_trace.trace_id,
                     span_id=root_trace.span_id,

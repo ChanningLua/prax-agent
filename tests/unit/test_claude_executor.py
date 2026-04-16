@@ -384,9 +384,50 @@ async def test_run_uses_result_text_when_no_collected_text():
     assert result.text == "fallback text"
 
 
+@pytest.mark.asyncio
+async def test_run_handles_very_long_json_line_from_stdout():
+    """run can parse long stream-json lines without hitting readline limits."""
+    executor = ClaudeCliExecutor()
+
+    long_text = "x" * 200000
+
+    mock_proc = MagicMock()
+    mock_proc.stdin = AsyncMock()
+    mock_proc.stdout = _chunked_stdout([
+        json.dumps({"type": "text", "text": long_text}),
+        json.dumps({"type": "result", "result": ""}),
+    ])
+    mock_proc.wait = AsyncMock()
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        result = await executor.run("test")
+
+    assert result.text == long_text
+
+
 def _async_lines(lines: list[str]):
     """Helper to create an async iterator over lines."""
     async def _gen():
         for line in lines:
             yield (line + "\n").encode()
     return _gen()
+
+
+class _ChunkedStdout:
+    def __init__(self, payload: bytes, chunk_size: int = 4096):
+        self._payload = payload
+        self._chunk_size = chunk_size
+        self._offset = 0
+
+    async def read(self, _n: int = -1) -> bytes:
+        if self._offset >= len(self._payload):
+            return b""
+        end = min(self._offset + self._chunk_size, len(self._payload))
+        chunk = self._payload[self._offset:end]
+        self._offset = end
+        return chunk
+
+
+def _chunked_stdout(lines: list[str], chunk_size: int = 4096):
+    payload = "".join(f"{line}\n" for line in lines).encode()
+    return _ChunkedStdout(payload, chunk_size=chunk_size)
