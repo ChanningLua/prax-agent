@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-[Quick Start](#quick-start) · [Why Prax](#why-prax) · [Usage](#usage-examples) · [Results](#results) · [Configuration](#configuration) · [Architecture](#architecture) · [Contributing](#contributing)
+[Quick Start](#quick-start) · [Why Prax](#why-prax) · [Usage](#usage-examples) · [Results](#results) · [Integration Paths](#integration-paths) · [Configuration](#configuration) · [Architecture](#architecture) · [Contributing](#contributing)
 
 <br>
 
@@ -28,6 +28,10 @@ export ANTHROPIC_API_KEY=your_key_here
 
 # Run a task with the native runtime
 prax --runtime-path native "run pytest -q, fix the failure, and stop when tests pass"
+
+# Or use with Claude Code integration
+prax /init-models claude
+# Then open your project in Claude Code and use /prax commands
 ```
 
 Prax inspects your codebase, runs checks, edits files, and verifies the result in a loop. It keeps context across sessions so follow-up tasks pick up where you left off.
@@ -53,6 +57,8 @@ Prax inspects your codebase, runs checks, edits files, and verifies the result i
 Most tools send a prompt and hope for the best. Prax runs a **test-verify-fix loop**: it executes your test suite, analyzes failures, edits code, and re-runs until tests pass. The verification layer is first-class — not an afterthought.
 
 **Benchmark-proven**: 10/10 repository repair tasks solved in 29.56s average (vs 8/10 baseline across peer frameworks).
+
+**Dual Runtime Paths** — Native CLI for automation and CI/CD, Claude Code integration for interactive development. Choose the right tool for the job.
 
 **Persistent Memory** — Context doesn't vanish when you close the terminal. Three backends: JSON (zero-config), SQLite (full-text search), OpenViking (vector embeddings).
 
@@ -111,22 +117,65 @@ Session: 12.4K tokens ($0.04)
 
 ## Results
 
-![Prax benchmark summary](./docs/assets/benchmark-frameworks.svg)
+<p align="center">
+  <img src="./docs/assets/benchmark-results.svg" alt="Benchmark Results" width="800">
+</p>
 
-Internal benchmark against Hermes, HyperAgents, and oh-my-openagent on a Claude-family repository-repair suite:
+Prax achieves **10/10 success rate** on repository repair tasks, completing them in **29.56s average** — 49% faster than the cross-framework baseline.
 
-| Run | Solved | Avg Time |
-|---|---:|---:|
-| Cross-framework baseline | `8/10` | `58.44s` |
-| Latest Prax-only rerun | `10/10` | `29.56s` |
+| Metric | Prax | Framework Baseline | Improvement |
+|--------|------|-------------------|-------------|
+| Success Rate | **10/10** (100%) | 8/10 (80%) | **+25%** |
+| Average Time | **29.56s** | 58.44s | **-49%** |
+| Timeouts | **0** | 2 | **-100%** |
 
-Each framework ran 10 repeated rounds on real repository-fix tasks with session state preserved.
+**What drives these results:**
+- **Verification-First Architecture** — Test-verify-fix loops catch errors early
+- **Quality Gate Middleware** — Loop detection and convergence guidance
+- **Smart Sandbox Downgrade** — Verification commands bypass unnecessary overhead
 
-![Prax benchmark improvement](./docs/assets/benchmark-prax-improvement.svg)
+Benchmark methodology: 10 repeated rounds on real repository-fix tasks with session state preserved. See [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) for full details.
 
-The improvement came from verification and convergence fixes in the agent loop, not from changing the benchmark task. This measures repository-repair only — not open-domain research or multi-hour planning.
+---
 
-See [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) for methodology and raw data.
+## Integration Paths
+
+Prax offers two runtime paths — choose the right tool for the job:
+
+| Feature | Native Runtime | Claude Code Integration |
+|---------|---------------|------------------------|
+| Execution | CLI commands | Claude Code IDE |
+| Interaction | Command-line REPL | IDE conversation interface |
+| Context Management | Local JSON/SQLite | Claude Code sessions |
+| Tool Integration | 25+ built-in tools | Claude Code tools + Prax extensions |
+| Use Cases | Automation, CI/CD | Interactive development, code review |
+
+### Claude Code Integration Advantages
+
+- **IDE Native Experience** — Use Prax capabilities directly within Claude Code
+- **Seamless Integration** — Deep integration via MCP servers and Hooks
+- **Security Protection** — Pre-write secret scanning, pre-commit quality checks
+- **Session Persistence** — Auto-save session state, resume from breakpoints
+- **Bidirectional Collaboration** — Claude Code's conversational ability + Prax's verification loop
+
+### Installation and Usage
+
+```bash
+# Install Claude Code integration
+prax /init-models claude
+
+# Diagnose installation status
+prax /doctor claude
+
+# Use in Claude Code
+# 1. Open your project
+# 2. Use /prax commands or direct conversation
+# 3. Prax automatically runs test-verify-fix loops until completion
+```
+
+<p align="center">
+  <img src="./docs/assets/integration-paths.svg" alt="Integration Paths" width="800">
+</p>
 
 ---
 

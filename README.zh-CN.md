@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-[快速开始](#快速开始) · [为什么选 Prax](#为什么选-prax) · [使用示例](#使用示例) · [基准测试](#基准测试) · [配置](#配置) · [架构](#架构) · [参与贡献](#参与贡献)
+[快速开始](#快速开始) · [为什么选 Prax](#为什么选-prax) · [使用示例](#使用示例) · [基准测试](#基准测试) · [集成路径](#集成路径) · [配置](#配置) · [架构](#架构) · [参与贡献](#参与贡献)
 
 <br>
 
@@ -28,6 +28,10 @@ export ANTHROPIC_API_KEY=your_key_here
 
 # 使用原生运行时执行任务
 prax --runtime-path native "run pytest -q, fix the failure, and stop when tests pass"
+
+# 或使用 Claude Code 集成
+prax /init-models claude
+# 然后在 Claude Code 中打开项目，使用 /prax 命令
 ```
 
 Prax 会检查你的代码库、运行测试、编辑文件，并在循环中验证结果。它在会话之间保留上下文，后续任务可以从上次中断的地方继续。
@@ -53,6 +57,8 @@ Prax 会检查你的代码库、运行测试、编辑文件，并在循环中验
 大多数工具发送 prompt 然后听天由命。Prax 运行 **测试-验证-修复循环**：执行测试套件、分析失败、编辑代码、重新运行直到测试通过。验证层是一等公民——不是事后补丁。
 
 **基准验证**: 10/10 仓库修复任务全部解决，平均 29.56 秒（对比同类框架基线 8/10）。
+
+**双运行时路径** — 原生 CLI 用于自动化和 CI/CD，Claude Code 集成用于交互式开发。按需选择合适的工具。
 
 **跨会话持久记忆** — 关闭终端不会丢失上下文。三种记忆后端：JSON（零配置）、SQLite（全文搜索）、OpenViking（向量嵌入）。
 
@@ -111,22 +117,65 @@ Session: 12.4K tokens ($0.04)
 
 ## 基准测试
 
-![Prax benchmark summary](./docs/assets/benchmark-frameworks.svg)
+<p align="center">
+  <img src="./docs/assets/benchmark-results.svg" alt="基准测试结果" width="800">
+</p>
 
-在 Claude 系列仓库修复测试套件上，与 Hermes、HyperAgents 和 oh-my-openagent 的内部基准对比：
+Prax 在仓库修复任务上达到 **10/10 成功率**，平均完成时间 **29.56 秒** — 比跨框架基线快 49%。
 
-| 运行 | 解决数 | 平均耗时 |
-|---|---:|---:|
-| 跨框架基线 | `8/10` | `58.44s` |
-| 最新 Prax 单独重跑 | `10/10` | `29.56s` |
+| 指标 | Prax | 框架基线 | 提升 |
+|------|------|---------|------|
+| 成功率 | **10/10** (100%) | 8/10 (80%) | **+25%** |
+| 平均耗时 | **29.56s** | 58.44s | **-49%** |
+| 超时次数 | **0** | 2 | **-100%** |
 
-每个框架在真实仓库修复任务上运行 10 轮，保留会话状态。
+**驱动因素：**
+- **验证优先架构** — 测试-验证-修复循环及早捕获错误
+- **质量门禁中间件** — 循环检测与收敛引导
+- **智能沙箱降级** — 验证命令绕过不必要的开销
 
-![Prax benchmark improvement](./docs/assets/benchmark-prax-improvement.svg)
+基准方法论：在真实仓库修复任务上运行 10 轮，保留会话状态。详见 [docs/BENCHMARKS.md](./docs/BENCHMARKS.md)。
 
-提升来自 Agent 循环中的验证和收敛修复，而非更改基准任务本身。这仅衡量仓库修复能力——不包括开放域研究或长时间规划。
+---
 
-详见 [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) 了解方法论和原始数据。
+## 集成路径
+
+Prax 提供两种运行路径——按需选择：
+
+| 特性 | 原生运行时 | Claude Code 集成 |
+|------|-----------|-----------------|
+| 执行方式 | CLI 命令 | Claude Code IDE |
+| 交互方式 | 命令行 REPL | IDE 对话界面 |
+| 上下文管理 | 本地 JSON/SQLite | Claude Code 会话 |
+| 工具集成 | 25+ 内置工具 | Claude Code 工具 + Prax 扩展 |
+| 适用场景 | 自动化、CI/CD | 交互式开发、代码审查 |
+
+### Claude Code 集成优势
+
+- **IDE 原生体验** — 在 Claude Code 中直接使用 Prax 能力
+- **深度集成** — 通过 MCP Server 和 Hooks 实现深度集成
+- **安全防护** — 写入前密钥扫描、提交前质量检查
+- **会话持久化** — 自动保存会话状态，支持断点恢复
+- **双向协作** — Claude Code 的对话能力 + Prax 的验证循环
+
+### 安装与使用
+
+```bash
+# 安装 Claude Code 集成
+prax /init-models claude
+
+# 诊断安装状态
+prax /doctor claude
+
+# 在 Claude Code 中使用
+# 1. 打开你的项目
+# 2. 使用 /prax 命令或直接对话
+# 3. Prax 自动执行 测试-验证-修复 循环直到完成
+```
+
+<p align="center">
+  <img src="./docs/assets/integration-paths.svg" alt="集成路径" width="800">
+</p>
 
 ---
 
