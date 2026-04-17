@@ -1,0 +1,164 @@
+direction: down
+
+vars: {
+  d2-config: {
+    theme-id: 0
+    pad: 20
+    layout-engine: elk
+  }
+}
+
+header: "Prax Benchmark Results\nRepository Repair · 10 rounds · Real codebases" {
+  shape: rectangle
+  style: {
+    fill: "#667eea"
+    stroke: "#667eea"
+    font-color: "#ffffff"
+    border-radius: 12
+    font-size: 18
+    bold: true
+  }
+}
+
+results: "" {
+  direction: right
+  style: {
+    fill: "#f7f8fc"
+    stroke: "#e2e8f0"
+    border-radius: 16
+    font-size: 16
+    bold: true
+    font-color: "#4a5568"
+  }
+
+  prax: "Prax (Latest)\n\n10 / 10 ✓\n29.56s avg\n0 timeouts" {
+    shape: rectangle
+    style: {
+      fill: "#22c55e"
+      stroke: "#22c55e"
+      font-color: "#ffffff"
+      border-radius: 12
+      font-size: 16
+      bold: true
+    }
+  }
+
+  baseline: "Cross-Framework\nBaseline\n\n8 / 10\n58.44s avg\n2 timeouts" {
+    shape: rectangle
+    style: {
+      fill: "#94a3b8"
+      stroke: "#94a3b8"
+      font-color: "#ffffff"
+      border-radius: 12
+      font-size: 16
+      bold: true
+    }
+  }
+}
+
+improvements: "" {
+  direction: right
+  style: {
+    fill: "#f7f8fc"
+    stroke: "#e2e8f0"
+    border-radius: 16
+    font-size: 16
+    bold: true
+    font-color: "#4a5568"
+  }
+
+  speed: "49% Faster\n29.56s vs 58.44s" {
+    shape: rectangle
+    style: {
+      fill: "#667eea"
+      stroke: "#667eea"
+      font-color: "#ffffff"
+      border-radius: 10
+      font-size: 15
+      bold: true
+    }
+  }
+
+  reliability: "25% More Reliable\n10/10 vs 8/10" {
+    shape: rectangle
+    style: {
+      fill: "#fa709a"
+      stroke: "#fa709a"
+      font-color: "#ffffff"
+      border-radius: 10
+      font-size: 15
+      bold: true
+    }
+  }
+
+  stability: "Zero Timeouts\n0 vs 2 failures" {
+    shape: rectangle
+    style: {
+      fill: "#30cfd0"
+      stroke: "#30cfd0"
+      font-color: "#ffffff"
+      border-radius: 10
+      font-size: 15
+      bold: true
+    }
+  }
+}
+
+drivers: "" {
+  direction: right
+  style: {
+    fill: "#eef2ff"
+    stroke: "#c7d2fe"
+    border-radius: 12
+    font-size: 14
+    bold: true
+    font-color: "#4a5568"
+  }
+
+  verify: "Verification-First\nLoop" {
+    shape: rectangle
+    style: {
+      fill: "#f093fb"
+      stroke: "#f093fb"
+      font-color: "#ffffff"
+      border-radius: 8
+      font-size: 13
+      bold: true
+    }
+  }
+
+  middleware: "Quality Gate\nMiddleware" {
+    shape: rectangle
+    style: {
+      fill: "#f093fb"
+      stroke: "#f093fb"
+      font-color: "#ffffff"
+      border-radius: 8
+      font-size: 13
+      bold: true
+    }
+  }
+
+  sandbox: "Smart Sandbox\nDowngrade" {
+    shape: rectangle
+    style: {
+      fill: "#f093fb"
+      stroke: "#f093fb"
+      font-color: "#ffffff"
+      border-radius: 8
+      font-size: 13
+      bold: true
+    }
+  }
+}
+
+header -> results
+results -> improvements {
+  style.stroke: "#cbd5e0"
+  style.stroke-width: 2
+}
+improvements -> drivers {
+  style.stroke-dash: 5
+  style.stroke: "#cbd5e0"
+  style.stroke-width: 2
+}
