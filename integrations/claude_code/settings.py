@@ -40,6 +40,8 @@ def backup_settings(target_root: Path) -> Path | None:
 def build_managed_settings(target_root: Path) -> dict[str, Any]:
     session_start = str(target_root / "prax" / "hooks" / "session-start.sh")
     stop_hook = str(target_root / "prax" / "hooks" / "stop.sh")
+    secret_scan = str(target_root / "prax" / "hooks" / "pre-write-secret-scan.sh")
+    commit_quality = str(target_root / "prax" / "hooks" / "pre-commit-quality.sh")
     return {
         "permissions": {
             "allow": [
@@ -63,6 +65,28 @@ def build_managed_settings(target_root: Path) -> dict[str, Any]:
                         }
                     ],
                 }
+            ],
+            "PreToolUse": [
+                {
+                    "matcher": "Write|Edit",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"bash \"{secret_scan}\"",
+                            "timeout": 5,
+                        }
+                    ],
+                },
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"bash \"{commit_quality}\"",
+                            "timeout": 5,
+                        }
+                    ],
+                },
             ],
             "Stop": [
                 {

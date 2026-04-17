@@ -19,6 +19,40 @@ from .state import (
 )
 
 
+def _collect_memory_issues() -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    try:
+        from prax.core.memory import get_memory_backend
+        backend = get_memory_backend()
+        if backend is None:
+            issues.append({
+                "severity": "error",
+                "code": "memory_backend_unavailable",
+                "message": "Memory backend could not be initialized",
+            })
+    except Exception as e:
+        issues.append({
+            "severity": "warning",
+            "code": "memory_backend_init_error",
+            "message": str(e),
+        })
+
+    try:
+        import mcp  # noqa: F401
+        try:
+            from .mcp_memory_server import mcp as _mcp_server  # noqa: F811
+        except Exception as e:
+            issues.append({
+                "severity": "warning",
+                "code": "memory_mcp_server_import_error",
+                "message": str(e),
+            })
+    except ImportError:
+        pass  # mcp package not installed — MCP server check skipped
+
+    return issues
+
+
 def _issue_layer(issue_code: str) -> str:
     if issue_code in {"missing_asset", "drifted_asset"}:
         return "assets"
@@ -26,6 +60,8 @@ def _issue_layer(issue_code: str) -> str:
         return "mcp"
     if issue_code.startswith("missing_settings_") or issue_code.startswith("missing_enabled_") or issue_code.startswith("missing_plugin_"):
         return "settings"
+    if issue_code.startswith("memory_"):
+        return "memory"
     return "unknown"
 
 
@@ -43,6 +79,7 @@ def doctor_claude_install(*, target_root: str | None = None) -> dict:
                 "assets": {"status": "missing", "issues": 0},
                 "settings": {"status": "missing", "issues": 0},
                 "mcp": {"status": "missing", "issues": 0},
+                "memory": {"status": "missing", "issues": 0},
                 "backups": {"status": "missing", "issues": 0},
             },
         }
@@ -71,6 +108,7 @@ def doctor_claude_install(*, target_root: str | None = None) -> dict:
 
     issues.extend(collect_settings_issues(load_settings(root), state.managed_settings))
     issues.extend(collect_mcp_issues(load_mcp_config(root), state.managed_mcp_config))
+    issues.extend(_collect_memory_issues())
 
     error_count = sum(1 for issue in issues if issue["severity"] == "error")
     warning_count = sum(1 for issue in issues if issue["severity"] != "error")
@@ -85,6 +123,7 @@ def doctor_claude_install(*, target_root: str | None = None) -> dict:
         "assets": [],
         "settings": [],
         "mcp": [],
+        "memory": [],
         "unknown": [],
     }
     for issue in issues:
@@ -145,6 +184,7 @@ def doctor_claude_install(*, target_root: str | None = None) -> dict:
             "assets": {"status": _layer_status("assets"), "issues": len(grouped_issues["assets"])},
             "settings": {"status": _layer_status("settings"), "issues": len(grouped_issues["settings"])},
             "mcp": {"status": _layer_status("mcp"), "issues": len(grouped_issues["mcp"])},
+            "memory": {"status": _layer_status("memory"), "issues": len(grouped_issues["memory"])},
             "backups": {"status": "ok" if state.backups else "missing", "issues": 0},
         },
         "summary": {
