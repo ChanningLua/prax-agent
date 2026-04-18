@@ -26,14 +26,14 @@
   <text x="46" y="108" class="desc">Test-verify-fix loop</text>
   <text x="46" y="126" class="desc">with bounded retries</text>
 
-  <!-- Card 2: Persistent Memory -->
+  <!-- Card 2: Self-Improving -->
   <g clip-path="url(#c2)">
     <rect x="315" y="38" width="270" height="155" rx="10" class="card-bg"/>
     <rect x="315" y="38" width="6" height="155" fill="#4facfe"/>
   </g>
-  <text x="341" y="80" class="title-lg">Persistent Memory</text>
-  <text x="341" y="108" class="desc">JSON · SQLite · Vector backends</text>
-  <text x="341" y="126" class="desc">across sessions</text>
+  <text x="341" y="80" class="title-lg">Self-Improving</text>
+  <text x="341" y="108" class="desc">Learns from corrections</text>
+  <text x="341" y="126" class="desc">Cross-project experience</text>
 
   <!-- Card 3: Multi-Model -->
   <g clip-path="url(#c3)">

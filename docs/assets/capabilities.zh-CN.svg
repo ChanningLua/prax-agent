@@ -26,14 +26,14 @@
   <text x="46" y="108" class="desc">测试-验证-修复循环</text>
   <text x="46" y="126" class="desc">有界重试机制</text>
 
-  <!-- Card 2: 持久记忆 -->
+  <!-- Card 2: 自我改进 -->
   <g clip-path="url(#c2)">
     <rect x="315" y="38" width="270" height="155" rx="10" class="card-bg"/>
     <rect x="315" y="38" width="6" height="155" fill="#4facfe"/>
   </g>
-  <text x="341" y="80" class="title-lg">持久记忆</text>
-  <text x="341" y="108" class="desc">JSON · SQLite · 向量后端</text>
-  <text x="341" y="126" class="desc">跨会话保留上下文</text>
+  <text x="341" y="80" class="title-lg">自我改进</text>
+  <text x="341" y="108" class="desc">从纠正中学习</text>
+  <text x="341" y="126" class="desc">跨项目经验积累</text>
 
   <!-- Card 3: 多模型编排 -->
   <g clip-path="url(#c3)">
