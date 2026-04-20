@@ -1,0 +1,56 @@
+{
+  "name": "praxagent",
+  "version": "0.2.1",
+  "description": "Open-source coding agent runtime — test-verify-fix loops, persistent memory, multi-model orchestration",
+  "bin": {
+    "prax": "bin/prax.js"
+  },
+  "scripts": {
+    "postinstall": "node -e \"const{execFileSync:e}=require('child_process');try{e('python3',['-c','import prax'],{stdio:'ignore'})}catch{console.log('\\nNote: prax Python package not found. Run: pip install prax-agent\\n')}\""
+  },
+  "keywords": [
+    "agent",
+    "coding",
+    "automation",
+    "claude",
+    "llm",
+    "workflow",
+    "python"
+  ],
+  "author": "Prax Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChanningLua/prax-agent.git"
+  },
+  "homepage": "https://github.com/ChanningLua/prax-agent",
+  "bugs": {
+    "url": "https://github.com/ChanningLua/prax-agent/issues"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "files": [
+    "bin/",
+    "agents/",
+    "commands/",
+    "config/",
+    "core/",
+    "integrations/",
+    "runtime/",
+    "skills/",
+    "tools/",
+    "tui/",
+    "workflows/",
+    "assets/",
+    "__init__.py",
+    "__main__.py",
+    "cli.py",
+    "main.py",
+    "repl.py",
+    "README.md",
+    "LICENSE",
+    "!**/__pycache__",
+    "!**/*.pyc"
+  ]
+}
