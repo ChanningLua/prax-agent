@@ -1,6 +1,6 @@
 {
   "name": "praxagent",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Open-source coding agent runtime — test-verify-fix loops, persistent memory, multi-model orchestration",
   "bin": {
     "prax": "bin/prax.js"

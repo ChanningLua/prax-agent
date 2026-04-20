@@ -9,6 +9,7 @@ from prax.commands.handlers import CommandContext, run_command
 from prax.commands.registry import ParsedCommand
 from prax.core.config_files import load_models_config
 from prax.core.permissions import PermissionMode
+from prax.core.runtime_env import hydrate_runtime_env
 from prax.core.runtime_paths import RUNTIME_NATIVE
 from prax.core.session_store import FileSessionStore
 
@@ -30,9 +31,11 @@ from .runtime import NativeRuntime
 
 
 def _command_context(cwd: str) -> CommandContext:
+    models_config = load_models_config(cwd)
+    hydrate_runtime_env(models_config, cwd)
     return CommandContext(
         cwd=cwd,
-        models_config=load_models_config(cwd),
+        models_config=models_config,
         session_store=FileSessionStore(str(Path(cwd) / ".prax" / "sessions")),
     )
 

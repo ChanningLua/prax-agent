@@ -64,16 +64,28 @@ def load_rules_config(cwd: str | None = None) -> dict:
 
 
 def load_mcp_config(cwd: str | None = None) -> list[dict]:
-    """Load MCP server configurations from .prax/config.yaml."""
+    """Load merged MCP server configurations from user and project config."""
     current_dir = Path(cwd or Path.cwd())
-    config_path = current_dir / ".prax" / "config.yaml"
+    merged: dict[str, dict] = {}
+    order: list[str] = []
 
+    for config_path in (Path.home() / ".prax" / "config.yaml", current_dir / ".prax" / "config.yaml"):
+        for server in _read_mcp_servers(config_path):
+            key = str(server.get("name") or f"server-{len(order)}")
+            if key not in order:
+                order.append(key)
+            merged[key] = server
+
+    return [merged[key] for key in order if key in merged]
+
+
+def _read_mcp_servers(config_path: Path) -> list[dict]:
     if not config_path.exists():
         return []
-
     try:
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-        return config.get("mcp_servers", []) if config else []
+        raw_servers = config.get("mcp_servers", []) if config else []
+        return [server for server in raw_servers if isinstance(server, dict)]
     except Exception as e:
         logger.warning("Failed to load MCP config %s: %s", config_path, e)
         return []

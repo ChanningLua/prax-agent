@@ -152,12 +152,17 @@ class Context:
         if episodic_content:
             parts.append(episodic_content)
 
-        # .claude/CLAUDE.md (backward compatibility) — always inject
-        claude_md = Path(self.cwd) / ".claude" / "CLAUDE.md"
-        if claude_md.exists():
+        # Project CLAUDE.md files — always inject
+        project_context_candidates = [
+            ("CLAUDE.md", Path(self.cwd) / "CLAUDE.md"),
+            (".claude/CLAUDE.md", Path(self.cwd) / ".claude" / "CLAUDE.md"),
+        ]
+        for label, context_file in project_context_candidates:
+            if not context_file.exists():
+                continue
             try:
-                content = claude_md.read_text(encoding="utf-8")
-                parts.append(f"## Project Context (from CLAUDE.md)\n{content}")
+                content = context_file.read_text(encoding="utf-8")
+                parts.append(f"## Project Context (from {label})\n{content}")
             except Exception:
                 pass
 

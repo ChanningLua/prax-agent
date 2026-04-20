@@ -655,8 +655,14 @@ def _flow_next_step(flow: str, *, configured: bool, ready: bool, has_template: b
     if not configured:
         return f"Run `prax template {flow}` and copy the snippet into .prax/models.yaml."
     if has_template:
-        return f"Replace the template api_model for {flow} in .prax/models.yaml, then export credentials."
-    return f"Export the required credential env vars and retry `prax doctor {flow}`."
+        return (
+            f"Replace the template api_model for {flow} in .prax/models.yaml, then provide credentials via "
+            "your shell environment or `.prax/.env`."
+        )
+    return (
+        f"Export the required credential env vars, or write them to `.prax/.env`, then retry `prax doctor {flow}`. "
+        "If the key only exists in your shell init, start Prax from a shell that has sourced it."
+    )
 
 
 def _handle_budget(args: list[str], ctx: CommandContext) -> CommandResult:

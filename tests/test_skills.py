@@ -82,6 +82,39 @@ class TestLoadSkills:
             assert "commit" in names
             assert "review" in names
 
+    def test_loads_recursive_claude_skills_and_ignores_readme(self):
+        """Project .claude/skills/**/SKILL.md should be discoverable."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            claude_skills_dir = Path(tmpdir) / ".claude" / "skills"
+            (claude_skills_dir / "designer" / "visual-test-validate").mkdir(parents=True)
+            (claude_skills_dir / "designer" / "visual-test-validate" / "SKILL.md").write_text(
+                "---\nname: visual-test-validate\ndescription: Compare screenshots.\n---\n# Skill"
+            )
+            (claude_skills_dir / "README.md").write_text("# Skills Index\nNot a skill.")
+
+            skills = load_skills(tmpdir)
+            names = {s.name for s in skills}
+
+            assert "visual-test-validate" in names
+            assert "README" not in names
+
+    def test_prax_skills_override_claude_skills(self):
+        """Local .prax skills should win over project .claude skills with the same name."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / ".claude" / "skills" / "designer" / "deploy").mkdir(parents=True)
+            (Path(tmpdir) / ".claude" / "skills" / "designer" / "deploy" / "SKILL.md").write_text(
+                "---\nname: deploy\ndescription: Claude version.\n---\n# deploy"
+            )
+            (Path(tmpdir) / ".prax" / "skills" / "deploy").mkdir(parents=True)
+            (Path(tmpdir) / ".prax" / "skills" / "deploy" / "SKILL.md").write_text(
+                "---\nname: deploy\ndescription: Prax override.\n---\n# deploy"
+            )
+
+            skills = load_skills(tmpdir)
+            deploy_skill = next(s for s in skills if s.name == "deploy")
+
+            assert deploy_skill.description == "Prax override."
+
 
 class TestFormatSkillsForPrompt:
     """Tests for format_skills_for_prompt function."""
@@ -139,6 +172,21 @@ class TestContextSkillsIntegration:
 
             assert "commit" in prompt
             assert "Available Skills" in prompt
+
+    def test_context_includes_recursive_claude_skills(self):
+        """Context should surface project .claude skills in the prompt."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill_dir = Path(tmpdir) / ".claude" / "skills" / "designer" / "ui-implement"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: ui-implement\ndescription: High-fidelity UI workflow.\n---\n# Skill"
+            )
+
+            context = Context(cwd=tmpdir)
+            prompt = context.build_system_prompt()
+
+            assert "ui-implement" in prompt
+            assert "High-fidelity UI workflow." in prompt
 
 
 class TestSkillsCommand:

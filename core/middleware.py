@@ -326,6 +326,134 @@ class VerificationGuidanceMiddleware(AgentMiddleware):
         self._last_injected_failure_generation = self._failure_generation
 
 
+_DESIGN_RESTORATION_GUARD_TOOL_NAME = "__design_restoration_guard__"
+
+
+class DesignRestorationGuardMiddleware(AgentMiddleware):
+    """Block completion for design-restoration work until screenshot verification runs."""
+
+    priority: int = 62
+    CODE_MODIFYING_TOOLS = frozenset({
+        "Write", "Edit", "HashlineEdit", "AstGrepReplace", "ApplyPatch", "MultiEdit",
+    })
+    _VERIFY_HINTS = (
+        "verify-html-rendering.js",
+        "compare-screenshots.js",
+        "screenshot-prototype.js",
+    )
+
+    def __init__(self, max_retries: int = 3):
+        self._max_retries = max_retries
+        self._retry_count = 0
+        self._code_generation = 0
+        self._verified_generation = 0
+        self._task_detection: bool | None = None
+
+    def _message_text(self, message: dict[str, Any]) -> str:
+        content = message.get("content", "")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "\n".join(
+                str(block.get("text", ""))
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            )
+        return str(content)
+
+    def _is_restoration_task(self, state: RuntimeState) -> bool:
+        if self._task_detection is not None:
+            return self._task_detection
+
+        user_text = "\n".join(
+            self._message_text(message)
+            for message in state.messages
+            if message.get("role") == "user"
+        ).lower()
+
+        has_design_source = ("mastergo" in user_text) or ("figma" in user_text) or ("设计稿" in user_text)
+        has_restoration_goal = (
+            ("还原" in user_text)
+            or ("截图对比" in user_text)
+            or ("视觉还原" in user_text)
+            or ("html 原型" in user_text)
+            or ("html prototype" in user_text)
+        )
+        self._task_detection = has_design_source or has_restoration_goal
+        return self._task_detection
+
+    def _is_verification_attempt(self, tool_call: ToolCall) -> bool:
+        if tool_call.name == "VerifyCommand":
+            command = str(tool_call.input.get("command", "")).strip()
+            return any(hint in command for hint in self._VERIFY_HINTS)
+        if tool_call.name == "SandboxBash":
+            command = str(tool_call.input.get("command", "")).strip()
+            return any(hint in command for hint in self._VERIFY_HINTS)
+        return False
+
+    async def after_tool(
+        self,
+        state: RuntimeState,
+        tool_call: ToolCall,
+        tool: Tool | None,
+        result: ToolResult,
+    ) -> ToolResult:
+        if self._is_verification_attempt(tool_call):
+            if not result.is_error:
+                self._verified_generation = self._code_generation
+                self._retry_count = 0
+            return result
+
+        if tool_call.name in self.CODE_MODIFYING_TOOLS and not result.is_error:
+            self._code_generation += 1
+        return result
+
+    async def after_model(self, state: RuntimeState, response: LLMResponse) -> LLMResponse:
+        if response.has_tool_calls:
+            return response
+        if not self._is_restoration_task(state):
+            return response
+        if self._code_generation == 0 or self._verified_generation >= self._code_generation:
+            self._retry_count = 0
+            return response
+        if self._retry_count >= self._max_retries:
+            return response
+
+        self._retry_count += 1
+        feedback = (
+            "This task looks like design restoration work (MasterGo/Figma/visual parity), "
+            "and code changed since the last screenshot verification. "
+            "Run the project's screenshot verification flow before finishing. "
+            "Do not claim the page is restored until you have produced comparison screenshots and a quantitative report."
+        )
+        return LLMResponse(
+            content=[
+                {"type": "text", "text": response.text},
+                {
+                    "type": "tool_use",
+                    "id": "design-guard-0",
+                    "name": _DESIGN_RESTORATION_GUARD_TOOL_NAME,
+                    "input": {"feedback": feedback},
+                },
+            ],
+            stop_reason="design_verification_retry",
+        )
+
+    async def before_tool(
+        self,
+        state: RuntimeState,
+        tool_call: ToolCall,
+        tool: Tool | None,
+    ) -> ToolResult | None:
+        if tool_call.name != _DESIGN_RESTORATION_GUARD_TOOL_NAME:
+            return None
+        feedback = str(tool_call.input.get("feedback", "")).strip()
+        return ToolResult(
+            content=f"<design_restoration_guard>\n{feedback}\n</design_restoration_guard>",
+            is_error=False,
+        )
+
+
 class ContextInjectMiddleware(AgentMiddleware):
     """Inject memory backend context and skills into the conversation.
 

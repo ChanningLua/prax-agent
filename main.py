@@ -21,11 +21,12 @@ from .core.config_files import load_models_config, load_mcp_config
 from .core.mcp_loader import load_mcp_tools
 from .core.model_catalog import get_model_entry
 from .core.model_upgrade import get_exception_upgrade_reason, get_upgrade_path, should_upgrade_model
+from .core.runtime_env import hydrate_runtime_env
 from .core.context import Context
 from .core.llm_client import LLMClient
 from .core.runtime_paths import OPENPRAX_CLAUDE_DEBUG_BRIDGE, OPENPRAX_NATIVE, build_last_run_metadata
 from .core.memory_middleware import MemoryExtractionMiddleware
-from .core.middleware import EvaluatorMiddleware, HookMiddleware, LoopDetectionMiddleware, PromptCacheMiddleware, QualityGateMiddleware, RunBoundaryReminderMiddleware, TodoReminderMiddleware, VerificationGuidanceMiddleware
+from .core.middleware import DesignRestorationGuardMiddleware, EvaluatorMiddleware, HookMiddleware, LoopDetectionMiddleware, PromptCacheMiddleware, QualityGateMiddleware, RunBoundaryReminderMiddleware, TodoReminderMiddleware, VerificationGuidanceMiddleware
 from .core.permission_guard import PermissionGuardMiddleware
 from .core.permissions import ExecutionPolicy, PermissionMode
 from .core.session_store import FileSessionStore, SessionData
@@ -646,6 +647,7 @@ async def _build_pipeline(
         TodoReminderMiddleware(cwd=cwd),
         RunBoundaryReminderMiddleware(),
         VerificationGuidanceMiddleware(),
+        DesignRestorationGuardMiddleware(),
         QualityGateMiddleware(cwd=cwd),
         EvaluatorMiddleware(cwd=cwd),
         MemoryExtractionMiddleware(cwd=cwd, llm_client=client, model_config=model_config, enabled=True),
@@ -815,8 +817,9 @@ async def _run(
     session_id: str | None = None,
     runtime_path: str = "native",
 ) -> None:
-    models_config = load_models_config()
     cwd = str(Path.cwd())
+    models_config = load_models_config(cwd)
+    hydrate_runtime_env(models_config, cwd)
 
     model_name, agent_name, agent_system_prompt, session, session_store = _bootstrap_session(
         cwd=cwd,
@@ -941,6 +944,7 @@ def main() -> None:
         return
 
     models_config = load_models_config(cwd)
+    hydrate_runtime_env(models_config, cwd)
     command_ctx = _build_command_context(
         cwd=cwd,
         models_config=models_config,
