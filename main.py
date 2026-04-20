@@ -883,6 +883,21 @@ async def _run(
 
 
 def main() -> None:
+    # Early exit for version/help commands to avoid triggering Claude CLI bridge
+    if len(sys.argv) >= 2 and sys.argv[1] in ("--version", "version", "-v"):
+        from prax import __version__
+        print(f"prax {__version__}")
+        sys.exit(0)
+
+    if len(sys.argv) >= 2 and sys.argv[1] in ("--help", "help", "-h"):
+        print("Usage: prax [command] [options]")
+        print("       prax prompt \"read login.py and refactor auth\"")
+        print("       prax repl --session-id session_xxxxx")
+        print("       prax status --session-id session_xxxxx")
+        print("       prax install / doctor / repair / uninstall")
+        print(format_help())
+        sys.exit(0)
+
     if len(sys.argv) < 2:
         print("Usage: prax [command] [options]")
         print("       prax prompt \"read login.py and refactor auth\"")
