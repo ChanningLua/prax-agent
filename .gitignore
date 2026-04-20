@@ -62,6 +62,7 @@ COMPARISON_REPORT.md
 docs/evals/
 docs/EVAL_IMPLEMENTATION_REPORT.md
 docs/comparison-matrix.md
+docs/ui-restoration-workflow.md
 tests/evals/
 tests/test_cli_benchmark_helpers.py
 tests/test_claude_cli_executor.py
