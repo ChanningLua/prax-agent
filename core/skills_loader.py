@@ -73,6 +73,7 @@ def load_skills(cwd: str) -> list[Skill]:
     Returns empty list if no skills found.
     """
     bundled_skills: dict[str, Skill] = {}
+    claude_skills: dict[str, Skill] = {}
     local_skills: dict[str, Skill] = {}
 
     # Load bundled package skills first (lower priority)
@@ -81,28 +82,40 @@ def load_skills(cwd: str) -> list[Skill]:
         for skill in _scan_skills_dir(pkg_skills_dir):
             bundled_skills[skill.name] = skill
 
+    # Load project-local Claude skills next (project workflow baseline)
+    claude_skills_dir = Path(cwd) / ".claude" / "skills"
+    if claude_skills_dir.exists():
+        for skill in _scan_skills_dir(claude_skills_dir):
+            claude_skills[skill.name] = skill
+
     # Load project-local skills (higher priority, override bundled)
     local_skills_dir = Path(cwd) / ".prax" / "skills"
     if local_skills_dir.exists():
         for skill in _scan_skills_dir(local_skills_dir):
             local_skills[skill.name] = skill
 
-    # Merge: local overrides bundled
-    merged = {**bundled_skills, **local_skills}
+    # Merge priority: bundled < .claude < .prax
+    merged = {**bundled_skills, **claude_skills, **local_skills}
     return sorted(merged.values(), key=lambda s: s.name)
 
 
 def _scan_skills_dir(skills_dir: Path) -> list[Skill]:
     """Scan a skills directory for SKILL.md files."""
     skills = []
+    seen_paths: set[Path] = set()
+
+    for skill_file in sorted(skills_dir.rglob("SKILL.md")):
+        if not skill_file.is_file():
+            continue
+        seen_paths.add(skill_file.resolve())
+        skill = _load_skill_file(skill_file, skill_file.parent.name)
+        if skill:
+            skills.append(skill)
+
     for item in sorted(skills_dir.iterdir()):
-        if item.is_dir():
-            skill_file = item / "SKILL.md"
-            if skill_file.exists():
-                skill = _load_skill_file(skill_file, item.name)
-                if skill:
-                    skills.append(skill)
-        elif item.is_file() and item.suffix.lower() == ".md":
+        if item.is_file() and item.suffix.lower() == ".md" and item.name.lower() != "readme.md":
+            if item.resolve() in seen_paths:
+                continue
             skill = _load_skill_file(item, item.stem)
             if skill:
                 skills.append(skill)

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from prax.core.config_files import load_models_config
+from prax.core.runtime_env import hydrate_runtime_env
 from prax.core.runtime_paths import RUNTIME_NATIVE
 
 
@@ -39,6 +40,7 @@ class NativeRuntime:
 
         effective_cwd = str(Path(cwd or Path.cwd()))
         models_config = load_models_config(effective_cwd)
+        hydrate_runtime_env(models_config, effective_cwd)
 
         model_name, agent_name, agent_system_prompt, session, session_store = _bootstrap_session(
             cwd=effective_cwd,

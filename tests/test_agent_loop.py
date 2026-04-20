@@ -849,6 +849,13 @@ class TestContext:
         assert "My Project" in prompt
         assert "Python 3.12" in prompt
 
+    def test_loads_root_claude_md(self, tmp_path):
+        (tmp_path / "CLAUDE.md").write_text("# Root Project\nUse project workflow.")
+        ctx = Context(cwd=str(tmp_path))
+        prompt = ctx.build_system_prompt()
+        assert "Root Project" in prompt
+        assert "Use project workflow." in prompt
+
 
 # ── Agent Loop tests ───────────────────────────────────────────────
 

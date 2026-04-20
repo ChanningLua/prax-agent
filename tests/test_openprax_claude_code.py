@@ -39,6 +39,8 @@ def test_claude_install_lifecycle(tmp_path):
     assert "hooks" in settings
     assert "enabledMcpjsonServers" in settings
     assert "Bash(prax *)" in settings["permissions"]["allow"]
+    assert settings["hooks"]["SessionStart"][0]["hooks"][0]["command"].startswith("bash ")
+    assert settings["hooks"]["Stop"][0]["hooks"][0]["command"].startswith("bash ")
     mcp = json.loads(mcp_path(target_root).read_text(encoding="utf-8"))
     assert "prax-memory" in mcp["mcpServers"]
 

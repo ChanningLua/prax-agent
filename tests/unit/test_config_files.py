@@ -128,11 +128,30 @@ class TestLoadRulesConfig:
 # ---------------------------------------------------------------------------
 
 class TestLoadMcpConfig:
-    def test_no_config_returns_empty(self, tmp_path):
+    def test_no_config_returns_empty(self, tmp_path, monkeypatch):
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
         from prax.core.config_files import load_mcp_config
         assert load_mcp_config(str(tmp_path)) == []
 
-    def test_config_with_mcp_servers(self, tmp_path):
+    def test_user_global_config_is_loaded(self, tmp_path, monkeypatch):
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        servers = [{"name": "global-fs", "command": "mcp-fs"}]
+        _write_yaml(fake_home / ".prax" / "config.yaml", {"mcp_servers": servers})
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+        from prax.core.config_files import load_mcp_config
+        result = load_mcp_config(str(tmp_path))
+
+        assert result == servers
+
+    def test_config_with_mcp_servers(self, tmp_path, monkeypatch):
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
         servers = [{"name": "fs", "command": "mcp-fs"}]
         _write_yaml(tmp_path / ".prax" / "config.yaml", {"mcp_servers": servers})
 
@@ -141,7 +160,42 @@ class TestLoadMcpConfig:
 
         assert result == servers
 
-    def test_config_without_mcp_servers_key(self, tmp_path):
+    def test_local_mcp_servers_override_user_global_by_name(self, tmp_path, monkeypatch):
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        _write_yaml(
+            fake_home / ".prax" / "config.yaml",
+            {
+                "mcp_servers": [
+                    {"name": "shared", "command": "global-shared"},
+                    {"name": "global-only", "command": "global-only-cmd"},
+                ]
+            },
+        )
+        _write_yaml(
+            tmp_path / ".prax" / "config.yaml",
+            {
+                "mcp_servers": [
+                    {"name": "shared", "command": "local-shared"},
+                    {"name": "local-only", "command": "local-only-cmd"},
+                ]
+            },
+        )
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+
+        from prax.core.config_files import load_mcp_config
+        result = load_mcp_config(str(tmp_path))
+
+        assert result == [
+            {"name": "shared", "command": "local-shared"},
+            {"name": "global-only", "command": "global-only-cmd"},
+            {"name": "local-only", "command": "local-only-cmd"},
+        ]
+
+    def test_config_without_mcp_servers_key(self, tmp_path, monkeypatch):
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
         _write_yaml(tmp_path / ".prax" / "config.yaml", {"model": "claude-opus-4"})
 
         from prax.core.config_files import load_mcp_config
@@ -149,7 +203,10 @@ class TestLoadMcpConfig:
 
         assert result == []
 
-    def test_invalid_yaml_returns_empty(self, tmp_path):
+    def test_invalid_yaml_returns_empty(self, tmp_path, monkeypatch):
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
         config_path = tmp_path / ".prax" / "config.yaml"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text("key: [unclosed", encoding="utf-8")

@@ -60,7 +60,7 @@ def build_managed_settings(target_root: Path) -> dict[str, Any]:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"\"{session_start}\"",
+                            "command": f"bash \"{session_start}\"",
                             "timeout": 5,
                         }
                     ],
@@ -93,7 +93,7 @@ def build_managed_settings(target_root: Path) -> dict[str, Any]:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"\"{stop_hook}\"",
+                            "command": f"bash \"{stop_hook}\"",
                             "timeout": 5,
                         }
                     ],

@@ -10,6 +10,7 @@ from prax.core.context import Context
 from prax.core.llm_client import LLMResponse
 from prax.core.middleware import (
     ContextInjectMiddleware,
+    DesignRestorationGuardMiddleware,
     EvaluatorMiddleware,
     HookMiddleware,
     LoopDetectionMiddleware,
@@ -690,6 +691,91 @@ async def test_verification_guidance_idempotent_before_model(runtime_state):
     # Second before_model without new verify result — generation counter blocks re-injection
     await middleware.before_model(runtime_state)
     assert len(runtime_state.messages) == 1  # No new message added
+
+
+# ── EvaluatorMiddleware ──────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_design_restoration_guard_blocks_completion_without_verification(runtime_state):
+    runtime_state.messages = [
+        {"role": "user", "content": "根据 MasterGo 设计稿还原这个 HTML 页面并交付最终结果"}
+    ]
+    middleware = DesignRestorationGuardMiddleware()
+
+    await middleware.after_tool(
+        runtime_state,
+        ToolCall(name="HashlineEdit", input={}),
+        None,
+        ToolResult(content="edited", is_error=False),
+    )
+    response = LLMResponse(content=[{"type": "text", "text": "已完成"}])
+
+    result = await middleware.after_model(runtime_state, response)
+
+    assert result.has_tool_calls
+    assert result.stop_reason == "design_verification_retry"
+
+
+@pytest.mark.asyncio
+async def test_design_restoration_guard_allows_completion_after_verification(runtime_state):
+    runtime_state.messages = [
+        {"role": "user", "content": "请按 MasterGo 设计稿还原页面"}
+    ]
+    middleware = DesignRestorationGuardMiddleware()
+
+    await middleware.after_tool(
+        runtime_state,
+        ToolCall(name="HashlineEdit", input={}),
+        None,
+        ToolResult(content="edited", is_error=False),
+    )
+    await middleware.after_tool(
+        runtime_state,
+        ToolCall(name="SandboxBash", input={"command": "node scripts/d2c/verify-html-rendering.js ref.html impl.html"}),
+        None,
+        ToolResult(content="verified", is_error=False),
+    )
+    response = LLMResponse(content=[{"type": "text", "text": "已完成"}])
+
+    result = await middleware.after_model(runtime_state, response)
+
+    assert result == response
+
+
+@pytest.mark.asyncio
+async def test_design_restoration_guard_skips_non_restoration_tasks(runtime_state):
+    runtime_state.messages = [
+        {"role": "user", "content": "请修复 pytest 失败"}
+    ]
+    middleware = DesignRestorationGuardMiddleware()
+
+    await middleware.after_tool(
+        runtime_state,
+        ToolCall(name="HashlineEdit", input={}),
+        None,
+        ToolResult(content="edited", is_error=False),
+    )
+    response = LLMResponse(content=[{"type": "text", "text": "已完成"}])
+
+    result = await middleware.after_model(runtime_state, response)
+
+    assert result == response
+
+
+@pytest.mark.asyncio
+async def test_design_restoration_guard_before_tool_returns_feedback(runtime_state):
+    middleware = DesignRestorationGuardMiddleware()
+    tool_call = ToolCall(
+        name="__design_restoration_guard__",
+        input={"feedback": "Run screenshot verification first."},
+    )
+
+    result = await middleware.before_tool(runtime_state, tool_call, None)
+
+    assert result is not None
+    assert "Run screenshot verification first." in result.content
+    assert result.is_error is False
 
 
 # ── EvaluatorMiddleware ──────────────────────────────────────────────────────

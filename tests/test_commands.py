@@ -232,6 +232,7 @@ def test_run_command_doctor_export_env_hints(monkeypatch, tmp_path):
     codex = result.data["flows"]["codex"]
     assert codex["missing_env_names"] == ["OPENAI_API_KEY"]
     assert codex["export_hints"] == ["export OPENAI_API_KEY=<your-openai_api_key>"]
+    assert ".prax/.env" in codex["next_step"]
 
 
 def test_run_command_init_models_and_doctor_fix(tmp_path):
