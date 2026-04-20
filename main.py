@@ -312,7 +312,7 @@ def _parse_global_args(args: list[str]) -> tuple[dict[str, Any], list[str]]:
         "session_id": None,
         "output_format": "text",
         "tui": False,
-        "runtime_path": "auto",
+        "runtime_path": "native",
     }
     positional: list[str] = []
     i = 0
@@ -813,7 +813,7 @@ async def _run(
     model_override: str | None = None,
     permission_mode: Any | None = None,
     session_id: str | None = None,
-    runtime_path: str = "auto",
+    runtime_path: str = "native",
 ) -> None:
     models_config = load_models_config()
     cwd = str(Path.cwd())
@@ -825,6 +825,12 @@ async def _run(
         session_id=session_id,
         models_config=models_config,
     )
+
+    # Session preference overrides default runtime_path (but not explicit CLI arg)
+    if runtime_path == "native" and session.metadata:
+        preferred_rt = (session.metadata or {}).get("preferred_runtime_path")
+        if preferred_rt:
+            runtime_path = preferred_rt
 
     print(f"\033[90m[prax] model={model_name} cwd={cwd}\033[0m", flush=True)
     print(f"\033[90m[prax] session={session.session_id}\033[0m", flush=True)

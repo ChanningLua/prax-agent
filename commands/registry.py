@@ -43,6 +43,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("budget", "Show or set the token budget for this session", "[tokens]"),
     CommandSpec("skills", "List or show available skills", "[show <name>]"),
     CommandSpec("governance", "Show unified status of agents/skills/hooks/memory/solutions", ""),
+    CommandSpec("runtime", "Show or set runtime path", "[native|bridge|auto]"),
 )
 
 
