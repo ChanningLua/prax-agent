@@ -58,9 +58,98 @@ Prax 会检查你的代码库、运行测试、编辑文件，并在循环中验
 
 **基准验证**: 10/10 仓库修复任务全部解决，平均 29.56 秒（对比同类框架基线 8/10）。
 
+### 基于经验的自我改进
+
+Prax 在会话和项目之间持续学习并自我改进：
+
+- **纠错检测** — 自动检测用户纠正错误的信号（支持中英文），提取问题-方案模式并应用到后续会话
+- **跨项目经验积累** — 在 `~/.prax/experiences.json` 构建全局经验库，提升所有仓库的工作效率
+- **结构化错误恢复** — 将失败方案加入黑名单并尝试替代方案，避免同一会话内重复犯错
+- **带置信度评分的持久记忆** — 两种后端（JSON/SQLite）追踪上下文、决策和学习到的模式
+- **时序知识图谱** — 跟踪实体关系及其跨会话的演变
+- **检查点/恢复** — 崩溃恢复确保长时间运行的任务不会丢失工作
+- **轨迹记录** — 从执行历史中学习，识别成功模式并避免失败模式
+
+这些能力已集成到核心运行时中——不是实验性插件。
+
+### 使用经验与记忆
+
+Prax 自动从你的工作中学习，并将知识应用到后续任务。以下是记忆系统的使用方式：
+
+#### 自动学习
+
+Prax 在以下场景捕获经验：
+
+- **纠错检测** — 当你纠正错误时（如"不对"、"重新来"、"that's wrong"），Prax 提取问题-方案模式并保存到 `.prax/solutions/`
+- **任务完成** — 置信度 ≥ 0.7 的事实被持久化到项目记忆
+- **工具失败** — 失败的方案在会话内被加入黑名单，避免重复
+- **验证成功** — 成功的测试-修复模式被记录为经验
+- **会话结束** — 上下文快照被保存，供下次会话恢复
+
+#### 查看记忆
+
+查看 Prax 学到了什么：
+
+```bash
+# 项目级记忆
+cat .prax/memory.json          # 事实和上下文（JSON 后端）
+cat .prax/memory.db            # 或 SQLite 后端
+ls .prax/solutions/            # 问题-方案模式
+
+# 全局跨项目经验
+cat ~/.prax/experiences.json   # 共享学习成果（JSON 后端）
+cat ~/.prax/experiences.db     # 或 SQLite 后端
+
+# 会话历史
+ls .prax/sessions/             # 历史对话记录
+```
+
+#### 管理记忆
+
+按需清理记忆：
+
+```bash
+# 清除项目记忆
+rm -rf .prax/memory.json .prax/solutions/
+
+# 清除全局经验
+rm -rf ~/.prax/experiences.json
+
+# 清除会话历史
+rm -rf .prax/sessions/
+
+# 完全重置
+rm -rf .prax/ ~/.prax/
+```
+
+#### 记忆后端
+
+Prax 支持两种记忆后端：
+
+| 后端 | 存储 | 适用场景 | 搜索方式 |
+|------|------|---------|---------|
+| **local**（JSON） | `.prax/memory.json` + `~/.prax/experiences.json` | 零配置，小型项目 | 线性扫描 |
+| **sqlite** | `.prax/memory.db` + `~/.prax/experiences.db` | 中大型项目，全文搜索 | FTS5 索引 |
+
+在 `.prax/config.yaml` 中配置：
+
+```yaml
+memory:
+  backend: local  # 或 sqlite
+  local:
+    max_facts: 100
+    fact_confidence_threshold: 0.7
+    max_experiences: 500
+```
+
+#### 置信度
+
+- 置信度 ≥ **0.7** 的事实被持久化到记忆
+- 低置信度的观察仅保留在会话上下文中
+
 **双运行时路径** — 原生 CLI 用于自动化和 CI/CD，Claude Code 集成用于交互式开发。按需选择合适的工具。
 
-**跨会话持久记忆** — 关闭终端不会丢失上下文。三种记忆后端：JSON（零配置）、SQLite（全文搜索）、OpenViking（向量嵌入）。
+**跨会话持久记忆** — 关闭终端不会丢失上下文。两种记忆后端：JSON（零配置）、SQLite（全文搜索）。
 
 **多模型编排** — Claude、GPT、GLM 及自定义模型，具备显式路由、降级链和成本追踪。会话中随时切换模型 `/model claude-opus-4-6`。
 
@@ -229,11 +318,17 @@ prax --permission-mode read-only "analyze security vulnerabilities"
 | 路径 | 内容 |
 |------|------|
 | `.prax/sessions/` | 对话历史 |
-| `.prax/memory.json` | 项目记忆（自动提取的事实） |
+| `.prax/memory.json` | 项目记忆（自动提取的事实，JSON 后端） |
+| `.prax/memory.db` | 项目记忆（SQLite 后端） |
+| `.prax/solutions/` | 纠错检测生成的问题-方案模式 |
 | `.prax/todos.json` | 当前任务列表 |
 | `.prax/agents/` | 自定义 Agent 定义 |
 | `.prax/models.yaml` | 模型配置 |
+| `.prax/config.yaml` | 项目级配置（记忆后端等） |
 | `~/.prax/` | 全局配置（跨项目） |
+| `~/.prax/experiences.json` | 全局跨项目经验（JSON 后端） |
+| `~/.prax/experiences.db` | 全局跨项目经验（SQLite 后端） |
+| `~/.prax/config.yaml` | 用户级配置 |
 
 ---
 
@@ -251,7 +346,7 @@ prax --permission-mode read-only "analyze security vulnerabilities"
 | `core/middleware.py` | VerificationGuidance、LoopDetection、QualityGate 等 |
 | `tools/verify_command.py` | 有界验证（pytest、npm test、cargo test、go test） |
 | `tools/sandbox_bash.py` | 自动降级：验证命令绕过沙箱开销 |
-| `core/memory/` | 可插拔后端（local / SQLite / vector） |
+| `core/memory/` | 可插拔后端（JSON / SQLite） |
 | `core/llm_client.py` | Provider 注册表，多模型路由 |
 | `agents/` | Ralph（规划者）、Sisyphus（执行者）、Team（并行） |
 | `workflows/` | 任务分解与编排 |
