@@ -446,6 +446,48 @@ def _handle_permissions(args: list[str], ctx: CommandContext) -> CommandResult:
     return CommandResult(text=json.dumps(data, indent=2, ensure_ascii=False), data=data)
 
 
+def _handle_runtime(args: list[str], ctx: CommandContext) -> CommandResult:
+    """Show or set the preferred runtime path."""
+    session = _load_session(ctx, None)
+
+    if not args:
+        # Show current preferred_runtime_path
+        preferred = (session.metadata or {}).get("preferred_runtime_path") if session else None
+        current = preferred or "native (default)"
+        return CommandResult(
+            text=f"Current runtime path: {current}\n"
+                 f"Available: native, bridge, auto\n"
+                 f"Use '/runtime <path>' to change"
+        )
+
+    # Set preferred_runtime_path
+    runtime_path = args[0].lower()
+    if runtime_path not in ("native", "bridge", "auto"):
+        return CommandResult(
+            text=f"Invalid runtime path: {runtime_path}\n"
+                 f"Must be one of: native, bridge, auto"
+        )
+
+    if not session:
+        effective_id = ctx.session_id or ctx.session_store.create_session_id()
+        session = SessionData(
+            session_id=effective_id,
+            cwd=ctx.cwd,
+            model=ctx.models_config.get("default_model"),
+            messages=[],
+            metadata={},
+        )
+
+    session.metadata = dict(session.metadata or {})
+    session.metadata["preferred_runtime_path"] = runtime_path
+    _save_session(ctx, session)
+
+    return CommandResult(
+        text=f"Runtime path set to: {runtime_path}\n"
+             f"This will be used for future commands in this session"
+    )
+
+
 def _handle_session(args: list[str], ctx: CommandContext) -> CommandResult:
     action = args[0] if args else "list"
     if action == "list":
