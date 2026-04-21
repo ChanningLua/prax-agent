@@ -26,7 +26,7 @@ from .core.context import Context
 from .core.llm_client import LLMClient
 from .core.runtime_paths import OPENPRAX_CLAUDE_DEBUG_BRIDGE, OPENPRAX_NATIVE, build_last_run_metadata
 from .core.memory_middleware import MemoryExtractionMiddleware
-from .core.middleware import DesignRestorationGuardMiddleware, EvaluatorMiddleware, HookMiddleware, LoopDetectionMiddleware, PromptCacheMiddleware, QualityGateMiddleware, RunBoundaryReminderMiddleware, TodoReminderMiddleware, VerificationGuidanceMiddleware
+from .core.middleware import ChangeTracker, DesignRestorationGuardMiddleware, EvaluatorMiddleware, HookMiddleware, LoopDetectionMiddleware, PromptCacheMiddleware, QualityGateMiddleware, RunBoundaryReminderMiddleware, TodoReminderMiddleware, VerificationGuidanceMiddleware
 from .core.permission_guard import PermissionGuardMiddleware
 from .core.permissions import ExecutionPolicy, PermissionMode
 from .core.session_store import FileSessionStore, SessionData
@@ -646,6 +646,7 @@ async def _build_pipeline(
         LoopDetectionMiddleware(),
         TodoReminderMiddleware(cwd=cwd),
         RunBoundaryReminderMiddleware(),
+        ChangeTracker(),
         VerificationGuidanceMiddleware(),
         DesignRestorationGuardMiddleware(),
         QualityGateMiddleware(cwd=cwd),

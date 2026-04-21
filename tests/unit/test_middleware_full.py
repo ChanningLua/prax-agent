@@ -9,6 +9,7 @@ import pytest
 from prax.core.context import Context
 from prax.core.llm_client import LLMResponse
 from prax.core.middleware import (
+    ChangeTracker,
     ContextInjectMiddleware,
     DesignRestorationGuardMiddleware,
     EvaluatorMiddleware,
@@ -614,11 +615,12 @@ async def test_run_boundary_reminder_skips_nonzero_iteration(runtime_state):
 
 @pytest.mark.asyncio
 async def test_verification_guidance_injects_failure_feedback(runtime_state):
+    tracker = ChangeTracker()
     middleware = VerificationGuidanceMiddleware()
     tool_call = ToolCall(name="VerifyCommand", input={"command": "pytest -q"})
     result = ToolResult(content="Verification failed.\n\n1 failed", is_error=True)
 
-    await middleware.after_tool(runtime_state, tool_call, None, result)
+    await tracker.after_tool(runtime_state, tool_call, None, result)
     await middleware.before_model(runtime_state)
 
     assert len(runtime_state.messages) == 1
@@ -629,15 +631,16 @@ async def test_verification_guidance_injects_failure_feedback(runtime_state):
 
 @pytest.mark.asyncio
 async def test_verification_guidance_injects_rerun_hint_after_code_change(runtime_state):
+    tracker = ChangeTracker()
     middleware = VerificationGuidanceMiddleware()
     failed_verify = ToolCall(name="VerifyCommand", input={"command": "pytest -q"})
-    await middleware.after_tool(
+    await tracker.after_tool(
         runtime_state,
         failed_verify,
         None,
         ToolResult(content="Verification failed.\n\n1 failed", is_error=True),
     )
-    await middleware.after_tool(
+    await tracker.after_tool(
         runtime_state,
         ToolCall(name="HashlineEdit", input={}),
         None,
@@ -650,11 +653,12 @@ async def test_verification_guidance_injects_rerun_hint_after_code_change(runtim
 
 @pytest.mark.asyncio
 async def test_verification_guidance_injects_success_feedback(runtime_state):
+    tracker = ChangeTracker()
     middleware = VerificationGuidanceMiddleware()
     tool_call = ToolCall(name="VerifyCommand", input={"command": "pytest -q"})
     result = ToolResult(content="Verification passed.\n\n2 passed", is_error=False)
 
-    await middleware.after_tool(runtime_state, tool_call, None, result)
+    await tracker.after_tool(runtime_state, tool_call, None, result)
     await middleware.before_model(runtime_state)
 
     assert len(runtime_state.messages) == 1
@@ -664,11 +668,12 @@ async def test_verification_guidance_injects_success_feedback(runtime_state):
 
 @pytest.mark.asyncio
 async def test_verification_guidance_treats_safe_sandbox_verify_as_verification(runtime_state):
+    tracker = ChangeTracker()
     middleware = VerificationGuidanceMiddleware()
     tool_call = ToolCall(name="SandboxBash", input={"command": "pytest -q"})
     result = ToolResult(content="Verification failed.\n\n1 failed", is_error=True)
 
-    await middleware.after_tool(runtime_state, tool_call, None, result)
+    await tracker.after_tool(runtime_state, tool_call, None, result)
     await middleware.before_model(runtime_state)
 
     assert "verification_feedback" in runtime_state.messages[0]["name"]
@@ -677,18 +682,19 @@ async def test_verification_guidance_treats_safe_sandbox_verify_as_verification(
 @pytest.mark.asyncio
 async def test_verification_guidance_idempotent_before_model(runtime_state):
     """Consecutive before_model calls without new verify results must not inject duplicates."""
+    tracker = ChangeTracker()
     middleware = VerificationGuidanceMiddleware()
     tool_call = ToolCall(name="VerifyCommand", input={"command": "pytest -q"})
     result = ToolResult(content="Verification failed.\n\n1 failed", is_error=True)
 
-    await middleware.after_tool(runtime_state, tool_call, None, result)
+    await tracker.after_tool(runtime_state, tool_call, None, result)
 
     # First before_model — should inject guidance
     await middleware.before_model(runtime_state)
     assert len(runtime_state.messages) == 1
     assert "verification_feedback" in runtime_state.messages[0]["name"]
 
-    # Second before_model without new verify result — generation counter blocks re-injection
+    # Second before_model without new verify result — dedupe key blocks re-injection
     await middleware.before_model(runtime_state)
     assert len(runtime_state.messages) == 1  # No new message added
 
@@ -701,9 +707,10 @@ async def test_design_restoration_guard_blocks_completion_without_verification(r
     runtime_state.messages = [
         {"role": "user", "content": "根据 MasterGo 设计稿还原这个 HTML 页面并交付最终结果"}
     ]
+    tracker = ChangeTracker()
     middleware = DesignRestorationGuardMiddleware()
 
-    await middleware.after_tool(
+    await tracker.after_tool(
         runtime_state,
         ToolCall(name="HashlineEdit", input={}),
         None,
@@ -722,20 +729,20 @@ async def test_design_restoration_guard_allows_completion_after_verification(run
     runtime_state.messages = [
         {"role": "user", "content": "请按 MasterGo 设计稿还原页面"}
     ]
+    tracker = ChangeTracker()
     middleware = DesignRestorationGuardMiddleware()
 
-    await middleware.after_tool(
-        runtime_state,
-        ToolCall(name="HashlineEdit", input={}),
-        None,
-        ToolResult(content="edited", is_error=False),
+    edit_call = ToolCall(name="HashlineEdit", input={})
+    await tracker.after_tool(runtime_state, edit_call, None, ToolResult(content="edited", is_error=False))
+
+    verify_call = ToolCall(
+        name="SandboxBash",
+        input={"command": "node scripts/d2c/verify-html-rendering.js ref.html impl.html"},
     )
-    await middleware.after_tool(
-        runtime_state,
-        ToolCall(name="SandboxBash", input={"command": "node scripts/d2c/verify-html-rendering.js ref.html impl.html"}),
-        None,
-        ToolResult(content="verified", is_error=False),
-    )
+    verify_result = ToolResult(content="verified", is_error=False)
+    await tracker.after_tool(runtime_state, verify_call, None, verify_result)
+    await middleware.after_tool(runtime_state, verify_call, None, verify_result)
+
     response = LLMResponse(content=[{"type": "text", "text": "已完成"}])
 
     result = await middleware.after_model(runtime_state, response)
@@ -748,9 +755,10 @@ async def test_design_restoration_guard_skips_non_restoration_tasks(runtime_stat
     runtime_state.messages = [
         {"role": "user", "content": "请修复 pytest 失败"}
     ]
+    tracker = ChangeTracker()
     middleware = DesignRestorationGuardMiddleware()
 
-    await middleware.after_tool(
+    await tracker.after_tool(
         runtime_state,
         ToolCall(name="HashlineEdit", input={}),
         None,
