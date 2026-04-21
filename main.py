@@ -49,6 +49,7 @@ from .tools.hashline_read import HashlineReadTool
 from .tools.hashline_edit import HashlineEditTool
 from .tools.web_search import WebSearchTool, WebCrawlerTool
 from .tools.sandbox_bash import SandboxBashTool
+from .tools.notify import NotifyTool
 from .tools.verify_command import VerifyCommandTool
 from .agents.loader import get_agent_registry
 
@@ -422,6 +423,10 @@ def _build_tools(
     # VerifyCommand — restricted repo-local test/build validation
     tools.append(VerifyCommandTool(cwd=cwd))
     tool_flags["has_verify_command"] = True
+
+    # Notify — outbound report via .prax/notify.yaml channels
+    tools.append(NotifyTool(cwd=cwd))
+    tool_flags["has_notify"] = True
 
     # SandboxBash — isolated command execution (docker or local fallback)
     tools.append(SandboxBashTool(cwd=cwd))

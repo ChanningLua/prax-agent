@@ -145,6 +145,36 @@ def load_memory_config(cwd: str | None = None) -> dict:
     return {"memory": merged}
 
 
+def load_notify_config(cwd: str | None = None) -> dict:
+    """Load notification channel configuration.
+
+    Merge order (lowest → highest priority):
+      ~/.prax/notify.yaml
+      {cwd}/.prax/notify.yaml
+
+    Channels with the same name in the project file override those in the user
+    file. Returns ``{"channels": {...}}`` — always a dict, even when no file
+    exists or the file is empty.
+    """
+    merged_channels: dict = {}
+
+    def _read_channels(path: Path) -> dict:
+        if not path.exists():
+            return {}
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception as e:
+            logger.warning("Failed to read notify config %s: %s", path, e)
+            return {}
+        channels = data.get("channels") if isinstance(data, dict) else None
+        return channels if isinstance(channels, dict) else {}
+
+    merged_channels.update(_read_channels(Path.home() / ".prax" / "notify.yaml"))
+    if cwd:
+        merged_channels.update(_read_channels(Path(cwd) / ".prax" / "notify.yaml"))
+    return {"channels": merged_channels}
+
+
 def load_governance_config(cwd: str | None = None) -> "GovernanceConfig | None":
     """Load GovernanceConfig from .prax/governance.yaml if it exists.
 
