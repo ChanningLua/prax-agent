@@ -54,11 +54,11 @@ def load_rules_config(cwd: str | None = None) -> dict:
     current_dir = Path(cwd or Path.cwd())
     local = current_dir / ".prax" / "rules.yaml"
     if local.exists():
-        return yaml.safe_load(local.read_text(encoding="utf-8"))
+        return yaml.safe_load(local.read_text(encoding="utf-8")) or {}
 
     global_cfg = CONFIG_DIR / "rules.yaml"
     if global_cfg.exists():
-        return yaml.safe_load(global_cfg.read_text(encoding="utf-8"))
+        return yaml.safe_load(global_cfg.read_text(encoding="utf-8")) or {}
 
     return {"rules": [], "tier_models": {}}
 

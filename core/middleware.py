@@ -11,6 +11,7 @@ Implements Deep Agents-style middleware pattern with:
 - PromptCacheMiddleware: Anthropic prompt caching optimization
 - QualityGateMiddleware: auto quality gate loop after code modifications
 - EvaluatorMiddleware: evaluator-optimizer loop for weak model output quality
+- ChangeTracker: single writer of code-change / verification state into RuntimeState.metadata
 """
 
 from __future__ import annotations
@@ -45,6 +46,51 @@ PRIORITY_CACHE = 20    # 缓存类
 PRIORITY_INJECT = 50   # 上下文注入类
 PRIORITY_EXTRACT = 90  # 信息提取类
 PRIORITY_EVAL = 95     # 评估/质量门类
+
+
+# Shared across every middleware that needs to know "did the agent just change code?"
+# Keep in sync with the real editing tools in prax/tools/.
+CODE_MODIFYING_TOOLS: frozenset[str] = frozenset({
+    "Write", "Edit", "MultiEdit",
+    "HashlineEdit", "AstGrepReplace", "ApplyPatch",
+})
+
+# Key used inside RuntimeState.metadata by ChangeTracker.
+CHANGE_TRACKER_KEY = "change_tracker"
+
+
+def _default_tracker_state() -> dict[str, Any]:
+    return {
+        "code_gen": 0,            # incremented on each successful code-modifying tool call
+        "verified_gen": 0,        # code_gen value at the last passing verification
+        "last_verify_ok": False,  # True after a verify attempt passes, False after a failure
+        "last_verify_error": None,  # trimmed failure output from the most recent failing verify
+    }
+
+
+def _is_verify_attempt(tool_call: "ToolCall") -> bool:
+    """Return True iff the tool call runs a repo-local verification command.
+
+    Uses tools.verify_command.is_verify_command as the single source of truth for
+    "what counts as a verification command" so every guard stays in lockstep with
+    the VerifyCommandTool allowlist (pytest, python -m pytest, npm/pnpm test,
+    cargo test, go test).
+    """
+    if tool_call.name == "VerifyCommand":
+        return True
+    if tool_call.name in ("Bash", "SandboxBash"):
+        command = str(tool_call.input.get("command", "")).strip()
+        return bool(command) and is_verify_command(command)
+    return False
+
+
+def _get_tracker(state: "RuntimeState") -> dict[str, Any]:
+    """Read the shared tracker state. Always returns a dict (never None)."""
+    tracker = state.metadata.get(CHANGE_TRACKER_KEY)
+    if not isinstance(tracker, dict):
+        tracker = _default_tracker_state()
+        state.metadata[CHANGE_TRACKER_KEY] = tracker
+    return tracker
 
 
 @dataclass
@@ -224,34 +270,23 @@ class RunBoundaryReminderMiddleware(AgentMiddleware):
         })
 
 
-class VerificationGuidanceMiddleware(AgentMiddleware):
-    """Inject focused guidance after verification failures or successes."""
+class ChangeTracker(AgentMiddleware):
+    """Single writer of code-change and verification state.
 
-    priority: int = 60
-    CODE_MODIFYING_TOOLS = frozenset({
-        "Write", "Edit", "HashlineEdit", "AstGrepReplace", "ApplyPatch",
-    })
+    All guard middlewares should read ``state.metadata[CHANGE_TRACKER_KEY]`` instead
+    of keeping their own ``_code_generation`` / ``_verified_generation`` counters.
+    Keeping exactly one writer avoids the divergent ``CODE_MODIFYING_TOOLS`` sets
+    and the "is this a verify attempt" heuristics that used to drift between
+    middlewares.
+    """
+
+    priority: int = 5  # run before every guard so they see up-to-date state
 
     def __init__(self, *, max_failure_output_chars: int = 1600):
         self._max_failure_output_chars = max_failure_output_chars
-        self._pending_failure: str | None = None
-        self._pending_success = False
-        self._code_changed_since_verify = False
-        self._failure_generation = 0
-        self._success_generation = 0
-        self._last_injected_failure_generation = 0
-        self._last_injected_success_generation = 0
 
-    def _is_verify_attempt(self, tool_call: ToolCall) -> bool:
-        if tool_call.name == "VerifyCommand":
-            return True
-        if tool_call.name == "SandboxBash":
-            command = str(tool_call.input.get("command", "")).strip()
-            return bool(command) and is_verify_command(command)
-        return False
-
-    def _trim_failure_output(self, text: str) -> str:
-        text = text.strip()
+    def _trim(self, text: str) -> str:
+        text = (text or "").strip()
         if len(text) <= self._max_failure_output_chars:
             return text
         return text[: self._max_failure_output_chars].rstrip() + "\n...[truncated]"
@@ -263,25 +298,45 @@ class VerificationGuidanceMiddleware(AgentMiddleware):
         tool: Tool | None,
         result: ToolResult,
     ) -> ToolResult:
-        if self._is_verify_attempt(tool_call):
-            self._code_changed_since_verify = False
-            if result.is_error:
-                self._pending_success = False
-                self._pending_failure = self._trim_failure_output(result.content)
-                self._failure_generation += 1
-            else:
-                self._pending_failure = None
-                self._pending_success = True
-                self._success_generation += 1
-            return result
+        tracker = _get_tracker(state)
 
-        if tool_call.name in self.CODE_MODIFYING_TOOLS and not result.is_error:
-            self._code_changed_since_verify = True
+        if tool_call.name in CODE_MODIFYING_TOOLS and not result.is_error:
+            tracker["code_gen"] += 1
+
+        if _is_verify_attempt(tool_call):
+            if result.is_error:
+                tracker["last_verify_ok"] = False
+                tracker["last_verify_error"] = self._trim(result.content)
+            else:
+                tracker["last_verify_ok"] = True
+                tracker["last_verify_error"] = None
+                tracker["verified_gen"] = tracker["code_gen"]
 
         return result
 
+
+class VerificationGuidanceMiddleware(AgentMiddleware):
+    """Inject focused guidance after verification failures or successes.
+
+    Reads shared state from ``ChangeTracker`` via ``state.metadata``; no longer
+    maintains its own ``_code_generation`` counter.
+    """
+
+    priority: int = 60
+
+    def __init__(self) -> None:
+        self._last_injected_failure_key: tuple[int, str | None] | None = None
+        self._last_injected_success_verified_gen: int = -1
+
     async def before_model(self, state: RuntimeState) -> None:
-        if self._pending_success and self._success_generation > self._last_injected_success_generation:
+        tracker = _get_tracker(state)
+        code_gen = tracker["code_gen"]
+        verified_gen = tracker["verified_gen"]
+        last_ok = tracker["last_verify_ok"]
+        last_error = tracker["last_verify_error"]
+
+        # Success path: code_gen is caught up with a passing verify.
+        if last_ok and verified_gen >= code_gen and verified_gen > self._last_injected_success_verified_gen:
             state.messages.append({
                 "role": "user",
                 "name": "verification_success",
@@ -291,16 +346,18 @@ class VerificationGuidanceMiddleware(AgentMiddleware):
                     "</verification_success>"
                 ),
             })
-            self._last_injected_success_generation = self._success_generation
-            self._pending_success = False
+            self._last_injected_success_verified_gen = verified_gen
             return
 
-        if self._pending_failure is None:
+        # Failure path: most recent verify failed and we haven't injected guidance
+        # for that (code_gen, error) pair yet.
+        if last_error is None:
             return
-        if self._failure_generation <= self._last_injected_failure_generation:
+        failure_key = (code_gen, last_error)
+        if failure_key == self._last_injected_failure_key:
             return
 
-        if self._code_changed_since_verify:
+        if code_gen > verified_gen:
             guidance = (
                 "You have already changed code since the last failed verification. "
                 "Rerun VerifyCommand now before doing more exploration or delegation."
@@ -319,23 +376,25 @@ class VerificationGuidanceMiddleware(AgentMiddleware):
                 "<verification_feedback>\n"
                 f"{guidance}\n\n"
                 "Failure output:\n"
-                f"{self._pending_failure}\n"
+                f"{last_error}\n"
                 "</verification_feedback>"
             ),
         })
-        self._last_injected_failure_generation = self._failure_generation
+        self._last_injected_failure_key = failure_key
 
 
 _DESIGN_RESTORATION_GUARD_TOOL_NAME = "__design_restoration_guard__"
 
 
 class DesignRestorationGuardMiddleware(AgentMiddleware):
-    """Block completion for design-restoration work until screenshot verification runs."""
+    """Block completion for design-restoration work until screenshot verification runs.
+
+    Uses the shared ``ChangeTracker`` for code-change bookkeeping; only screenshot
+    verification scripts count as verification for this specialized guard, so it
+    keeps its own ``_verified_generation`` counter driven by ``_VERIFY_HINTS``.
+    """
 
     priority: int = 62
-    CODE_MODIFYING_TOOLS = frozenset({
-        "Write", "Edit", "HashlineEdit", "AstGrepReplace", "ApplyPatch", "MultiEdit",
-    })
     _VERIFY_HINTS = (
         "verify-html-rendering.js",
         "compare-screenshots.js",
@@ -345,7 +404,6 @@ class DesignRestorationGuardMiddleware(AgentMiddleware):
     def __init__(self, max_retries: int = 3):
         self._max_retries = max_retries
         self._retry_count = 0
-        self._code_generation = 0
         self._verified_generation = 0
         self._task_detection: bool | None = None
 
@@ -382,14 +440,11 @@ class DesignRestorationGuardMiddleware(AgentMiddleware):
         self._task_detection = has_design_source or has_restoration_goal
         return self._task_detection
 
-    def _is_verification_attempt(self, tool_call: ToolCall) -> bool:
-        if tool_call.name == "VerifyCommand":
-            command = str(tool_call.input.get("command", "")).strip()
-            return any(hint in command for hint in self._VERIFY_HINTS)
-        if tool_call.name == "SandboxBash":
-            command = str(tool_call.input.get("command", "")).strip()
-            return any(hint in command for hint in self._VERIFY_HINTS)
-        return False
+    def _is_screenshot_verify(self, tool_call: ToolCall) -> bool:
+        if tool_call.name not in ("VerifyCommand", "SandboxBash", "Bash"):
+            return False
+        command = str(tool_call.input.get("command", "")).strip()
+        return any(hint in command for hint in self._VERIFY_HINTS)
 
     async def after_tool(
         self,
@@ -398,14 +453,10 @@ class DesignRestorationGuardMiddleware(AgentMiddleware):
         tool: Tool | None,
         result: ToolResult,
     ) -> ToolResult:
-        if self._is_verification_attempt(tool_call):
-            if not result.is_error:
-                self._verified_generation = self._code_generation
-                self._retry_count = 0
-            return result
-
-        if tool_call.name in self.CODE_MODIFYING_TOOLS and not result.is_error:
-            self._code_generation += 1
+        if self._is_screenshot_verify(tool_call) and not result.is_error:
+            tracker = _get_tracker(state)
+            self._verified_generation = tracker["code_gen"]
+            self._retry_count = 0
         return result
 
     async def after_model(self, state: RuntimeState, response: LLMResponse) -> LLMResponse:
@@ -413,7 +464,9 @@ class DesignRestorationGuardMiddleware(AgentMiddleware):
             return response
         if not self._is_restoration_task(state):
             return response
-        if self._code_generation == 0 or self._verified_generation >= self._code_generation:
+        tracker = _get_tracker(state)
+        code_generation = tracker["code_gen"]
+        if code_generation == 0 or self._verified_generation >= code_generation:
             self._retry_count = 0
             return response
         if self._retry_count >= self._max_retries:
@@ -644,26 +697,48 @@ class HookMiddleware(AgentMiddleware):
 
 
 class QualityGateMiddleware(AgentMiddleware):
-    """在代码修改后自动运行质量检查，将失败结果注入对话形成自愈闭环。"""
+    """在代码修改后自动运行质量检查，将失败结果注入对话形成自愈闭环。
 
-    CODE_MODIFYING_TOOLS = {"Write", "Edit", "MultiEdit", "Bash"}
+    Also supports an opt-in ``require_verify_before_completion`` flag in
+    ``.prax/quality-gates.yaml``. When enabled, a final response with no tool
+    calls is rejected if ``state.metadata[CHANGE_TRACKER_KEY]`` shows code was
+    modified after the last passing verification — replacing the separate
+    ``VerificationGuardMiddleware`` that used to duplicate this state machine.
+    """
 
-    def __init__(self, cwd: str, commands: list[str] | None = None):
+    def __init__(
+        self,
+        cwd: str,
+        commands: list[str] | None = None,
+        *,
+        require_verify_before_completion: bool | None = None,
+        max_require_verify_retries: int = 3,
+    ):
         self.cwd = cwd
-        gate_commands, completion_checks = self._load_quality_gates()
+        gate_commands, completion_checks, cfg_require_verify = self._load_quality_gates()
         self.commands = commands if commands is not None else gate_commands
         self._completion_checks: list[str] = completion_checks
         self._pending_check = False
+        self._require_verify = (
+            cfg_require_verify if require_verify_before_completion is None
+            else bool(require_verify_before_completion)
+        )
+        self._max_require_verify_retries = max_require_verify_retries
+        self._require_verify_retries = 0
 
-    def _load_quality_gates(self) -> tuple[list[str], list[str]]:
+    def _load_quality_gates(self) -> tuple[list[str], list[str], bool]:
         config_path = Path(self.cwd) / ".prax" / "quality-gates.yaml"
         if config_path.exists():
             try:
                 data = _yaml.safe_load(config_path.read_text(encoding="utf-8")) or {} if _yaml else {}
-                return data.get("commands", []), data.get("completion_checks", [])
+                return (
+                    data.get("commands", []),
+                    data.get("completion_checks", []),
+                    bool(data.get("require_verify_before_completion", False)),
+                )
             except Exception as e:
                 logger.warning("Failed to load quality-gates.yaml: %s", e)
-        return [], []
+        return [], [], False
 
     async def after_tool(
         self,
@@ -672,13 +747,58 @@ class QualityGateMiddleware(AgentMiddleware):
         tool: Tool | None,
         result: ToolResult,
     ) -> ToolResult:
-        if tool_call.name in self.CODE_MODIFYING_TOOLS and not result.is_error:
+        if tool_call.name in CODE_MODIFYING_TOOLS and not result.is_error:
             self._pending_check = True
         return result
 
+    def _build_require_verify_response(
+        self, response: LLMResponse, tracker: dict[str, Any]
+    ) -> LLMResponse:
+        self._require_verify_retries += 1
+        message = (
+            "Code was modified but no passing verification has run since the last edit "
+            f"(code_gen={tracker['code_gen']}, verified_gen={tracker['verified_gen']}). "
+            "Run a repository-local verification command (e.g. `VerifyCommand` with "
+            "`pytest -q`, `npm test`, `cargo test`, or `go test ./...`) before finishing."
+        )
+        failure_text = (
+            "<completion_check_failure>\n"
+            + message
+            + "\n</completion_check_failure>"
+        )
+        return LLMResponse(
+            content=[
+                {"type": "text", "text": response.text},
+                {
+                    "type": "tool_use",
+                    "id": f"completion-check-verify-{self._require_verify_retries}",
+                    "name": "__completion_check__",
+                    "input": {"failure": failure_text},
+                },
+            ],
+            stop_reason="completion_check_retry",
+        )
+
     async def after_model(self, state: RuntimeState, response: LLMResponse) -> LLMResponse:
         """Run completion_checks when the model produces a final response (no tool calls)."""
-        if response.has_tool_calls or not self._completion_checks:
+        if response.has_tool_calls:
+            return response
+
+        # 1) Require-verify gate (opt-in, reuses shared ChangeTracker state).
+        if self._require_verify:
+            tracker = _get_tracker(state)
+            if tracker["code_gen"] > tracker["verified_gen"]:
+                if self._require_verify_retries >= self._max_require_verify_retries:
+                    logger.warning(
+                        "QualityGate require_verify_before_completion exhausted %d retries; letting completion through",
+                        self._max_require_verify_retries,
+                    )
+                else:
+                    return self._build_require_verify_response(response, tracker)
+            else:
+                self._require_verify_retries = 0
+
+        if not self._completion_checks:
             return response
 
         failures = []
@@ -889,3 +1009,5 @@ class EvaluatorMiddleware(AgentMiddleware):
             ),
             is_error=False,
         )
+
+
