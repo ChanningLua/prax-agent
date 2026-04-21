@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from prax.commands.handlers import CommandContext, run_command
@@ -107,6 +108,41 @@ def build_parser() -> argparse.ArgumentParser:
     debug.add_argument("--session-id")
     debug.add_argument("--permission-mode")
 
+    cron = subparsers.add_parser("cron", help="Manage scheduled jobs (see .prax/cron.yaml)")
+    cron_sub = cron.add_subparsers(dest="cron_action", required=True)
+
+    c_list = cron_sub.add_parser("list", help="List configured cron jobs")
+    _add_shared_json_flag(c_list)
+
+    c_add = cron_sub.add_parser("add", help="Add a new cron job")
+    c_add.add_argument("--name", required=True)
+    c_add.add_argument("--schedule", required=True,
+                       help="5-field cron expression, e.g. '0 17 * * *'")
+    c_add.add_argument("--prompt", required=True,
+                       help="Task prompt passed to `prax prompt` when the job fires")
+    c_add.add_argument("--session-id")
+    c_add.add_argument("--model")
+    c_add.add_argument("--notify-on", nargs="*", choices=["success", "failure"], default=[])
+    c_add.add_argument("--notify-channel")
+    _add_shared_json_flag(c_add)
+
+    c_remove = cron_sub.add_parser("remove", help="Remove a cron job by name")
+    c_remove.add_argument("--name", required=True)
+    _add_shared_json_flag(c_remove)
+
+    c_run = cron_sub.add_parser("run",
+                                help="Dispatch all due jobs once (invoked by the system scheduler)")
+    _add_shared_json_flag(c_run)
+
+    c_install = cron_sub.add_parser(
+        "install",
+        help="Install the per-minute dispatcher (LaunchAgent on macOS, crontab line on Linux)",
+    )
+    _add_shared_json_flag(c_install)
+
+    c_uninstall = cron_sub.add_parser("uninstall", help="Remove the dispatcher")
+    _add_shared_json_flag(c_uninstall)
+
     return parser
 
 
@@ -180,6 +216,49 @@ def main() -> None:
 
     if args.command == "status":
         _render(_status_payload(cwd), as_json=args.json)
+        return
+
+    if args.command == "cron":
+        from .commands import cron as cron_cmd
+        from .core import cron_installer
+        from .core.cron_store import (
+            DuplicateJobError,
+            InvalidScheduleError,
+            UnknownJobError,
+        )
+
+        action = args.cron_action
+        try:
+            if action == "list":
+                _render(cron_cmd.handle_list(cwd, as_json=args.json), as_json=args.json)
+            elif action == "add":
+                _render(
+                    cron_cmd.handle_add(
+                        cwd,
+                        name=args.name,
+                        schedule=args.schedule,
+                        prompt=args.prompt,
+                        session_id=args.session_id,
+                        model=args.model,
+                        notify_on=args.notify_on,
+                        notify_channel=args.notify_channel,
+                    ),
+                    as_json=args.json,
+                )
+            elif action == "remove":
+                _render(cron_cmd.handle_remove(cwd, name=args.name), as_json=args.json)
+            elif action == "run":
+                _render(cron_cmd.handle_run(cwd, as_json=args.json), as_json=args.json)
+            elif action == "install":
+                _render(cron_installer.install(cwd=cwd), as_json=args.json)
+            elif action == "uninstall":
+                _render(cron_installer.uninstall(cwd=cwd), as_json=args.json)
+        except (DuplicateJobError, UnknownJobError, InvalidScheduleError, ValueError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            raise SystemExit(1)
+        except NotImplementedError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            raise SystemExit(2)
         return
 
     if args.command == "export-plugin":

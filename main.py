@@ -941,6 +941,7 @@ def main() -> None:
         "install", "doctor", "list-installed", "show-state", "history",
         "list-archives", "list-backups", "repair", "export-plugin",
         "export-marketplace", "restore", "uninstall", "debug-claude",
+        "cron",
     }
     if positional and positional[0] in CLI_SUBCOMMANDS:
         from . import cli as cli_module
