@@ -668,6 +668,33 @@ class LLMClient:
             headers=headers,
         ) as resp:
             resp.raise_for_status()
+
+            # Many proxies (nginx gateways, Claude-Relay-Service, etc.) answer
+            # maintenance windows with HTTP 200 + a plain JSON body instead of
+            # an SSE stream, e.g. `{"success": false, "message": "...维护中..."}`.
+            # Without an early check the aiter_lines loop below skips every
+            # line (none start with "data: "), the request returns an empty
+            # LLMResponse, and the agent silently exits doing nothing. Turn
+            # that into a loud error.
+            ct = (resp.headers.get("content-type") or "").lower()
+            if not ct.startswith("text/event-stream"):
+                body_text = (await resp.aread()).decode("utf-8", errors="replace").strip()
+                # Try to surface a useful one-line summary.
+                summary = body_text[:400]
+                try:
+                    payload = json.loads(body_text)
+                    if isinstance(payload, dict):
+                        msg = payload.get("message") or payload.get("error") or payload.get("detail")
+                        if msg:
+                            summary = str(msg)[:400]
+                except json.JSONDecodeError:
+                    pass
+                raise RuntimeError(
+                    f"Upstream {cfg.base_url} returned a non-stream response "
+                    f"(content-type={ct!r}). Likely maintenance, auth, or "
+                    f"rate-limit error from the proxy. Body: {summary}"
+                )
+
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "):
                     continue

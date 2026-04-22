@@ -281,6 +281,16 @@ async def run_agent_loop(
                 "iteration": iteration,
                 "phase": "llm_call",
             })
+            # Make upstream failures visible at each attempt — previously the
+            # agent loop would silently retry up to MAX_CONSECUTIVE_FAILURES,
+            # during which the user saw zero output and thought prax had hung.
+            import sys as _sys
+            _sys.stderr.write(
+                f"\033[33m[prax] llm_call failure "
+                f"{consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}: "
+                f"{type(exc).__name__}: {str(exc)[:200]}\033[0m\n"
+            )
+            _sys.stderr.flush()
             if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
                 stop_event = MessageStopEvent(
                     session_id=session_id,
