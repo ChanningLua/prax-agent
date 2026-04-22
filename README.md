@@ -19,6 +19,15 @@
 
 ## Quick Start
 
+**Brand-new user?** Follow the 5-minute [Getting Started](./docs/getting-started.md) guide — install Prax, configure an AI key, run your first prompt.
+
+**Want a step-by-step real-world walkthrough?**
+
+- [**Customer-support digest tutorial**](./docs/tutorials/support-digest.md) — PM scenario, includes sample data, zero external deps (10 minutes)
+- [**AI news daily pipeline tutorial**](./docs/tutorials/ai-news-daily.md) — the Hermes-style workflow, broken into 4 independent phases so you can stop and still have something working (20-60 minutes total)
+
+**Experienced users** can get going with:
+
 ```bash
 git clone https://github.com/ChanningLua/prax-agent.git
 cd prax
