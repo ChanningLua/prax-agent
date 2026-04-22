@@ -27,10 +27,10 @@ prax --version
 **应该看到**：
 
 ```
-prax 0.3.2
+prax 0.4.0
 ```
 
-（0.3.2 或更高都行。）
+（0.4.0 或更高都行。）
 
 **如果看到 `command not found`**：请先跟 [Getting Started](../getting-started.md) 走一遍再回来。
 

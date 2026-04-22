@@ -55,10 +55,10 @@ prax --version
 **Should print**:
 
 ```
-prax 0.3.2
+prax 0.4.0
 ```
 
-(0.3.2 or higher is fine.)
+(0.4.0 or higher is fine.)
 
 **See `command not found`?**
 - macOS with Homebrew Node: run `export PATH=/opt/homebrew/bin:$PATH` then add it to `~/.zshrc`

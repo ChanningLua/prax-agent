@@ -55,10 +55,10 @@ prax --version
 **应该看到**：
 
 ```
-prax 0.3.2
+prax 0.4.0
 ```
 
-（0.3.2 或更高都行。）
+（0.4.0 或更高都行。）
 
 **看到 `command not found`？**
 - macOS 用 Homebrew 装的 Node：跑 `export PATH=/opt/homebrew/bin:$PATH`，加到 `~/.zshrc`

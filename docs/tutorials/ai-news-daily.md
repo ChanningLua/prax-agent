@@ -24,7 +24,7 @@
 ## 前置
 
 - 已经完成 [Getting Started](../getting-started.md)（装 Prax + 配 API key + 跑通 `prax prompt`）
-- `prax --version` 能打出 0.3.2 或更高
+- `prax --version` 能打出 0.4.0 或更高
 
 ---
 

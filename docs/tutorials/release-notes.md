@@ -10,7 +10,7 @@
 
 ## 前置
 
-- [Getting Started](../getting-started.md) 走完（`prax --version` 能打出 0.3.2 或更高）
+- [Getting Started](../getting-started.md) 走完（`prax --version` 能打出 0.4.0 或更高）
 - 仓库是 git 仓库，**最好**用 Conventional Commits 风格（`feat:` / `fix:` / `chore:` 前缀）。不严格也能跑，但产出质量会降
 - 可选：`gh` CLI 装好且登录，用来补 issue 标题；没装走降级路径也行
 
