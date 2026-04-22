@@ -101,6 +101,11 @@ def test_remove_unknown_raises(store):
         store.remove("ghost")
 
 
+def test_unknown_job_error_has_friendly_str():
+    err = UnknownJobError("ghost")
+    assert str(err) == "cron job 'ghost' not found"
+
+
 def test_get_returns_job(store):
     store.add(_basic_job(name="only", prompt="hello"))
     fetched = store.get("only")

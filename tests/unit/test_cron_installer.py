@@ -16,6 +16,9 @@ import pytest
 
 from prax.core import cron_installer
 
+# Also expose shutil inside cron_installer for monkeypatch targets.
+# The module already imports shutil; we don't re-import it here, just reference.
+
 
 # ── plist generation (platform-independent) ─────────────────────────────────
 
@@ -26,6 +29,7 @@ def test_build_plist_contents_has_start_interval_and_argv(tmp_path):
         cwd=str(tmp_path),
         prax_argv=["/usr/bin/python3", "-m", "prax", "cron", "run"],
         log_dir=str(tmp_path / ".prax" / "logs" / "cron"),
+        env={"PATH": "/usr/bin"},
     )
     parsed = plistlib.loads(plist.encode("utf-8"))
     assert parsed["Label"] == "dev.prax.cron.dispatcher"
@@ -37,6 +41,71 @@ def test_build_plist_contents_has_start_interval_and_argv(tmp_path):
     assert parsed["StandardOutPath"].endswith("dispatcher.stdout.log")
     assert parsed["StandardErrorPath"].endswith("dispatcher.stderr.log")
     assert parsed["RunAtLoad"] is False
+    assert parsed["EnvironmentVariables"] == {"PATH": "/usr/bin"}
+
+
+# ── argv & env resolution (the P0-2 polish) ─────────────────────────────────
+
+
+def test_resolve_prax_argv_prefers_env_override(monkeypatch):
+    monkeypatch.setenv("PRAX_BIN", "/opt/custom/prax")
+    monkeypatch.setattr(shutil, "which", lambda _name: "/should/not/use")
+    assert cron_installer._resolve_prax_argv() == ["/opt/custom/prax", "cron", "run"]
+
+
+def test_resolve_prax_argv_uses_which_when_no_override(monkeypatch):
+    monkeypatch.delenv("PRAX_BIN", raising=False)
+    monkeypatch.setattr(cron_installer.shutil, "which", lambda name: "/opt/homebrew/bin/prax" if name == "prax" else None)
+    assert cron_installer._resolve_prax_argv() == ["/opt/homebrew/bin/prax", "cron", "run"]
+
+
+def test_resolve_prax_argv_falls_back_to_python_m_prax(monkeypatch):
+    monkeypatch.delenv("PRAX_BIN", raising=False)
+    monkeypatch.setattr(cron_installer.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(cron_installer.sys, "executable", "/opt/py/bin/python3")
+    argv = cron_installer._resolve_prax_argv()
+    assert argv == ["/opt/py/bin/python3", "-m", "prax", "cron", "run"]
+
+
+def test_launchd_env_forwards_path_and_pythonpath(monkeypatch):
+    monkeypatch.setenv("PATH", "/opt/homebrew/bin:/usr/bin")
+    monkeypatch.setenv("PYTHONPATH", "/opt/homebrew/lib/node_modules/praxagent")
+    env = cron_installer._launchd_env()
+    assert env["PATH"] == "/opt/homebrew/bin:/usr/bin"
+    assert env["PYTHONPATH"] == "/opt/homebrew/lib/node_modules/praxagent"
+
+
+def test_launchd_env_omits_pythonpath_when_unset(monkeypatch):
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    env = cron_installer._launchd_env()
+    assert "PYTHONPATH" not in env
+    assert env["PATH"] == "/usr/bin"
+
+
+def test_install_macos_writes_resolved_argv_and_env(tmp_path, monkeypatch):
+    launch_agents = tmp_path / "LaunchAgents"
+    monkeypatch.setattr(cron_installer, "_launchagents_dir", lambda: launch_agents)
+    monkeypatch.setenv("PRAX_BIN", "/custom/prax")
+    monkeypatch.setenv("PATH", "/custom/path")
+    monkeypatch.setenv("PYTHONPATH", "/custom/pythonpath")
+    monkeypatch.setattr(
+        cron_installer.subprocess, "run",
+        lambda *a, **kw: MagicMock(returncode=0, stdout="", stderr=""),
+    )
+
+    result = cron_installer.install_macos(cwd=str(tmp_path))
+
+    plist_path = launch_agents / "dev.prax.cron.dispatcher.plist"
+    parsed = plistlib.loads(plist_path.read_text().encode("utf-8"))
+    assert parsed["ProgramArguments"] == ["/custom/prax", "cron", "run"]
+    assert parsed["EnvironmentVariables"] == {
+        "PATH": "/custom/path",
+        "PYTHONPATH": "/custom/pythonpath",
+    }
+    # Return payload includes the resolved argv for display, but hides env values.
+    assert result["program_arguments"] == ["/custom/prax", "cron", "run"]
+    assert set(result["env_keys"]) == {"PATH", "PYTHONPATH"}
 
 
 # ── macOS install / uninstall (mocked launchctl + filesystem) ───────────────

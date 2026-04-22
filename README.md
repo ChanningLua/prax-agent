@@ -203,6 +203,46 @@ Session: 12.4K tokens ($0.04)
 /model, /session list, /plan, /todo show, /doctor, /cost, /help
 ```
 
+### Scheduled Tasks & Notifications (new in 0.4)
+
+Prax can own scheduled work end-to-end. Declare channels in `.prax/notify.yaml`, jobs in `.prax/cron.yaml`, and `prax cron install` writes the system-level trigger for you (LaunchAgent on macOS, crontab line on Linux).
+
+```bash
+# 1. configure an outbound channel (Feishu / Lark / Email)
+cat > .prax/notify.yaml <<YAML
+channels:
+  daily-digest:
+    provider: feishu_webhook
+    url: "\${FEISHU_WEBHOOK_URL}"
+YAML
+
+# 2. schedule a daily job
+prax cron add \
+  --name ai-news-daily \
+  --schedule "0 17 * * *" \
+  --prompt "触发 ai-news-daily 技能" \
+  --notify-on failure \
+  --notify-channel daily-digest
+
+# 3. install the per-minute dispatcher
+prax cron install
+```
+
+See [docs/recipes/ai-news-daily.md](./docs/recipes/ai-news-daily.md) for the full AI-news-automation recipe.
+
+### Bundled Skills
+
+Skills live under `skills/` (bundled) or `.prax/skills/` (project-local) and inject prompt guidance when their triggers match:
+
+| Skill | Triggers | Purpose |
+|---|---|---|
+| `browser-scrape` | `抓取` `scrape` `twitter` `zhihu` `bilibili` `autocli` | Drive [AutoCLI](https://github.com/nashsu/AutoCLI) to scrape 55+ sites reusing the user's Chrome login |
+| `knowledge-compile` | `整理` `compile` `wiki` `digest` `知识库` | Turn raw markdown into Obsidian-ready wiki (`index.md` + `topics/` + `daily-digest.md`) |
+| `ai-news-daily` | `ai-news-daily` `daily digest` `日报` | End-to-end pipeline: scrape → compile → notify |
+| `chinese-coding` | `中文` `注释` `文档` | Chinese comments/docs style guide |
+
+Project-local skills in `.prax/skills/` override bundled ones with the same name.
+
 ---
 
 ## Results

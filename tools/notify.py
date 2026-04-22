@@ -176,9 +176,11 @@ class NotifyTool(Tool):
     name = "Notify"
     description = (
         "Send a notification through a channel declared in .prax/notify.yaml "
-        "(feishu_webhook / lark_webhook / smtp). Use this at the end of a "
-        "long-running task, from a cron job, or whenever the user needs to be "
-        "told the result without opening a terminal."
+        "(providers: feishu_webhook / lark_webhook / smtp). The channel name "
+        "MUST exist in .prax/notify.yaml — this tool rejects ad-hoc URLs by "
+        "design so credentials stay in one place and every destination is "
+        "reviewable. Use at the end of a long-running task or from a cron "
+        "job to close the feedback loop."
     )
     input_schema = {
         "type": "object",

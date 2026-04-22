@@ -33,6 +33,11 @@ class DuplicateJobError(ValueError):
 class UnknownJobError(KeyError):
     """Raised when a job lookup by name fails."""
 
+    def __str__(self) -> str:
+        if self.args:
+            return f"cron job {self.args[0]!r} not found"
+        return "cron job not found"
+
 
 _FIELD_BOUNDS = (
     (0, 59),   # minute
