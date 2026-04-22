@@ -36,6 +36,7 @@
     "commands/",
     "config/",
     "core/",
+    "docs/recipes/",
     "integrations/",
     "runtime/",
     "skills/",
