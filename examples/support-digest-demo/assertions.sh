@@ -29,11 +29,15 @@ check "file under .prax/vault/support/${DATE}/" "[ -s '$DIGEST' ]"
 
 echo
 echo "Contract 2: digest contains a 'top N' highlights section capped at 5"
-HIGHLIGHT_COUNT=$(awk '/highlight|亮点|Top/I{f=1}f' "$DIGEST" 2>/dev/null \
-    | grep -cE '^###? ' 2>/dev/null || echo 0)
-# any of these layouts counts as "has a top section"
+# Count highlight items in two supported layouts:
+#   a) ### Headings     (H3 per highlight)
+#   b) numbered list     (  1. foo / 2. bar …)
+# BSD awk on macOS does not support /pat/I; tolower() is portable.
+HIGHLIGHT_COUNT=$(awk 'tolower($0)~/highlight|亮点|top/{f=1;next} f' "$DIGEST" 2>/dev/null \
+    | grep -cE '^### |^[[:space:]]*[0-9]+\.' 2>/dev/null)
+HIGHLIGHT_COUNT=$(printf '%s' "${HIGHLIGHT_COUNT:-0}" | tr -d '\n ' | awk '{print $1+0}')
 check "digest mentions '亮点' or 'highlights' or 'Top'" "grep -qiE '亮点|highlights|top' '$DIGEST'"
-check "highlights section has ≤ 5 items (got $HIGHLIGHT_COUNT)" "[ $HIGHLIGHT_COUNT -le 5 ]"
+check "highlights section has 1-5 items (got $HIGHLIGHT_COUNT)" "[ $HIGHLIGHT_COUNT -ge 1 ] && [ $HIGHLIGHT_COUNT -le 5 ]"
 
 echo
 echo "Contract 3: PII redacted — raw email addresses must NOT appear in digest"

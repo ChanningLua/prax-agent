@@ -31,7 +31,7 @@ class TestModelRouterMtimeCache:
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = Path(tmpdir) / ".prax" / "models.yaml"
             cfg.parent.mkdir(parents=True)
-            _write_config(cfg, {"default": "gpt-4.1"})
+            _write_config(cfg, {"default": "gpt-5.4"})
 
             r1 = ModelRouter.from_cwd(tmpdir)
             r2 = ModelRouter.from_cwd(tmpdir)
@@ -41,7 +41,7 @@ class TestModelRouterMtimeCache:
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = Path(tmpdir) / ".prax" / "models.yaml"
             cfg.parent.mkdir(parents=True)
-            _write_config(cfg, {"default": "gpt-4.1"})
+            _write_config(cfg, {"default": "gpt-5.4"})
 
             r1 = ModelRouter.from_cwd(tmpdir)
 

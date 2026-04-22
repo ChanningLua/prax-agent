@@ -174,7 +174,7 @@ npm publish
 |---|---|
 | CHANGELOG 里出现两次同版本号段 | 幂等失败。看 Step 3 |
 | `docs/releases/` 下的文件是空的 | Prax 中途出错。看 `.prax/sessions/` 下最新 session，看它执行轨迹哪一步卡了 |
-| 内容和 commit 不匹配 | Prax 摘要偷懒了。用更强模型再跑：在 prompt 末尾加 ` --model claude-sonnet-4-6`（或你配的最强模型）|
+| 内容和 commit 不匹配 | Prax 摘要偷懒了。用更强模型再跑：在 prompt 末尾加 ` --model claude-sonnet-4-7`（或你配的最强模型）|
 
 ---
 

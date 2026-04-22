@@ -91,7 +91,7 @@ async def test_passes_session_id_and_model(cwd, fake_runner, fake_notifier):
         cwd,
         schedule="* * * * *",
         session_id="cron-demo",
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-4-7",
     )
     now = datetime(2026, 4, 22, 12, 0)
 
@@ -101,7 +101,7 @@ async def test_passes_session_id_and_model(cwd, fake_runner, fake_notifier):
     assert "--session-id" in argv
     assert "cron-demo" in argv
     assert "--model" in argv
-    assert "claude-sonnet-4-6" in argv
+    assert "claude-sonnet-4-7" in argv
 
 
 # ── log file creation ────────────────────────────────────────────────────────

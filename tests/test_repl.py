@@ -25,7 +25,7 @@ def test_repl_runs_tasks_and_slash_commands(tmp_path):
     def command_context_factory(session_id: str) -> CommandContext:
         return CommandContext(
             cwd=str(tmp_path),
-            models_config={"default_model": "gpt-4.1", "providers": {}},
+            models_config={"default_model": "gpt-5.4", "providers": {}},
             session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
             session_id=session_id,
             permission_mode=PermissionMode.WORKSPACE_WRITE,
@@ -43,7 +43,7 @@ def test_repl_runs_tasks_and_slash_commands(tmp_path):
     )
 
     assert any("interactive session=session_repl" in item for item in outputs)
-    assert any("status model:gpt-4.1 perm:workspace-write T:off R:- glm:off codex:off claude:off" in item for item in outputs)
+    assert any("status model:gpt-5.4 perm:workspace-write T:off R:- glm:off codex:off claude:off" in item for item in outputs)
     assert any("Available commands:" in item for item in outputs)
     assert events == [("session_repl", "implement feature")]
 
@@ -61,7 +61,7 @@ def test_repl_resume_switches_session(tmp_path):
     def command_context_factory(session_id: str) -> CommandContext:
         return CommandContext(
             cwd=str(tmp_path),
-            models_config={"default_model": "gpt-4.1", "providers": {}},
+            models_config={"default_model": "gpt-5.4", "providers": {}},
             session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
             session_id=session_id,
             permission_mode=PermissionMode.WORKSPACE_WRITE,
@@ -88,7 +88,7 @@ def test_repl_prompt_reflects_session_preferences(tmp_path):
         SessionData(
             session_id="session_pref",
             cwd=str(tmp_path),
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-4-7",
             messages=[],
             metadata={
                 "preferred_model": "sonnet",
@@ -107,7 +107,7 @@ def test_repl_prompt_reflects_session_preferences(tmp_path):
     def command_context_factory(session_id: str) -> CommandContext:
         return CommandContext(
             cwd=str(tmp_path),
-            models_config={"default_model": "gpt-4.1", "providers": {}},
+            models_config={"default_model": "gpt-5.4", "providers": {}},
             session_store=store,
             session_id=session_id,
             permission_mode=PermissionMode.WORKSPACE_WRITE,

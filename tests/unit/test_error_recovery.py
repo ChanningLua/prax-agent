@@ -116,9 +116,9 @@ class TestComputeRecovery:
 
     def test_model_error_upgrade_when_upgrade_available(self):
         c = self._cls(ErrorType.MODEL_ERROR, is_transient=True)
-        s = compute_recovery(c, retry_count=2, available_models=["glm-4-flash", "claude-sonnet-4-6"], current_model="glm-4-flash")
+        s = compute_recovery(c, retry_count=2, available_models=["glm-4-flash", "claude-sonnet-4-7"], current_model="glm-4-flash")
         assert s.action == RecoveryAction.UPGRADE_MODEL
-        assert s.suggested_model == "claude-sonnet-4-6"
+        assert s.suggested_model == "claude-sonnet-4-7"
 
     def test_model_error_abort_when_no_upgrade(self):
         c = self._cls(ErrorType.MODEL_ERROR, is_transient=True)

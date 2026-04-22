@@ -1,6 +1,13 @@
 # examples/support-digest-demo · 真实验证 support-digest 技能
 
-> **当前状态（2026-04-22 下午）**：scaffold 已就绪；**真 run 暂被上游代理维护阻塞**（"服务器当前正在维护中，预计半小时完成"）。脚手架本身已 smoke 过——`replay.sh` 正确落下 8 条带 PII 的 fixture，`assertions.sh` 在"未跑"状态下正确 FAIL。代理恢复后再跑一次即可补全产出。
+> **当前状态（2026-04-22）**：**全 12 条契约 PASS ✅**（contract 2 / 4 / 5 各分成多个子项）。真跑模型：`gpt-5.3-codex` via Claude Relay Service proxy，`--permission-mode danger-full-access`（Step 7 的归档用 Bash `mv`）。
+>
+> 跑完的真实产出：
+> - `expected-digest.md` — 一屏简报，5 条 highlights
+> - `expected-redacted.json` — 脱敏后的结构化工单数据：email `jane.doe@example.com` → `j***@e***.com`，手机号 `138****5678` 中间 4 位遮罩
+> - `run.log` — 捕获的完整 stdout（ANSI stripped）
+>
+> 复现步骤在 "跑法" 段。契约 3（PII 在 digest 里脱敏）完整通过——验证了 skill 的合规核心声明。
 
 与 `release-notes-demo/` 结构同款。要验证的是 **support-digest skill 在真 LLM 下是否真的**：
 

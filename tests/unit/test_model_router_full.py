@@ -38,10 +38,10 @@ def clear_router_cache():
 
 def test_default_routing_rules_present():
     router = ModelRouter()
-    assert router._routing_rules["default"] == "claude-opus-4-6"
+    assert router._routing_rules["default"] == "claude-opus-4-7"
     assert router._routing_rules["chinese_content"] == "glm-4-flash"
-    assert router._routing_rules["debugging"] == "gpt-4.1"
-    assert router._routing_rules["architecture"] == "claude-opus-4-6"
+    assert router._routing_rules["debugging"] == "gpt-5.4"
+    assert router._routing_rules["architecture"] == "claude-opus-4-7"
 
 
 # ---------------------------------------------------------------------------
@@ -94,13 +94,13 @@ def test_classify_task_unknown_returns_default():
 def test_route_normal():
     router = ModelRouter()
     model = router.route("fix bug in auth flow")
-    assert model == "gpt-4.1"
+    assert model == "gpt-5.4"
 
 
 def test_route_default_task():
     router = ModelRouter()
     model = router.route("do the thing")
-    assert model == "claude-opus-4-6"
+    assert model == "claude-opus-4-7"
 
 
 # ---------------------------------------------------------------------------
@@ -116,8 +116,8 @@ def test_route_force_model_override():
 def test_route_force_model_overrides_classification():
     router = ModelRouter()
     # Even though this would classify as chinese_content, force_model wins
-    model = router.route("用中文写代码", context={"force_model": "gpt-4.1"})
-    assert model == "gpt-4.1"
+    model = router.route("用中文写代码", context={"force_model": "gpt-5.4"})
+    assert model == "gpt-5.4"
 
 
 # ---------------------------------------------------------------------------
@@ -138,14 +138,14 @@ def test_get_fallback_chain_no_starting_model():
 
 def test_get_fallback_chain_starting_model_in_chain():
     router = ModelRouter()
-    # DEFAULT_FALLBACK_CHAIN = ["claude-opus-4-6", "gpt-4.1", "glm-4-flash"]
-    chain = router.get_fallback_chain("gpt-4.1")
-    assert chain == ["gpt-4.1", "glm-4-flash"]
+    # DEFAULT_FALLBACK_CHAIN = ["claude-opus-4-7", "gpt-5.4", "glm-4-flash"]
+    chain = router.get_fallback_chain("gpt-5.4")
+    assert chain == ["gpt-5.4", "glm-4-flash"]
 
 
 def test_get_fallback_chain_starting_model_first():
     router = ModelRouter()
-    chain = router.get_fallback_chain("claude-opus-4-6")
+    chain = router.get_fallback_chain("claude-opus-4-7")
     assert chain == DEFAULT_FALLBACK_CHAIN
 
 
@@ -206,7 +206,7 @@ def test_load_config_valid_yaml(tmp_path):
 def test_load_config_missing_file(tmp_path):
     router = ModelRouter(str(tmp_path / "nonexistent.yaml"))
     # Should fall back to defaults silently
-    assert router._routing_rules["default"] == "claude-opus-4-6"
+    assert router._routing_rules["default"] == "claude-opus-4-7"
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +220,7 @@ def test_load_config_invalid_yaml(tmp_path, caplog):
     with caplog.at_level(logging.WARNING, logger="prax.core.model_router"):
         router = ModelRouter(str(bad_file))
     # Should not raise, defaults intact
-    assert router._routing_rules["default"] == "claude-opus-4-6"
+    assert router._routing_rules["default"] == "claude-opus-4-7"
     assert any("Failed to load" in r.message for r in caplog.records)
 
 
@@ -254,7 +254,7 @@ def test_from_cwd_no_config(tmp_path):
         mock_local.exists.return_value = False
         # Restore original ModelRouter constructor
         router = ModelRouter()
-    assert router._routing_rules["default"] == "claude-opus-4-6"
+    assert router._routing_rules["default"] == "claude-opus-4-7"
 
 
 def test_from_cwd_empty_directory(tmp_path):
@@ -265,7 +265,7 @@ def test_from_cwd_empty_directory(tmp_path):
     with patch.object(Path, "exists", return_value=False):
         router = ModelRouter.from_cwd(str(tmp_path))
     assert isinstance(router, ModelRouter)
-    assert router._routing_rules["default"] == "claude-opus-4-6"
+    assert router._routing_rules["default"] == "claude-opus-4-7"
 
 
 # ---------------------------------------------------------------------------
@@ -315,4 +315,4 @@ def test_from_config_cached_oserror_returns_fresh_router(tmp_path):
     router = ModelRouter._from_config_cached(nonexistent)
     assert isinstance(router, ModelRouter)
     # Should use defaults
-    assert router._routing_rules["default"] == "claude-opus-4-6"
+    assert router._routing_rules["default"] == "claude-opus-4-7"

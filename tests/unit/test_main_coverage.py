@@ -321,7 +321,7 @@ def test_bootstrap_session_resumes_existing_session(tmp_path):
 
     mock_session = MagicMock()
     mock_session.session_id = "existing-sess"
-    mock_session.metadata = {"preferred_model": "gpt-4.1"}
+    mock_session.metadata = {"preferred_model": "gpt-5.4"}
     mock_session.messages = [{"role": "user", "content": "hi"}]
 
     with (
@@ -349,7 +349,7 @@ def test_bootstrap_session_resumes_existing_session(tmp_path):
         )
 
     # preferred_model from metadata should be used
-    assert model_name == "gpt-4.1"
+    assert model_name == "gpt-5.4"
 
 
 def test_bootstrap_session_selects_agent(tmp_path, capsys):

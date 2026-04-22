@@ -151,7 +151,7 @@ memory:
 
 **跨会话持久记忆** — 关闭终端不会丢失上下文。两种记忆后端：JSON（零配置）、SQLite（全文搜索）。
 
-**多模型编排** — Claude、GPT、GLM 及自定义模型，具备显式路由、降级链和成本追踪。会话中随时切换模型 `/model claude-opus-4-6`。
+**多模型编排** — Claude、GPT、GLM 及自定义模型，具备显式路由、降级链和成本追踪。会话中随时切换模型 `/model claude-opus-4-7`。
 
 **安全内建** — 权限模式（`read-only`、`workspace-write`、`danger-full-access`）、Schema 校验、工作区边界、完整审计追踪。
 
@@ -191,7 +191,7 @@ prax repl
 
 > analyze the codebase structure
 > fix the SQL injection in user_query.py
-> /model claude-opus-4-6
+> /model claude-opus-4-7
 > /cost
 Session: 12.4K tokens ($0.04)
 ```
@@ -273,7 +273,7 @@ prax /doctor claude
 **模型** — 在项目中创建 `.prax/models.yaml`：
 
 ```yaml
-default_model: claude-sonnet-4-6
+default_model: claude-sonnet-4-7
 
 providers:
   anthropic:
@@ -281,14 +281,14 @@ providers:
     api_key_env: ANTHROPIC_API_KEY
     format: anthropic
     models:
-      - name: claude-sonnet-4-6
+      - name: claude-sonnet-4-7
 
   openai:
     base_url: https://api.openai.com/v1
     api_key_env: OPENAI_API_KEY
     format: openai
     models:
-      - name: gpt-4.1
+      - name: gpt-5.4
 ```
 
 或者：`prax /init-models claude`

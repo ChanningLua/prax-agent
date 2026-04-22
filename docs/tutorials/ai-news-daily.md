@@ -143,7 +143,7 @@ cat .prax/vault/ai-news-hub/$TODAY/topics/model-releases.md
 | 症状 | 解法 |
 |---|---|
 | `cp: No such file or directory: .../sample-vault/*.md` | Phase 1 Step 2 的 `$PRAX_DIR` 没算对。手跑 `python3 -c "import prax, os; print(os.path.dirname(prax.__file__))"` 看输出，改用绝对路径 |
-| Prax 没产出 `topics/` 目录 | 用的模型太弱。换强一点的：在 prompt 末尾加 ` --model claude-sonnet-4-6` |
+| Prax 没产出 `topics/` 目录 | 用的模型太弱。换强一点的：在 prompt 末尾加 ` --model claude-sonnet-4-7` |
 | digest 太长（超过一屏） | Prax 没遵守约束。重跑，或明确说"daily-digest.md 一屏内" |
 
 ---

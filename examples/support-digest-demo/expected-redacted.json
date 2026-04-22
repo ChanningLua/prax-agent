@@ -1,0 +1,82 @@
+[
+  {
+    "id": "T-10342",
+    "created_at": "2026-04-21T14:22:00+08:00",
+    "status": "open",
+    "severity": "high",
+    "category": "billing",
+    "subject": "Double charge on Pro plan",
+    "body": "On April 20th I was charged twice for the Pro plan ($49 each). My card ends in 4241. Please refund the duplicate immediately. My registered email is j***@e***.com.",
+    "customer_email": "j***@e***.com"
+  },
+  {
+    "id": "T-10343",
+    "created_at": "2026-04-21T15:05:00+08:00",
+    "status": "open",
+    "severity": "medium",
+    "category": "auth",
+    "subject": "OAuth login stuck on loading",
+    "body": "Trying to sign in with Google keeps spinning. Tried Chrome and Safari. Contact me at 138****5678 (already masked by support).",
+    "customer_email": "u***@t***.co"
+  },
+  {
+    "id": "T-10344",
+    "created_at": "2026-04-21T16:10:00+08:00",
+    "status": "escalated",
+    "severity": "high",
+    "category": "billing",
+    "subject": "Unauthorized charge refund needed",
+    "body": "I see a $99 charge I never authorized. Please refund or I will contact my bank. Phone: 555-0177, email s***@e***.net.",
+    "customer_email": "s***@e***.net"
+  },
+  {
+    "id": "T-10345",
+    "created_at": "2026-04-21T09:00:00+08:00",
+    "status": "open",
+    "severity": "low",
+    "category": "docs",
+    "subject": "Setup guide is outdated",
+    "body": "Your setup guide mentions v0.2 but the latest is v0.4. Maybe update the screenshots too.",
+    "customer_email": "d***@e***.io"
+  },
+  {
+    "id": "T-10346",
+    "created_at": "2026-04-21T10:30:00+08:00",
+    "status": "open",
+    "severity": "medium",
+    "category": "mobile-app-crash",
+    "subject": "iOS app crashes on launch",
+    "body": "After updating to 3.2.1 the app crashes immediately on iPhone 14. Same on iPad.",
+    "customer_email": "i***@e***.org"
+  },
+  {
+    "id": "T-10347",
+    "created_at": "2026-04-21T11:15:00+08:00",
+    "status": "open",
+    "severity": "medium",
+    "category": "billing",
+    "subject": "Invoice download 404",
+    "body": "Tried to download my April invoice three times, all 404. Tried logout/login. Same.",
+    "customer_email": "i***@e***.com"
+  },
+  {
+    "id": "T-10348",
+    "created_at": "2026-04-21T13:45:00+08:00",
+    "status": "open",
+    "severity": "low",
+    "category": "integration-slack",
+    "subject": "Can you add Slack integration?",
+    "body": "We'd love a native Slack webhook. Any ETA?",
+    "customer_email": "f***@c***.example"
+  },
+  {
+    "id": "T-10349",
+    "created_at": "2026-04-21T17:20:00+08:00",
+    "status": "re-opened",
+    "severity": "high",
+    "category": "billing",
+    "subject": "Still waiting for refund from last week",
+    "body": "Ticket T-10201 was supposed to be refunded within 5 business days but nothing appeared. Considering contacting my lawyer if not resolved by Friday.",
+    "customer_email": "u***@e***.com"
+  }
+]

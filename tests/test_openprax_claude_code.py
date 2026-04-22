@@ -150,9 +150,9 @@ def test_openprax_cli_parser_supports_claude_lifecycle():
     assert export_marketplace_args.out_dir == "/tmp/openprax-marketplace"
     assert export_marketplace_args.profile == "developer"
 
-    prompt_args = parser.parse_args(["prompt", "--model", "claude-sonnet-4-6", "fix", "the", "bug"])
+    prompt_args = parser.parse_args(["prompt", "--model", "claude-sonnet-4-7", "fix", "the", "bug"])
     assert prompt_args.command == "prompt"
-    assert prompt_args.model == "claude-sonnet-4-6"
+    assert prompt_args.model == "claude-sonnet-4-7"
     assert prompt_args.task == ["fix", "the", "bug"]
 
 

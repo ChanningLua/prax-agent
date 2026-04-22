@@ -47,7 +47,7 @@ def test_save_and_load_round_trip(store):
             schedule="30 17 * * 1-5",
             prompt="five thirty",
             session_id="cron-b",
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-4-7",
             notify_on=["success", "failure"],
             notify_channel="daily",
         ),

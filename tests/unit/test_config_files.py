@@ -33,7 +33,7 @@ class TestLoadModelsConfig:
         from prax.core.config_files import load_models_config
         result = load_models_config(str(tmp_path))
 
-        assert result == {"default_model": "gpt-4.1", "providers": {}}
+        assert result == {"default_model": "gpt-5.4", "providers": {}}
 
     def test_global_config_only(self, tmp_path, monkeypatch):
         fake_home = tmp_path / "home"

@@ -5,7 +5,7 @@ Each .md file under .prax/agents/ defines one Agent:
     ---
     name: planner
     description: Strategic planning specialist
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     tools:
       - TodoWrite
       - Task
@@ -57,7 +57,7 @@ class AgentDefinition:
         return cls(
             name=meta["name"],
             description=meta.get("description", ""),
-            model=meta.get("model", "claude-sonnet-4-6"),
+            model=meta.get("model", "claude-sonnet-4-7"),
             tools=meta.get("tools", []),
             max_iterations=int(meta.get("max_iterations", 25)),
             system_prompt=system_prompt,

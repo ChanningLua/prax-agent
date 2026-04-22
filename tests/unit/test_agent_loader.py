@@ -38,7 +38,7 @@ def test_from_markdown_minimal(tmp_path):
     defn = AgentDefinition.from_markdown(md)
     assert defn.name == "test-agent"
     assert defn.description == "Test agent"
-    assert defn.model == "claude-sonnet-4-6"  # default
+    assert defn.model == "claude-sonnet-4-7"  # default
     assert defn.tools == []
     assert defn.max_iterations == 25  # default
     assert defn.system_prompt == ""

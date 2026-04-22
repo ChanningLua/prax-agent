@@ -534,7 +534,7 @@ class TestLLMClientFormatConversion:
         self.client._http.post = fake_post
         cfg = ModelConfig(
             provider="test",
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-4-7",
             base_url="http://test",
             api_key="key",
             api_format="anthropic",
@@ -679,15 +679,15 @@ class TestModelUpgrade:
                     "models": [
                         {"name": "glm-4", "tier": "standard"},
                         {"name": "glm-5", "tier": "high"},
-                        {"name": "gpt-4.1", "tier": "high"},
+                        {"name": "gpt-5.4", "tier": "high"},
                     ],
                 }
             },
-            "upgrade_chain": ["glm-4-flash", "glm-4", "glm-5", "gpt-4.1"],
+            "upgrade_chain": ["glm-4-flash", "glm-4", "glm-5", "gpt-5.4"],
         }
 
-        assert get_upgrade_path("glm-4", config) == ["glm-4", "glm-5", "gpt-4.1"]
-        assert get_upgrade_path("custom-model", config) == ["glm-4", "glm-5", "gpt-4.1"]
+        assert get_upgrade_path("glm-4", config) == ["glm-4", "glm-5", "gpt-5.4"]
+        assert get_upgrade_path("custom-model", config) == ["glm-4", "glm-5", "gpt-5.4"]
 
     def test_should_upgrade_model_on_tool_error(self):
         report = AgentRunReport(

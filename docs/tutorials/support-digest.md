@@ -369,7 +369,7 @@ prax cron add \
 |---|---|---|
 | `prax: command not found` | Step 0 | 参见 [getting-started](../getting-started.md) |
 | `Model '...' not found` | Step 3 | `prax doctor` 看哪个模型有 key；按提示配 |
-| 简报内容和示例差很多 | Step 4 | Prax 用的模型越弱，输出越模糊。试 `prax prompt ... --model claude-sonnet-4-6` |
+| 简报内容和示例差很多 | Step 4 | Prax 用的模型越弱，输出越模糊。试 `prax prompt ... --model claude-sonnet-4-7` |
 | 脱敏没生效 | Step 5 | 你的数据字段名不标准，Prax 没认出 `customer_email` / `phone` 是 PII。在 `.prax/support-digest.yaml` 配 `redaction.extra_regex` |
 | cron 装了不触发 | Step 7 | `launchctl list \| grep dev.prax`；没条目就重 `prax cron uninstall && prax cron install` |
 | Notify 说"channel not found" | Step 8 | `cat .prax/notify.yaml` 确认 `pm-team` channel 在里面；注意缩进必须是 2 个空格 |

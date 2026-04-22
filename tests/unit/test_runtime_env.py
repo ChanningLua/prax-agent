@@ -15,7 +15,7 @@ def _models_config() -> dict:
                 "api_key_env": ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"],
                 "base_url": "https://api.anthropic.com",
                 "base_url_env": "ANTHROPIC_BASE_URL",
-                "models": [{"name": "claude-sonnet-4-6", "api_model": "claude-sonnet-4-6"}],
+                "models": [{"name": "claude-sonnet-4-7", "api_model": "claude-sonnet-4-7"}],
             }
         }
     }

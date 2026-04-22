@@ -166,7 +166,7 @@ Most tools send a prompt and hope for the best. Prax runs a **test-verify-fix lo
 
 **Cross-Session Persistent Memory** — Context persists when you close the terminal. Two memory backends: JSON (zero-config) and SQLite (full-text search).
 
-**Multi-Model Orchestration** — Claude, GPT, GLM, and custom models with explicit routing, fallback chains, and cost tracking. Switch models mid-session with `/model claude-opus-4-6`.
+**Multi-Model Orchestration** — Claude, GPT, GLM, and custom models with explicit routing, fallback chains, and cost tracking. Switch models mid-session with `/model claude-opus-4-7`.
 
 **Security by Design** — Permission modes (`read-only`, `workspace-write`, `danger-full-access`), schema validation, workspace boundaries, and full audit trail.
 
@@ -206,7 +206,7 @@ prax repl
 
 > analyze the codebase structure
 > fix the SQL injection in user_query.py
-> /model claude-opus-4-6
+> /model claude-opus-4-7
 > /cost
 Session: 12.4K tokens ($0.04)
 ```
@@ -342,7 +342,7 @@ prax /doctor claude
 **Models** — create `.prax/models.yaml` in your project:
 
 ```yaml
-default_model: claude-sonnet-4-6
+default_model: claude-sonnet-4-7
 
 providers:
   anthropic:
@@ -350,14 +350,14 @@ providers:
     api_key_env: ANTHROPIC_API_KEY
     format: anthropic
     models:
-      - name: claude-sonnet-4-6
+      - name: claude-sonnet-4-7
 
   openai:
     base_url: https://api.openai.com/v1
     api_key_env: OPENAI_API_KEY
     format: openai
     models:
-      - name: gpt-4.1
+      - name: gpt-5.4
 ```
 
 Or: `prax /init-models claude`

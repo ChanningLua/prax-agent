@@ -572,15 +572,15 @@ class ModelFallbackMiddleware(AgentMiddleware):
 
     # intent → preferred model
     _INTENT_MODEL_MAP: dict[str, str] = {
-        "debugging": "gpt-4.1",
-        "deep_research": "gpt-4.1",
-        "architecture": "claude-opus-4-6",
+        "debugging": "gpt-5.4",
+        "deep_research": "gpt-5.4",
+        "architecture": "claude-opus-4-7",
         "chinese_content": "glm-4-flash",
         "quick_tasks": "glm-4-flash",
     }
 
     def __init__(self, fallback_chain: list[str] | None = None):
-        self._fallback_chain = fallback_chain or ["claude-opus-4-6", "gpt-4.1", "glm-4-flash"]
+        self._fallback_chain = fallback_chain or ["claude-opus-4-7", "gpt-5.4", "glm-4-flash"]
         self._error_count = 0
 
     async def before_model(self, state: RuntimeState) -> None:

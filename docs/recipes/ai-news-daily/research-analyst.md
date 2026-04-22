@@ -1,7 +1,7 @@
 ---
 name: research-analyst
 description: 研究助理 agent - 抓取公开信息、结构化整理、可复现地输出简报
-model: claude-sonnet-4-6
+model: claude-sonnet-4-7
 tools:
   - Bash
   - Read

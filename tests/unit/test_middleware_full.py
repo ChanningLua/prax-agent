@@ -373,7 +373,7 @@ async def test_model_fallback_sets_dynamic_override_from_intent(runtime_state):
 
     await middleware.before_model(runtime_state)
 
-    assert runtime_state.metadata["dynamic_model_override"] == "gpt-4.1"
+    assert runtime_state.metadata["dynamic_model_override"] == "gpt-5.4"
 
 
 @pytest.mark.asyncio

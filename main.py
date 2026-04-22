@@ -517,8 +517,8 @@ def _make_task_executor(
                 if selected_agent.model and get_model_entry(selected_agent.model, models_config):
                     model_hint = selected_agent.model
                 agent_system_prompt = selected_agent.system_prompt or None
-            elif subagent_type.lower() == "plan" and get_model_entry("claude-sonnet-4-6", models_config):
-                model_hint = "claude-sonnet-4-6"
+            elif subagent_type.lower() == "plan" and get_model_entry("claude-sonnet-4-7", models_config):
+                model_hint = "claude-sonnet-4-7"
             task_prompt = (
                 f"[Delegated task: {description}]\n"
                 f"Working directory: {sub_cwd}\n"
@@ -578,7 +578,7 @@ def _bootstrap_session(
     elif session is not None and (session.metadata or {}).get("preferred_model"):
         model_name = str((session.metadata or {})["preferred_model"])
     else:
-        model_name = classifier.select_model(task, models_config.get("default_model", "gpt-4.1"))
+        model_name = classifier.select_model(task, models_config.get("default_model", "gpt-5.4"))
 
     registry = get_agent_registry(cwd)
     selected_agent = registry.select_for_task(task)

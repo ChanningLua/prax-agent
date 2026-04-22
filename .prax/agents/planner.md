@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Strategic planning and task decomposition specialist
-model: claude-opus-4-6
+model: claude-opus-4-7
 tools:
   - TodoWrite
   - Task

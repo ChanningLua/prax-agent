@@ -52,7 +52,7 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
     },
     "codex": {
         "default_model": "codex",
-        "upgrade_chain": ["codex", "gpt-4.1", "claude-sonnet-4-6"],
+        "upgrade_chain": ["codex", "gpt-5.4", "claude-sonnet-4-7"],
         "providers": {
             "openai": {
                 "base_url": "https://api.openai.com/v1",
@@ -60,8 +60,8 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
                 "format": "openai",
                 "models": [
                     {
-                        "name": "gpt-4.1",
-                        "api_model": "gpt-4.1",
+                        "name": "gpt-5.4",
+                        "api_model": "gpt-5.4",
                         "aliases": ["gpt", "gpt4"],
                         "request_mode": "chat_completions",
                         "tier": "standard",
@@ -86,8 +86,8 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
         },
     },
     "claude": {
-        "default_model": "claude-sonnet-4-6",
-        "upgrade_chain": ["claude-sonnet-4-6", "claude-opus-4-6"],
+        "default_model": "claude-sonnet-4-7",
+        "upgrade_chain": ["claude-sonnet-4-7", "claude-opus-4-7"],
         "providers": {
             "anthropic": {
                 "base_url": "https://api.anthropic.com",
@@ -95,7 +95,7 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
                 "format": "anthropic",
                 "models": [
                     {
-                        "name": "claude-sonnet-4-6",
+                        "name": "claude-sonnet-4-7",
                         "aliases": ["sonnet"],
                         "request_mode": "chat_completions",
                         "tier": "premium",
@@ -106,7 +106,7 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
                         "default_thinking_budget_tokens": 12000,
                     },
                     {
-                        "name": "claude-opus-4-6",
+                        "name": "claude-opus-4-7",
                         "aliases": ["opus"],
                         "request_mode": "chat_completions",
                         "tier": "ultra",
@@ -148,7 +148,7 @@ def merge_flow_templates(flows: list[str]) -> dict[str, Any]:
             default_model = template.get("default_model")
         result["providers"] = _merge_providers(result["providers"], template.get("providers", {}))
         result["upgrade_chain"] = _merge_upgrade_chain(result["upgrade_chain"], template.get("upgrade_chain", []))
-    result["default_model"] = default_model or "gpt-4.1"
+    result["default_model"] = default_model or "gpt-5.4"
     return result
 
 

@@ -47,7 +47,7 @@ def load_models_config(cwd: str | None = None) -> dict:
         except Exception as e:
             logger.warning("Failed to load project models config %s: %s", local_cfg_path, e)
 
-    return global_cfg if global_cfg else {"default_model": "gpt-4.1", "providers": {}}
+    return global_cfg if global_cfg else {"default_model": "gpt-5.4", "providers": {}}
 
 
 def load_rules_config(cwd: str | None = None) -> dict:

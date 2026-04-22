@@ -42,8 +42,8 @@ providers:
         supports_streaming: true
         supports_reasoning_effort: false
         supports_thinking: false
-      - name: gpt-4.1
-        aliases: ["gpt", "gpt4"]
+      - name: gpt-5.4
+        aliases: ["gpt", "gpt5"]
         tier: standard
         cost_per_1m_tokens: 5.0
         supports_tools: true
@@ -77,7 +77,7 @@ providers:
     api_key_env: ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]
     format: "anthropic"
     models:
-      - name: claude-sonnet-4-6
+      - name: claude-sonnet-4-7
         aliases: ["sonnet"]
         tier: premium
         cost_per_1m_tokens: 15.0
@@ -86,7 +86,7 @@ providers:
         supports_reasoning_effort: false
         supports_thinking: true
         default_thinking_budget_tokens: 12000
-      - name: claude-opus-4-6
+      - name: claude-opus-4-7
         aliases: ["opus"]
         tier: ultra
         cost_per_1m_tokens: 75.0
@@ -96,27 +96,27 @@ providers:
         supports_thinking: true
         default_thinking_budget_tokens: 32000
 
-default_model: gpt-4.1
+default_model: gpt-5.4
 
 # Upgrade chain: when quality check fails, try next model
 upgrade_chain:
-  - gpt-4.1
-  - claude-sonnet-4-6
-  - claude-opus-4-6
+  - gpt-5.4
+  - claude-sonnet-4-7
+  - claude-opus-4-7
 
 # Multi-model routing (ModelRouter)
 routing:
   rules:
-    complex_reasoning: claude-opus-4-6
-    architecture: claude-opus-4-6
-    code_review: claude-opus-4-6
-    deep_research: gpt-4.1
-    debugging: gpt-4.1
+    complex_reasoning: claude-opus-4-7
+    architecture: claude-opus-4-7
+    code_review: claude-opus-4-7
+    deep_research: gpt-5.4
+    debugging: gpt-5.4
     chinese_content: glm-5
     quick_tasks: glm-4-flash
     translation: glm-5
-    default: gpt-4.1
+    default: gpt-5.4
   fallback_chain:
-    - claude-opus-4-6
-    - gpt-4.1
+    - claude-opus-4-7
+    - gpt-5.4
     - glm-4-flash

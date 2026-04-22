@@ -1,7 +1,7 @@
 ---
 name: tdd-guide
 description: Test-driven development specialist — RED → GREEN → REFACTOR
-model: claude-sonnet-4-6
+model: claude-sonnet-4-7
 tools:
   - HashlineRead
   - HashlineEdit
