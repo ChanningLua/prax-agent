@@ -1,0 +1,2 @@
+# The sandbox dir is rebuilt by replay.sh on demand — never commit it.
+sandbox/

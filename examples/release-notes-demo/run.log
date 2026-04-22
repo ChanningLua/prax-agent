@@ -1,0 +1,5 @@
+[90m[prax] model=gpt-4.1 cwd=/Users/liuchuanming/prax/examples/release-notes-demo/sandbox[0m
+[90m[prax] session=session_dae4511ab99c[0m
+[90m[prax] executor=direct-api (explicit --runtime-path=native)[0m
+Docker sandbox unavailable — falling back to local sandbox. Set PRAX_SANDBOX_BACKEND=docker to enforce Docker, or PRAX_SANDBOX_POLICY=fail_closed to prevent local fallback.
+[31mError: Model 'gpt-4.1' not found in configuration[0m
