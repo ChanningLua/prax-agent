@@ -186,9 +186,9 @@ HELLO WORLD
 |---|---|
 | 处理每天的客服工单 | [`tutorials/support-digest.md`](./tutorials/support-digest.md) |
 | 每天抓 X / 知乎 / Bilibili AI 动态，做个知识库 | [`tutorials/ai-news-daily.md`](./tutorials/ai-news-daily.md)（做完你就有 Hermes 同款工作流了） |
-| 自动生成发版说明 / CHANGELOG | [`recipes/release-notes.md`](./recipes/release-notes.md) |
-| 每天 triage 团队 PR | [`recipes/pr-triage.md`](./recipes/pr-triage.md) |
-| 检测代码-文档 drift | [`recipes/docs-audit.md`](./recipes/docs-audit.md) |
+| 自动生成发版说明 / CHANGELOG | [`tutorials/release-notes.md`](./tutorials/release-notes.md) |
+| 每天 triage 团队 PR | [`tutorials/pr-triage.md`](./tutorials/pr-triage.md) |
+| 检测代码-文档 drift | [`tutorials/docs-audit.md`](./tutorials/docs-audit.md) |
 
 有问题：<https://github.com/ChanningLua/prax-agent/issues>
 

@@ -21,10 +21,15 @@
 
 **Brand-new user?** Follow the 5-minute [Getting Started](./docs/getting-started.md) guide — install Prax, configure an AI key, run your first prompt.
 
-**Want a step-by-step real-world walkthrough?**
+**Want a step-by-step real-world walkthrough?** Pick the one that matches your role:
 
-- [**Customer-support digest tutorial**](./docs/tutorials/support-digest.md) — PM scenario, includes sample data, zero external deps (10 minutes)
-- [**AI news daily pipeline tutorial**](./docs/tutorials/ai-news-daily.md) — the Hermes-style workflow, broken into 4 independent phases so you can stop and still have something working (20-60 minutes total)
+| Role | Tutorial | What you end up with |
+|---|---|---|
+| **PM / support lead** | [support-digest](./docs/tutorials/support-digest.md) | Daily anonymized ticket digest pushed to a chat channel. Works on sample data first (no external deps, 10 min) |
+| **Content / KOL / you want a personal knowledge base** | [ai-news-daily](./docs/tutorials/ai-news-daily.md) | The Hermes-style "scrape X/知乎/Bilibili → compile wiki → send digest" pipeline. Phase 1 zero-deps, later phases add AutoCLI + cron + Feishu (20-60 min) |
+| **Release manager / team lead** | [release-notes](./docs/tutorials/release-notes.md) | CHANGELOG + standalone release announcement from your git history. Idempotent. Prax never auto-tags or pushes (10 min) |
+| **DevEx / tech writer** | [docs-audit](./docs/tutorials/docs-audit.md) | Weekly evidence-cited "which docs are stale?" report. Never edits docs itself (10 min) |
+| **Engineering lead** | [pr-triage](./docs/tutorials/pr-triage.md) | Per-PR triage that **actually runs tests on both PR and base branch** and compares. No GitHub side-effects (10 min) |
 
 **Experienced users** can get going with:
 
