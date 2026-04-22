@@ -1,7 +1,7 @@
 ---
 name: support-digest
 description: 本地处理客服工单 JSON 导出，产出脱敏后的每日简报 —— 不出数据、不调外部 API
-allowed-tools: [Read, Write, Glob, Grep, Notify]
+allowed-tools: [Read, Write, Glob, Grep, Bash, Notify]
 triggers: [support digest, 客服简报, 工单简报, ticket digest, 客户反馈, customer feedback, 投诉汇总]
 tags: [support, pm, privacy, local-only, digest]
 priority: 7
@@ -180,6 +180,13 @@ Notify(
 3. **highlights 上限 5**：多了信息过载。宁愿筛严格。
 4. **body 摘录 ≤ 100 字**：不要把完整 body 粘进 digest——digest 是一屏可看完。
 5. **原文件必须归档**：处理完后移动到 `.prax/inbox/archive/`，避免下次重复处理。
+
+## 工具选择（很关键）
+
+- 创建**新文件**（`digest.md`、`tickets-redacted.json`）：**必须用 `Write` 工具**（自动 `mkdir -p`）。
+- 修改**已存在文件**：用 `Edit` / `HashlineEdit`。
+- 归档原 ticket 文件（Step 7）：用 `Bash mv ...` 或 Read+Write+`Bash rm` 的组合。归档失败会导致下次重复处理，不能跳过。
+- **`HashlineEdit` / `Edit` 对不存在的路径会 `File not found`** —— 新文件必须走 `Write`。
 
 ## 配置（可选）`.prax/support-digest.yaml`
 

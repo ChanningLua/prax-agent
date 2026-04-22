@@ -44,6 +44,11 @@ priority: 7
 - 所有时间用 ISO 格式（`2026-04-22T17:05:00+08:00`）
 - 中文优先，技术术语保留英文原词
 
+**工具选择**（**很关键**）：
+- 创建**新文件**（`index.md`、`daily-digest.md`、`topics/<slug>.md`）：**必须用 `Write` 工具**，它会自动 `mkdir -p` 父目录。
+- 修改**已存在文件**：用 `Edit` 或 `HashlineEdit`。
+- `HashlineEdit` / `Edit` 对**不存在**的路径会报 `File not found` —— 不要用它们写新文件。
+
 ## 标准执行流程
 
 ### 步骤 1：扫描输入目录

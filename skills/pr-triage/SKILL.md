@@ -220,6 +220,12 @@ Notify(
 4. **失败路径必须有降级**——gh 不可用、网络不通、测试跑不起来，都要能产出部分笔记
 5. **patch > 2000 行时**（硬上限）直接标记 `level=warn`，笔记里写"PR 过大，建议拆分，本工具不对此类 PR 跑完整测试"，跳过 Step 5
 
+## 工具选择（很关键）
+
+- 审查笔记 `.prax/pr-triage/pr-<N>-<ts>.md` 每次都是**新文件**：用 `Write`（自动建目录）。
+- 跑 `gh pr view` / `gh pr diff` / `git fetch` / `git checkout` / `VerifyCommand`：都要 `Bash`，默认权限模式不够，需要 `--permission-mode danger-full-access`。
+- `HashlineEdit` / `Edit` 对不存在路径会 `File not found`——新笔记必须走 `Write`。
+
 ## 和其他 skill 的接力
 
 - `docs-audit`：PR 改 src/ 没改 docs/ 时，triage 笔记里引用 docs-audit 的输出

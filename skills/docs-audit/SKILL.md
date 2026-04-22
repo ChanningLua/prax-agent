@@ -154,6 +154,12 @@ Notify(
 4. **跳过生成文件**：`*.lock`、`__pycache__`、`node_modules`、`.venv`、`dist/`、`build/`
 5. **报告只写不删**——`.prax/reports/` 下的历史报告保留，用户自己清理。
 
+## 工具选择（很关键）
+
+- 报告文件 `.prax/reports/docs-audit-<YYYY-MM-DD>.md` 几乎总是**新文件**：**必须用 `Write`**（它会自动建 `.prax/reports/` 目录）。
+- `git log` / `grep -rln` 读 commit 历史和文档提及：用 `Bash`（需要 `--permission-mode danger-full-access` 或 Prax 未来加的 `SafeGitTool`）。
+- `HashlineEdit` / `Edit` 对不存在的报告路径会 `File not found`——不要拿它们写新报告。
+
 ## 脾气
 
 - 误报**多**好过漏报**少**：technical writers 宁愿过滤 20% 无关项，也比错过真 drift 强
