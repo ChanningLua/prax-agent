@@ -55,28 +55,32 @@ f32a7cb docs: add 5-minute getting-started for absolute beginners
 prax prompt "按 release-notes 技能生成 v0.4.0 的发版说明。这次只输出到终端，不要写任何文件。"
 ```
 
-**会流式输出**一段 markdown，类似（具体措辞会变）：
+**会流式输出**一段 markdown。具体措辞取决于你的 commit 历史和模型。下面是 [`examples/release-notes-demo`](../../examples/release-notes-demo/) 真跑一次得到的产出（12 条 demo commit，`gpt-5.4` 模型），**全 7 条硬契约 PASS**：
 
 ```markdown
-## [0.4.0] - 2026-04-22
+## [0.2.0] - 2026-04-22
+
+### Breaking
+- **api**: wrapped responses in a data envelope. Refs #31.
 
 ### Added
-- notify: add NotifyTool with feishu/lark/smtp providers. Refs M1.
-- cron: add cross-process scheduler with LaunchAgent install. Refs M2.
-- skills: add browser-scrape, knowledge-compile, ai-news-daily,
-  release-notes, docs-audit, pr-triage, support-digest.
+- billing: added invoice PDF export. Refs #18.
+- auth: added OAuth login support. Refs #12.
+
+### Changed
+- core: cached config parse result.
+- core: extracted shared time helper.
 
 ### Fixed
-- middleware: replace VerificationGuard with shared ChangeTracker.
+- billing: fixed duplicate charges on retry. Refs #23.
+- auth: fixed token refresh race. Refs #17.
 
 ### Documentation
-- tutorials: add foolproof walkthroughs for support-digest,
-  ai-news-daily, and getting-started.
-
-### Other
-- tests: end-to-end smoke for cron → notify → HTTP.
-- polish: harden cron install path + friendlier errors.
+- auth: explained the MFA flow.
+- setup: added setup guide.
 ```
+
+注意 `chore: bump version to 0.2.0-dev`、`test:` 和 `ci:` 提交**被正确跳过**；`BREAKING CHANGE:` 被置顶；所有 5 条 `#NN` 引用都保留在对应 bullet 末尾。想自己复现这份输出，见 [`examples/release-notes-demo/README.md`](../../examples/release-notes-demo/README.md)。
 
 **满意？→ Phase 2（真落盘）**
 **不满意？** 再跑一次，加更具体的指令：

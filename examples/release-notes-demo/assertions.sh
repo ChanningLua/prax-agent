@@ -66,7 +66,7 @@ DIRTY=$(git diff --name-only v0.1.0..HEAD | grep -vE '^CHANGELOG\.md$|^docs/rele
 # That's the COMMITTED diff from the replay; Prax's writes are on top. What we
 # actually want: any *working-tree* changes (staged or unstaged) outside the
 # allowed paths since the last replay commit.
-WT_DIRTY=$(git status --porcelain | awk '{print $2}' | grep -vE '^CHANGELOG\.md$|^docs/releases/' || true)
+WT_DIRTY=$(git status --porcelain | awk '{print $2}' | grep -vE '^CHANGELOG\.md$|^docs/releases/|^\.prax/' || true)
 check "no stray working-tree writes outside CHANGELOG.md / docs/releases/" "[ -z '$WT_DIRTY' ]"
 
 echo

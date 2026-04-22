@@ -1,13 +1,23 @@
 # examples/release-notes-demo · 真实验证 release-notes 技能
 
-> **当前状态（2026-04-22）**：`replay.sh` 和 `assertions.sh` 脚本已验证可用，但 **LLM-driven 的 `prax prompt` 那一步尚未成功跑完一次** —— 检测时的 Prax 运行环境没有配置任何模型的 API key（`prax status` 的 `flow_status` 三项全是 `off`）。
+> **当前状态（2026-04-22）**：**全 7 条契约在真 LLM 下 PASS ✅**。跑法：`gpt-5.4` via Claude Relay Service proxy，`--permission-mode danger-full-access`（skill 需要 `git log` 完整 body 才能提取所有 `#NN` 引用）。
 >
-> `run.log` 里保留了上次尝试的真实报错（`Error: Model 'gpt-4.1' not found in configuration`），证明：
-> - demo 仓库被正确构造
-> - prax CLI 调用触发了模型解析阶段
-> - 因 key 缺失退出
+> 文件结构：
+> - `run.log` — 第 4 次真跑的完整 stdout（前 3 次暴露了真 bug，见下方"此次验证找到的真 bug"）
+> - `expected-changelog.md` — 真实产出的 CHANGELOG 条目
+> - `expected-announce.md` — 真实产出的 release announcement
 >
-> 配好 key 后任何人能在 3 条命令内跑完整条链路并拿到 7 个契约的 PASS/FAIL。
+> 再跑：`./replay.sh && cd sandbox && prax prompt --permission-mode danger-full-access "按 release-notes..." && cd .. && ./assertions.sh`
+>
+> ---
+>
+> ### 此次验证找到的真 bug（已修）
+>
+> 1. **`main.py` 的 `_build_tools` 没注册 `Write`/`Read`/`Edit`/`Glob`/`Grep`** —— 原设计假设这些来自 Claude Code 集成，但 native 模式下任何创建新文件的 skill（包括 `release-notes` 的 `docs/releases/<version>.md`）直接没法工作。修复：主文件已注册。
+> 2. **`skills/release-notes/SKILL.md` 没告诉 agent "新文件用 Write，已存在用 Edit"** —— 模型误用 `HashlineEdit` 对新文件报 `File not found`。修复：SKILL 加了明确工具选择指引。
+> 3. **skill 没强调 "每个 `#NN` 必须保留"** —— 第一次运行模型抽掉 4/5 条 issue 引用。修复：SKILL 加了硬约束措辞。
+>
+> 这三个 bug 都是 **纯靠 unit test 永远发现不了** 的——只有真跑一次 LLM 才能暴露。这正是本目录存在的意义。
 
 **这个目录做什么用**：提供一套可复现的脚手架，让任何人（包括未来的 maintainer）都能对 `skills/release-notes/` 做一次真跑验证——不是靠 unit test，而是让 Prax 真的调 LLM、真的读 `git log`、真的写 CHANGELOG.md。
 

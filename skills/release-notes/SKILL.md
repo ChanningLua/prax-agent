@@ -89,6 +89,8 @@ gh issue view <N> --json title,labels -q '.title + " [" + (.labels | map(.name) 
 
 **没 gh CLI 或 issue 404** → 保留 `#N` 原样引用，不崩。
 
+**硬约束**：**每一个在 commit body 里出现的 `#N` 引用都必须保留在对应 bullet 末尾**，格式 `. Refs #N`。**不能偷懒抽象掉**——审查人要靠它回追 issue。如果一条 commit 有多个 `#N`，全部列出：`. Refs #12, #17`。
+
 ### Step 5：写 CHANGELOG 条目
 
 模板（严格遵守）：
@@ -124,6 +126,11 @@ gh issue view <N> --json title,labels -q '.title + " [" + (.labels | map(.name) 
 - 每条 ≤ 80 字
 
 ### Step 6：写 `docs/releases/<version>.md`
+
+**工具选择**（**很关键**）：
+- `docs/releases/<version>.md` 通常**不存在**。新建文件**必须用 `Write` 工具**，不能用 `HashlineEdit` / `Edit`（后者只能改已存在文件，对新路径会报 `File not found`）。
+- `Write` 工具会自动 `mkdir -p` 父目录，不需要先跑 shell 命令建目录。
+- `CHANGELOG.md` 是已存在文件，用 `Edit` / `HashlineEdit` 改。
 
 模板：
 

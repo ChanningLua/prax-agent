@@ -43,6 +43,11 @@ from .tools.background_task import (
 )
 from .tools.task import TaskTool
 from .tools.todo_write import TodoWriteTool
+from .tools.read import ReadTool
+from .tools.write import WriteTool
+from .tools.edit import EditTool
+from .tools.glob_tool import GlobTool
+from .tools.grep_tool import GrepTool
 from .tools.ast_grep import AstGrepSearchTool, AstGrepReplaceTool
 from .tools.tmux_bash import TmuxBashTool
 from .tools.hashline_read import HashlineReadTool
@@ -378,9 +383,22 @@ def _build_tools(
     task_executor: Callable[[str, str, str, int | None], Any] | None,
     include_task_tool: bool,
 ) -> tuple[list[Any], dict[str, bool]]:
-    """Build tools list — only orchestration-layer tools (CC provides file/bash tools)."""
+    """Build tools list for the native runtime.
+
+    Registers both orchestration-layer tools and the core file I/O tools
+    (Read/Write/Edit/Glob/Grep). The file I/O tools are essentially no-ops
+    when Prax runs as a Claude Code plugin (CC provides its own), but native
+    mode needs them so skills like release-notes can actually create new
+    files such as ``docs/releases/<version>.md``.
+    """
     tools: list[Any] = [
         TodoWriteTool(cwd=cwd),
+        # Core file I/O — required for native runtime to create new files.
+        ReadTool(),
+        WriteTool(),
+        EditTool(),
+        GlobTool(cwd=cwd),
+        GrepTool(cwd=cwd),
     ]
 
     tool_flags: dict[str, bool] = {}
