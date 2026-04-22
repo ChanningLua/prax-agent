@@ -19,22 +19,228 @@
 
 ## 快速开始
 
+**目标**：装上 Prax，配好 AI key，跑通第一个任务 —— 5 分钟内。不需要编程背景。
+
+> 你是老手？直接看文末 [老手一行命令](#老手一行命令)。
+
+### Step 1 · 装前置依赖
+
+Prax 需要 **Node.js**（CLI 外壳）+ **Python 3.10+**（运行时）。先看装没装：
+
 ```bash
-git clone https://github.com/ChanningLua/prax-agent.git
-cd prax
-pip install -e .
-
-export ANTHROPIC_API_KEY=your_key_here
-
-# 使用原生运行时执行任务
-prax --runtime-path native "run pytest -q, fix the failure, and stop when tests pass"
-
-# 或使用 Claude Code 集成
-prax /init-models claude
-# 然后在 Claude Code 中打开项目，使用 /prax 命令
+node --version      # 应打印 v14 或更高
+python3 --version   # 应打印 Python 3.10 或更高
 ```
 
-Prax 会检查你的代码库、运行测试、编辑文件，并在循环中验证结果。它在会话之间保留上下文，后续任务可以从上次中断的地方继续。
+缺一个？装上：
+
+| 系统 | 安装命令 |
+|---|---|
+| **macOS** | `brew install node python@3.12`（没 Homebrew 先按 <https://brew.sh> 装）|
+| **Linux** | `sudo apt install nodejs python3 python3-pip`（Debian/Ubuntu）或 `sudo dnf install nodejs python3`（Fedora）|
+| **Windows** | 用 [WSL2](https://learn.microsoft.com/windows/wsl/install) 按 Linux 命令装。原生 Windows 0.4 暂不支持 |
+
+### Step 2 · 装 Prax
+
+```bash
+npm install -g praxagent
+```
+
+验证：
+
+```bash
+prax --version
+```
+
+**应该看到**：
+
+```
+prax 0.3.2
+```
+
+（0.3.2 或更高都行。）
+
+**看到 `command not found`？**
+- macOS 用 Homebrew 装的 Node：跑 `export PATH=/opt/homebrew/bin:$PATH`，加到 `~/.zshrc`
+- 不想用 npm：`pip install prax-agent` 也行
+
+### Step 3 · 给 Prax 接一把 AI key
+
+国内大部分用户用 **Claude** 或 **GPT** 的 **中转** key（三方代理转卖官方 API）。Prax 两种都支持。
+
+#### 方式 A · Claude 中转（国内首选）
+
+中转商给你一个 URL（例如 `https://your-relay.com/`）和一把 key（`sk-...` 或 `cr-...`）：
+
+```bash
+export ANTHROPIC_BASE_URL="https://your-relay.com"
+export ANTHROPIC_API_KEY="你的中转 key"
+```
+
+告诉 Prax 默认用 Claude：
+
+```bash
+mkdir -p ~/.prax
+cat > ~/.prax/models.yaml <<'YAML'
+default_model: claude-sonnet-4-7
+YAML
+```
+
+#### 方式 B · GPT 中转（也常见）
+
+中转商有 OpenAI 兼容端点，例如 `https://your-relay.com/openai/v1`：
+
+```bash
+export OPENAI_API_KEY="你的中转 key"
+
+mkdir -p ~/.prax
+cat > ~/.prax/models.yaml <<'YAML'
+providers:
+  openai:
+    base_url: "https://your-relay.com/openai/v1"
+    api_key_env: "OPENAI_API_KEY"
+    format: "openai"
+    models:
+      - name: gpt-5.4
+        aliases: ["gpt", "gpt5"]
+        tier: standard
+      - name: gpt-5.3-codex
+        aliases: ["codex"]
+        tier: high
+default_model: gpt-5.4
+YAML
+```
+
+`gpt-5.4` 换成你中转实际提供的模型名（跑一下中转的 `/v1/models` 看列表）。
+
+#### 方式 C · 直连 Claude / OpenAI（有海外信用卡）
+
+去掉 `*_BASE_URL` 那行，直接设 key：
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+# 或者
+export OPENAI_API_KEY="sk-..."
+```
+
+#### 方式 D · 没 key？用免费 GLM 兜底
+
+到 <https://open.bigmodel.cn> 注册（免费额度、不要信用卡），复制一把 key：
+
+```bash
+export ZHIPU_API_KEY="你的 GLM key"
+```
+
+GLM 免费额度够你跑完本页所有教程。
+
+#### 验证 key 配对了
+
+```bash
+prax doctor all
+```
+
+应当至少有一条 `✓`（例如 `[claude] ✓ ANTHROPIC_API_KEY is set`）。
+
+**全是 ✗？** 重跑 export，`echo $ANTHROPIC_API_KEY` 应该回显 key。
+
+### Step 4 · 第一个任务
+
+```bash
+mkdir -p ~/Desktop/prax-hello && cd ~/Desktop/prax-hello
+prax prompt "你是谁？用一句话回答。"
+```
+
+**应该打印**类似：
+
+```
+我是 Prax 这个智能体运行时里跑的 AI 助手，可以帮你执行代码、测试和自动化任务。
+```
+
+✅ Prax 跑起来了。
+
+### Step 5 · 让它真动文件（和普通 AI 聊天框的区别）
+
+```bash
+echo "hello world" > greeting.txt
+prax prompt "读 greeting.txt 里的内容，然后把它改成全大写再写回去"
+cat greeting.txt
+```
+
+**应该打印**：
+
+```
+HELLO WORLD
+```
+
+这就是 Prax 的核心能力——**读、写、跑测试、闭环验证**，不只是聊天。下面所有功能都建立在这之上。
+
+**卡在某步了？** 常见问题：
+
+| 症状 | 解决 |
+|---|---|
+| `Error: Model 'xxx' not found` | `~/.prax/models.yaml` 的模型名和中转不匹配。跑中转的 `/v1/models` 看可用列表 |
+| `HTTP 401 / Unauthorized` | key 打错或过期。重新生成再 export |
+| 静默退出没输出 | 中转挂了。`curl -s $ANTHROPIC_BASE_URL/...` 试试，或切备用 key |
+| 中文乱码 | `export LANG=zh_CN.UTF-8` 加到 shell 配置 |
+
+---
+
+## 两种使用方式
+
+跑通 Step 5 以后就可以选使用场景了。
+
+### 方式 1 · 终端独立跑（你刚做的）
+
+命令行直接用 Prax ——自动化、cron 定时、CI/CD 都走这条路，不用开 IDE。
+
+```bash
+prax prompt "跑 pytest -q，修第一个失败，跑通了就停"
+prax prompt "读 README.md，给出 3 条具体改进建议"
+prax cron add --name daily-news --schedule "0 17 * * *" --prompt "..."   # 定时任务
+```
+
+挑你的角色看端到端真实案例：
+
+| 你的角色 | 教程 | 会搭出什么 |
+|---|---|---|
+| **PM / 客服主管** | [support-digest](./docs/tutorials/support-digest.md) | 每日工单 PII 脱敏简报，纯本地处理 |
+| **内容创作者 / 知识库爱好者** | [ai-news-daily](./docs/tutorials/ai-news-daily.md) | 抓 X / 知乎 / Bilibili → 编译成 Obsidian wiki → 推简报 |
+| **发版经理** | [release-notes](./docs/tutorials/release-notes.md) | git 历史 → CHANGELOG + 发布公告 |
+| **DevEx / 技术写作** | [docs-audit](./docs/tutorials/docs-audit.md) | 每周"哪些文档没跟上代码"的 drift 报告 |
+| **工程 Lead** | [pr-triage](./docs/tutorials/pr-triage.md) | 对 PR 真跑测试对比 base 分支 |
+
+所有 5 个教程都自带示例数据——**不需要真 API / 真 PR** 就能跟着跑。
+
+### 方式 2 · 集成到 Claude Code IDE
+
+用 [Claude Code](https://claude.com/claude-code)，想在 IDE 里用 Prax 的 skill / 命令 / 验证 hook：
+
+```bash
+prax install --profile full
+```
+
+这会把 Prax 打包的 skill（上面 5 个商用场景 + 4 个工程工作流）复制到 `~/.claude/`，注册 Prax 的 MCP server，并接入 hook 让 Claude Code 每次改代码时跑 Prax 的验证循环。
+
+验证：
+
+```bash
+prax doctor --target claude
+```
+
+然后重开 Claude Code。你会看到新的 `/prax-status`、`/prax-doctor`、`/prax-plan`、`/prax-verify` 斜杠命令、`prax-planner` 这个 agent，以及自动应用的 Prax 规则。
+
+撤销：`prax uninstall --target claude`。
+
+> **关于 OpenAI Codex CLI**：Prax 当前不提供 `prax install --target codex` 这种类似 Claude Code 的原生集成。不过 OpenAI 的 codex 系列**模型**（gpt-5-codex / gpt-5.3-codex 等）可以直接作为 Prax 的后端 LLM，跟着 Step 3 方式 B 配置就行。专门的 Codex CLI skill 集成在 0.5.x 路线图上。
+
+### 老手一行命令
+
+```bash
+git clone https://github.com/ChanningLua/prax-agent.git && cd prax-agent
+pip install -e .
+export ANTHROPIC_API_KEY=sk-...    # 或 OPENAI_API_KEY / ZHIPU_API_KEY
+prax prompt "跑 pytest -q，修失败，跑通就停"
+```
 
 > Prax 可以代你执行 shell 命令。默认使用 `workspace-write` 模式——项目外的文件不可触碰。使用 `--permission-mode read-only` 可安全浏览。
 

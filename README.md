@@ -19,36 +19,228 @@
 
 ## Quick Start
 
-**Brand-new user?** Follow the 5-minute [Getting Started](./docs/getting-started.md) guide — install Prax, configure an AI key, run your first prompt.
+**Goal**: install Prax, configure an AI key, run your first task — in under 5 minutes. No programming background required.
 
-**Want a step-by-step real-world walkthrough?** Pick the one that matches your role:
+> Already an experienced user? Jump to [One-liner for experienced users](#one-liner-for-experienced-users) below.
 
-| Role | Tutorial | What you end up with |
-|---|---|---|
-| **PM / support lead** | [support-digest](./docs/tutorials/support-digest.md) | Daily anonymized ticket digest pushed to a chat channel. Works on sample data first (no external deps, 10 min) |
-| **Content / KOL / you want a personal knowledge base** | [ai-news-daily](./docs/tutorials/ai-news-daily.md) | The Hermes-style "scrape X/知乎/Bilibili → compile wiki → send digest" pipeline. Phase 1 zero-deps, later phases add AutoCLI + cron + Feishu (20-60 min) |
-| **Release manager / team lead** | [release-notes](./docs/tutorials/release-notes.md) | CHANGELOG + standalone release announcement from your git history. Idempotent. Prax never auto-tags or pushes (10 min) |
-| **DevEx / tech writer** | [docs-audit](./docs/tutorials/docs-audit.md) | Weekly evidence-cited "which docs are stale?" report. Never edits docs itself (10 min) |
-| **Engineering lead** | [pr-triage](./docs/tutorials/pr-triage.md) | Per-PR triage that **actually runs tests on both PR and base branch** and compares. No GitHub side-effects (10 min) |
+### Step 1 · Install prerequisites
 
-**Experienced users** can get going with:
+Prax needs **Node.js** (for the CLI wrapper) and **Python 3.10+** (for the runtime). Check if you already have them:
 
 ```bash
-git clone https://github.com/ChanningLua/prax-agent.git
-cd prax
-pip install -e .
-
-export ANTHROPIC_API_KEY=your_key_here
-
-# Run a task with the native runtime
-prax --runtime-path native "run pytest -q, fix the failure, and stop when tests pass"
-
-# Or use with Claude Code integration
-prax /init-models claude
-# Then open your project in Claude Code and use /prax commands
+node --version      # should print v14 or higher
+python3 --version   # should print Python 3.10 or higher
 ```
 
-Prax inspects your codebase, runs checks, edits files, and verifies the result in a loop. It keeps context across sessions so follow-up tasks pick up where you left off.
+Missing one? Install:
+
+| OS | Install command |
+|---|---|
+| **macOS** | `brew install node python@3.12` (install [Homebrew](https://brew.sh) first if needed) |
+| **Linux** | `sudo apt install nodejs python3 python3-pip` (Debian/Ubuntu) or `sudo dnf install nodejs python3` (Fedora) |
+| **Windows** | Use [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux commands. Native Windows is not supported for 0.4. |
+
+### Step 2 · Install Prax
+
+```bash
+npm install -g praxagent
+```
+
+Verify:
+
+```bash
+prax --version
+```
+
+**Should print**:
+
+```
+prax 0.3.2
+```
+
+(0.3.2 or higher is fine.)
+
+**See `command not found`?**
+- macOS with Homebrew Node: run `export PATH=/opt/homebrew/bin:$PATH` then add it to `~/.zshrc`
+- Fallback: `pip install prax-agent` if you prefer pip over npm
+
+### Step 3 · Point Prax at an AI key
+
+Most users already have a **Claude** or **GPT** key through a **中转/relay proxy** (third-party service that resells the official API). Use whichever you have — Prax handles both.
+
+#### Option A · Claude via relay (recommended for China users)
+
+If your relay gives you a URL like `https://your-relay.com/` and a key starting with `sk-...` or `cr-...`:
+
+```bash
+export ANTHROPIC_BASE_URL="https://your-relay.com"
+export ANTHROPIC_API_KEY="your-relay-key"
+```
+
+Then tell Prax to default to Claude:
+
+```bash
+mkdir -p ~/.prax
+cat > ~/.prax/models.yaml <<'YAML'
+default_model: claude-sonnet-4-7
+YAML
+```
+
+#### Option B · GPT via relay (also common in China)
+
+If your relay exposes an OpenAI-compatible endpoint, e.g. `https://your-relay.com/openai/v1`:
+
+```bash
+export OPENAI_API_KEY="your-relay-key"
+
+mkdir -p ~/.prax
+cat > ~/.prax/models.yaml <<'YAML'
+providers:
+  openai:
+    base_url: "https://your-relay.com/openai/v1"
+    api_key_env: "OPENAI_API_KEY"
+    format: "openai"
+    models:
+      - name: gpt-5.4
+        aliases: ["gpt", "gpt5"]
+        tier: standard
+      - name: gpt-5.3-codex
+        aliases: ["codex"]
+        tier: high
+default_model: gpt-5.4
+YAML
+```
+
+Replace `gpt-5.4` with whatever model name your relay supports (run your relay's `/v1/models` endpoint to see the list).
+
+#### Option C · Direct Claude or OpenAI key (if you have overseas card access)
+
+Skip the `*_BASE_URL` line, set the key directly:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+# or
+export OPENAI_API_KEY="sk-..."
+```
+
+#### Option D · No key? Free GLM fallback
+
+Register at <https://open.bigmodel.cn> (free tier, no credit card), copy a key, then:
+
+```bash
+export ZHIPU_API_KEY="your-glm-key"
+```
+
+GLM's free tier is enough to follow every tutorial on this page.
+
+#### Verify the key works
+
+```bash
+prax doctor all
+```
+
+You should see at least one `✓` line (e.g. `[claude] ✓ ANTHROPIC_API_KEY is set`).
+
+**All `✗`?** Re-run the `export` command above and make sure no typo; `echo $ANTHROPIC_API_KEY` should echo the key back.
+
+### Step 4 · Your first task
+
+```bash
+mkdir -p ~/Desktop/prax-hello && cd ~/Desktop/prax-hello
+prax prompt "你是谁？用一句话回答。"
+```
+
+**Should print** something like:
+
+```
+我是 Prax 这个智能体运行时里跑的 AI 助手，可以帮你执行代码、测试和自动化任务。
+```
+
+Congrats — Prax is working.
+
+### Step 5 · Prove it can touch files (the real power)
+
+```bash
+echo "hello world" > greeting.txt
+prax prompt "读 greeting.txt 里的内容，然后把它改成全大写再写回去"
+cat greeting.txt
+```
+
+**Should print**:
+
+```
+HELLO WORLD
+```
+
+That's the distinguishing capability — Prax doesn't just chat, it **reads, writes, runs tests, and verifies** in a loop. Everything below builds on this.
+
+**Got stuck at any step?** Common issues:
+
+| Symptom | Fix |
+|---|---|
+| `Error: Model 'xxx' not found` | The model name in `~/.prax/models.yaml` doesn't match anything your relay exposes. Check the relay's `/v1/models` list. |
+| `HTTP 401 / Unauthorized` | Key typo or expired. Regenerate and re-export. |
+| Silent exit with no output | Your relay is down. Try `curl -s $ANTHROPIC_BASE_URL/...` or switch to a fallback key. |
+| Chinese characters look broken | Set `export LANG=zh_CN.UTF-8` in your shell rc. |
+
+---
+
+## Two ways to use Prax
+
+Once Step 5 above works, you're ready to pick a usage mode.
+
+### Way 1 · Standalone from the terminal (what you just did)
+
+Use Prax directly at the shell prompt — perfect for automation, cron jobs, CI/CD, or just batching work without opening an IDE.
+
+```bash
+prax prompt "run pytest -q, fix the first failure, and stop when tests pass"
+prax prompt "read README.md and propose 3 concrete improvements as a checklist"
+prax cron add --name daily-news --schedule "0 17 * * *" --prompt "..."   # schedule recurring work
+```
+
+Pick a role-matched walkthrough to see a real-world pipeline end-to-end:
+
+| Your role | Tutorial | What you'll build |
+|---|---|---|
+| **PM / support lead** | [support-digest](./docs/tutorials/support-digest.md) | Daily PII-redacted ticket digest, local-only processing |
+| **Content creator / knowledge-base hobbyist** | [ai-news-daily](./docs/tutorials/ai-news-daily.md) | Scrape X/知乎/Bilibili → compile Obsidian wiki → send digest |
+| **Release manager** | [release-notes](./docs/tutorials/release-notes.md) | Git log → CHANGELOG + release announcement |
+| **DevEx / tech writer** | [docs-audit](./docs/tutorials/docs-audit.md) | Weekly "which docs drifted from the code?" report |
+| **Engineering lead** | [pr-triage](./docs/tutorials/pr-triage.md) | Per-PR triage that actually runs tests on both branches |
+
+All five tutorials start with sample data — no external API or real PR needed to follow along.
+
+### Way 2 · Inside Claude Code IDE
+
+If you use [Claude Code](https://claude.com/claude-code) and want Prax's skills, commands, and verification hooks available inside the IDE:
+
+```bash
+prax install --profile full
+```
+
+This copies Prax's bundled skills (5 commercial use cases above + 4 developer workflows) into `~/.claude/`, registers Prax MCP servers, and wires hooks so Claude Code runs Prax's verification loop on every code change.
+
+Verify:
+
+```bash
+prax doctor --target claude
+```
+
+Now reopen your project in Claude Code. You'll see new `/prax-status`, `/prax-doctor`, `/prax-plan`, `/prax-verify` slash commands, the `prax-planner` agent, and Prax's rules automatically applied.
+
+To undo: `prax uninstall --target claude`.
+
+> **Note on OpenAI Codex CLI**: Prax does not currently ship a `prax install --target codex` integration analogous to Claude Code. OpenAI's codex-family **models** (gpt-5-codex, gpt-5.3-codex, etc.) work fine as Prax's LLM backend via Step 3 Option B. A dedicated Codex CLI skill export is on the 0.5.x roadmap.
+
+### One-liner for experienced users
+
+```bash
+git clone https://github.com/ChanningLua/prax-agent.git && cd prax-agent
+pip install -e .
+export ANTHROPIC_API_KEY=sk-...    # or OPENAI_API_KEY / ZHIPU_API_KEY
+prax prompt "run pytest -q, fix the failure, and stop when tests pass"
+```
 
 > Prax can execute shell commands on your behalf. It defaults to `workspace-write` mode — files outside the project are off-limits. Use `--permission-mode read-only` for safe exploration.
 
