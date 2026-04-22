@@ -32,7 +32,7 @@ prax 0.3.2
 
 （0.3.2 或更高都行。）
 
-**如果看到 `command not found`**：请先跟 [Getting Started](./getting-started.md) 走一遍再回来。
+**如果看到 `command not found`**：请先跟 [Getting Started](../getting-started.md) 走一遍再回来。
 
 ---
 
@@ -367,7 +367,7 @@ prax cron add \
 
 | 症状 | 位置 | 解法 |
 |---|---|---|
-| `prax: command not found` | Step 0 | 参见 [getting-started](./getting-started.md) |
+| `prax: command not found` | Step 0 | 参见 [getting-started](../getting-started.md) |
 | `Model '...' not found` | Step 3 | `prax doctor` 看哪个模型有 key；按提示配 |
 | 简报内容和示例差很多 | Step 4 | Prax 用的模型越弱，输出越模糊。试 `prax prompt ... --model claude-sonnet-4-6` |
 | 脱敏没生效 | Step 5 | 你的数据字段名不标准，Prax 没认出 `customer_email` / `phone` 是 PII。在 `.prax/support-digest.yaml` 配 `redaction.extra_regex` |
