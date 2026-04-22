@@ -1,113 +1,113 @@
-[90m[prax] model=gpt-5.4 cwd=/Users/liuchuanming/prax/examples/release-notes-demo/sandbox[0m
-[90m[prax] session=session_27fd07bb2dfe[0m
-[90m[prax] executor=direct-api (explicit --runtime-path=native)[0m
-Docker sandbox unavailable — falling back to local sandbox. Set PRAX_SANDBOX_BACKEND=docker to enforce Docker, or PRAX_SANDBOX_POLICY=fail_closed to prevent local fallback.
-[90m[prax] attempt=1 model=gpt-5.4[0m
+[prax] model=gpt-5.4 cwd=/Users/liuchuanming/prax/examples/release-notes-demo/sandbox
+[prax] session=session_27fd07bb2dfe
+[prax] executor=direct-api (explicit --runtime-path=native)
+Docker sandbox unavailable  falling back to local sandbox. Set PRAX_SANDBOX_BACKEND=docker to enforce Docker, or PRAX_SANDBOX_POLICY=fail_closed to prevent local fallback.
+[prax] attempt=1 model=gpt-5.4
 
-[36m▶ TodoWrite[0m {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
-  [32m✓[0m {
+ TodoWrite {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
+   {
   "old_todos": [],
   "new_todos": [
     {
       "content": "Inspect release-notes skill and current changelog/release files",
       "activeForm": "Inspecting release-notes skill and current changelo
 
-[36m▶ Read[0m {'file_path': '/Users/liuchuanming/prax/skills/release-notes/SKILL.md', 'offset': 1, 'limit': 260}
+ Read {'file_path': '/Users/liuchuanming/prax/skills/release-notes/SKILL.md', 'offset': 1, 'limit': 260}
 
-[36m▶ Read[0m {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'offset': 1, 'limit': 260}
+ Read {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'offset': 1, 'limit': 260}
 
-[36m▶ Glob[0m {'pattern': 'docs/releases/*', 'path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox'}
-  [32m✓[0m 1#029b801e|---
+ Glob {'pattern': 'docs/releases/*', 'path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox'}
+   1#029b801e|---
 2#7d029d45|name: release-notes
-3#266225e0|description: 基于 git 历史 + issue 引用生成符合 Keep-a-Changelog 规范的发版说明
+3#266225e0|description:  git  + issue  Keep-a-Changelog 
 4#7ed67e5c|allowed-tools: [Bash, Read, Write, Grep, Glob, Notify]
 5#9e79f41d|tri
-  [32m✓[0m 1#48b96596|# Changelog
+   1#48b96596|# Changelog
 2#0c9d123c|
 3#15ad2ae2|All notable changes to this project will be documented in this file.
 4#4409ea1d|
 5#c9993787|The format is based on [Keep a Changelog](https://keepachangel
-  [32m✓[0m No files matched the pattern.
+   No files matched the pattern.
 
-[36m▶ TodoWrite[0m {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
-  [32m✓[0m {
+ TodoWrite {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
+   {
   "old_todos": [
     {
       "content": "Inspect release-notes skill and current changelog/release files",
       "activeForm": "Inspecting release-notes skill and current changelog/release files",
  
 
-[36m▶ SandboxBash[0m {'command': 'cd /Users/liuchuanming/prax/examples/release-notes-demo/sandbox && git log v0.1.0..HEAD --format=%H%n%s%n%b...
-  [32m✓[0m 976ded1d161c52a13866c4f7e005e9168d35da58
+ SandboxBash {'command': 'cd /Users/liuchuanming/prax/examples/release-notes-demo/sandbox && git log v0.1.0..HEAD --format=%H%n%s%n%b...
+   976ded1d161c52a13866c4f7e005e9168d35da58
 feat(api): wrap responses in data envelope
 POST /v1/users now returns {"data": {...}} instead of the raw object.
 Consumer code MUST unwrap `.data` before use.
 
 
-[36m▶ SandboxBash[0m {'command': 'cd /Users/liuchuanming/prax/examples/release-notes-demo/sandbox && date +%F', 'sandbox_id': 'release-notes-...
+ SandboxBash {'command': 'cd /Users/liuchuanming/prax/examples/release-notes-demo/sandbox && date +%F', 'sandbox_id': 'release-notes-...
 
-[36m▶ SandboxBash[0m {'command': "cd /Users/liuchuanming/prax/examples/release-notes-demo/sandbox && git log --format='%aN' --no-merges v0.1....
-  [32m✓[0m 2026-04-22
+ SandboxBash {'command': "cd /Users/liuchuanming/prax/examples/release-notes-demo/sandbox && git log --format='%aN' --no-merges v0.1....
+   2026-04-22
 
-  [32m✓[0m Prax Demo
+   Prax Demo
 
 
-[36m▶ TodoWrite[0m {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
-  [32m✓[0m {
+ TodoWrite {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
+   {
   "old_todos": [
     {
       "content": "Inspect release-notes skill and current changelog/release files",
       "activeForm": "Inspecting release-notes skill and current changelog/release files",
  
 
-[36m▶ Edit[0m {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'old_string': '## [Unreleased...
-  [31m✗[0m checksum changed since last read
+ Edit {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'old_string': '## [Unreleased...
+   checksum changed since last read
 
-[36m▶ HashlineRead[0m {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'start_line': 1, 'end_line': ...
-  [32m✓[0m 1#D2|# Changelog
+ HashlineRead {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'start_line': 1, 'end_line': ...
+   1#D2|# Changelog
 2#0C|
 3#1E|All notable changes to this project will be documented in this file.
 4#44|
 5#4D|The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 6#8C|and th
 
-[36m▶ HashlineEdit[0m {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'edits': [{'op': 'insert_afte...
-  [32m✓[0m Successfully applied 1 edit(s) to /Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md
+ HashlineEdit {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'edits': [{'op': 'insert_afte...
+   Successfully applied 1 edit(s) to /Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md
 
-[36m▶ Write[0m {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/docs/releases/v0.2.0.md', 'content': "# Prax...
-  [32m✓[0m Wrote /Users/liuchuanming/prax/examples/release-notes-demo/sandbox/docs/releases/v0.2.0.md
+ Write {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/docs/releases/v0.2.0.md', 'content': "# Prax...
+   Wrote /Users/liuchuanming/prax/examples/release-notes-demo/sandbox/docs/releases/v0.2.0.md
 
-[36m▶ Read[0m {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'offset': 1, 'limit': 80}
+ Read {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/CHANGELOG.md', 'offset': 1, 'limit': 80}
 
-[36m▶ Read[0m {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/docs/releases/v0.2.0.md', 'offset': 1, 'limi...
-  [32m✓[0m 1#48b96596|# Changelog
+ Read {'file_path': '/Users/liuchuanming/prax/examples/release-notes-demo/sandbox/docs/releases/v0.2.0.md', 'offset': 1, 'limi...
+   1#48b96596|# Changelog
 2#0c9d123c|
 3#15ad2ae2|All notable changes to this project will be documented in this file.
 4#4409ea1d|
 5#c9993787|The format is based on [Keep a Changelog](https://keepachangel
-  [32m✓[0m 1#e61963f2|# Prax v0.2.0
+   1#e61963f2|# Prax v0.2.0
 2#0c9d123c|
 3#70326849|_Released 2026-04-22_
 4#4409ea1d|
 5#9c98d496|This release adds OAuth login and invoice PDF export while tightening core reliability. It also introduces 
 
-[36m▶ TodoWrite[0m {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
-  [32m✓[0m {
+ TodoWrite {'todos': [{'content': 'Inspect release-notes skill and current changelog/release files', 'activeForm': 'Inspecting rele...
+   {
   "old_todos": [
     {
       "content": "Inspect release-notes skill and current changelog/release files",
       "activeForm": "Inspecting release-notes skill and current changelog/release files",
  
 
-[37m已按 `release-notes` 规则生成 v0.2.0 发版说明，并保留了 commit body 里的 `#NN` 引用到对应 bullet 末尾。
+ `release-notes`  v0.2.0  commit body  `#NN`  bullet 
 
-- 更新了 `CHANGELOG.md:10`，在 `Unreleased` 下新增 `0.2.0` 条目，包含 `Breaking` / `Added` / `Changed` / `Fixed` / `Documentation`
-- 新建了 `docs/releases/v0.2.0.md:1`，包含概览、亮点、变更、升级说明、贡献者和 diff 链接
-- 我先按你要求跑了 `git log v0.1.0..HEAD --format=%H%n%s%n%b%n---`，并据此提取 `Refs #31`、`Refs #23`、`Refs #17`、`Refs #18`、`Refs #12`
-- 按技能规则跳过了 `ci` / `test` / 普通 `chore` 提交；`BREAKING CHANGE:` 被放进 `Breaking`
+-  `CHANGELOG.md:10` `Unreleased`  `0.2.0`  `Breaking` / `Added` / `Changed` / `Fixed` / `Documentation`
+-  `docs/releases/v0.2.0.md:1` diff 
+-  `git log v0.1.0..HEAD --format=%H%n%s%n%b%n---` `Refs #31``Refs #23``Refs #17``Refs #18``Refs #12`
+-  `ci` / `test` /  `chore` `BREAKING CHANGE:`  `Breaking`
 
-如果你愿意，我可以继续帮你：
-1. 顺手检查一下这次改动的 `git diff`
-2. 再按同样规则生成下一个版本的 release notes
-3. 调整文案语气或分组标题[0m
+
+1.  `git diff`
+2.  release notes
+3. 
 Memory extraction failed (best-effort, non-fatal): Cannot send a request, as the client has been closed.

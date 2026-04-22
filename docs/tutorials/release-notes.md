@@ -52,8 +52,11 @@ f32a7cb docs: add 5-minute getting-started for absolute beginners
 ### Step 3：dry-run 生成
 
 ```bash
-prax prompt "按 release-notes 技能生成 v0.4.0 的发版说明。这次只输出到终端，不要写任何文件。"
+prax prompt --permission-mode danger-full-access \
+  "按 release-notes 技能生成 v0.4.0 的发版说明。这次只输出到终端，不要写任何文件。"
 ```
+
+**为什么要 `danger-full-access`**：这个 skill 要跑 `git log v0.3.2..HEAD --format=...` 拿每条 commit 的完整 body（里面的 `#NN` issue 引用要保留到 CHANGELOG）。`git log` 走 Bash 工具，默认 `workspace-write` 模式拦掉 Bash。不给这个权限，skill 只能拿到 commit subject，拿不到 body，生成的 CHANGELOG 会漏掉 issue 引用。
 
 **会流式输出**一段 markdown。具体措辞取决于你的 commit 历史和模型。下面是 [`examples/release-notes-demo`](../../examples/release-notes-demo/) 真跑一次得到的产出（12 条 demo commit，`gpt-5.4` 模型），**全 7 条硬契约 PASS**：
 
@@ -115,7 +118,7 @@ Prax 会写两个文件：
 ### Step 2：真跑一次
 
 ```bash
-prax prompt "按 release-notes 技能生成 v0.4.0 的发版说明，写到 CHANGELOG.md 和 docs/releases/v0.4.0.md"
+prax prompt --permission-mode danger-full-access "按 release-notes 技能生成 v0.4.0 的发版说明，写到 CHANGELOG.md 和 docs/releases/v0.4.0.md"
 ```
 
 **等 30 秒到 1 分钟**。完成后：
@@ -135,7 +138,7 @@ cat docs/releases/v0.4.0.md
 再跑一次完全相同的命令：
 
 ```bash
-prax prompt "按 release-notes 技能生成 v0.4.0 的发版说明，写到 CHANGELOG.md 和 docs/releases/v0.4.0.md"
+prax prompt --permission-mode danger-full-access "按 release-notes 技能生成 v0.4.0 的发版说明，写到 CHANGELOG.md 和 docs/releases/v0.4.0.md"
 ```
 
 **应该观察到**：CHANGELOG.md 里 `## [0.4.0]` 段被覆盖（不是追加两份）。`docs/releases/v0.4.0.md` 被覆盖。
