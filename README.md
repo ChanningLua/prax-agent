@@ -38,7 +38,7 @@ Prax inspects your codebase, runs checks, edits files, and verifies the result i
 
 > Prax can execute shell commands on your behalf. It defaults to `workspace-write` mode — files outside the project are off-limits. Use `--permission-mode read-only` for safe exploration.
 
----
+----
 
 ## Why Prax
 
