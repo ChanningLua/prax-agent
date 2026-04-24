@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-04-24
+
+### Fixed
+- **Model lookup now prefers an available provider** when the same model name
+  exists in multiple providers (e.g. bundled `zhipu.glm-4-flash` without
+  `ZHIPU_API_KEY` vs a user-defined provider that reuses `glm-4-flash` with a
+  working key). Previously the first-scanned (bundled, uncredentialed) entry
+  won, producing a confusing `RuntimeError: No configured models are currently
+  available` for new users who followed the README Quick Start with a common
+  model name. Fall-back behavior is unchanged when no match is available.
+  (`core/model_catalog.py`, `core/llm_client.py`)
+- Fixed the matching downstream bug in `LLMClient.resolve_model`: even when
+  the catalog reported the user's provider as available, `resolve_model` was
+  independently returning the first-scanned provider and therefore sending an
+  outbound `Authorization: Bearer ` with an empty key, producing a cryptic
+  `LocalProtocolError: Illegal header value b'Bearer '`. Both resolution
+  paths now share the same "prefer a provider with a real api_key" rule.
+
+### Changed
+- `Docker sandbox unavailable — falling back to local sandbox` is now emitted
+  at `INFO` rather than `WARNING` so first-time users without Docker don't see
+  a red warning on every run. Operators who require enforcement should keep
+  using `PRAX_SANDBOX_POLICY=fail_closed`, which still errors loudly.
+  (`core/sandbox/provider.py`)
+
 ## [0.4.0] - 2026-04-22
 
 ### Breaking Changes

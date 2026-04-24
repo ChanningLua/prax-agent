@@ -55,7 +55,11 @@ def get_sandbox_provider(
                     "Install Docker or set PRAX_SANDBOX_BACKEND=local to allow local fallback."
                 )
             else:
-                logger.warning(
+                # Surfaced at INFO so a first-time user (no Docker installed)
+                # doesn't see a red WARNING on every single run. Operators who
+                # care about enforcement can still get visibility via
+                # PRAX_SANDBOX_POLICY=fail_closed or by raising log level.
+                logger.info(
                     "Docker sandbox unavailable — falling back to local sandbox. "
                     "Set PRAX_SANDBOX_BACKEND=docker to enforce Docker, "
                     "or PRAX_SANDBOX_POLICY=fail_closed to prevent local fallback."

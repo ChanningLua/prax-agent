@@ -235,6 +235,61 @@ def test_get_model_entry_not_found():
 
 
 # ---------------------------------------------------------------------------
+# 13b. get_model_entry — prefer available when name collides across providers
+# ---------------------------------------------------------------------------
+
+def test_get_model_entry_prefers_available_on_collision(monkeypatch):
+    # Simulates: bundled "zhipu" provider defines "glm-4-flash" (no ZHIPU_API_KEY set),
+    # while user-configured "my-service" also defines "glm-4-flash" with a key.
+    # get_model_entry must return the available one, not the first-scanned one.
+    monkeypatch.delenv("ZHIPU_API_KEY", raising=False)
+    monkeypatch.setenv("USER_KEY", "sk-user")
+    cfg = {
+        "providers": {
+            "zhipu": {
+                "api_key_env": "ZHIPU_API_KEY",
+                "base_url": "https://open.bigmodel.cn",
+                "models": [{"name": "glm-4-flash", "api_model": "glm-4-flash"}],
+            },
+            "my-service": {
+                "api_key_env": "USER_KEY",
+                "base_url": "https://my.proxy",
+                "models": [{"name": "glm-4-flash", "api_model": "glm-4-flash"}],
+            },
+        }
+    }
+    entry = get_model_entry("glm-4-flash", cfg)
+    assert entry is not None
+    assert entry.provider == "my-service"
+    assert entry.available is True
+
+
+def test_get_model_entry_falls_back_to_first_when_none_available(monkeypatch):
+    # When no provider has credentials, return the first match so callers can
+    # surface a meaningful "missing credentials" message.
+    monkeypatch.delenv("ZHIPU_API_KEY", raising=False)
+    monkeypatch.delenv("OTHER_KEY", raising=False)
+    cfg = {
+        "providers": {
+            "zhipu": {
+                "api_key_env": "ZHIPU_API_KEY",
+                "base_url": "https://open.bigmodel.cn",
+                "models": [{"name": "glm-4-flash", "api_model": "glm-4-flash"}],
+            },
+            "alt": {
+                "api_key_env": "OTHER_KEY",
+                "base_url": "https://alt",
+                "models": [{"name": "glm-4-flash", "api_model": "glm-4-flash"}],
+            },
+        }
+    }
+    entry = get_model_entry("glm-4-flash", cfg)
+    assert entry is not None
+    assert entry.provider == "zhipu"
+    assert entry.available is False
+
+
+# ---------------------------------------------------------------------------
 # 14. get_first_available_model — returns first available
 # ---------------------------------------------------------------------------
 

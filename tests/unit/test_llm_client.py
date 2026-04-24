@@ -197,6 +197,64 @@ def test_resolve_model_uses_api_model_field() -> None:
     assert cfg.model == "vendor-id-v2"
 
 
+def test_resolve_model_prefers_provider_with_api_key(monkeypatch) -> None:
+    # Mirror of the "user reuses a bundled model name" scenario:
+    # bundled provider declares gpt-5.4 with OPENAI_API_KEY (unset),
+    # user's proxy provider declares the same name with USER_KEY (set).
+    # resolve_model must pick the user's provider so outbound headers carry
+    # a real Bearer token instead of an empty string.
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("USER_KEY", "sk-user-real")
+    client = LLMClient.__new__(LLMClient)
+    models_config = {
+        "providers": {
+            "openai": {
+                "base_url": "https://api.openai.com/v1",
+                "api_key_env": "OPENAI_API_KEY",
+                "format": "openai",
+                "models": [{"name": "gpt-5.4"}],
+            },
+            "proxy": {
+                "base_url": "https://proxy.example/v1",
+                "api_key_env": "USER_KEY",
+                "format": "openai",
+                "models": [{"name": "gpt-5.4"}],
+            },
+        }
+    }
+    cfg = client.resolve_model("gpt-5.4", models_config)
+    assert cfg.provider == "proxy"
+    assert cfg.api_key == "sk-user-real"
+    assert cfg.base_url == "https://proxy.example/v1"
+
+
+def test_resolve_model_falls_back_to_first_match_when_no_keys(monkeypatch) -> None:
+    # When nobody has credentials, still return the first match so upstream
+    # layers can surface a meaningful missing-credentials error.
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OTHER_KEY", raising=False)
+    client = LLMClient.__new__(LLMClient)
+    models_config = {
+        "providers": {
+            "openai": {
+                "base_url": "https://api.openai.com/v1",
+                "api_key_env": "OPENAI_API_KEY",
+                "format": "openai",
+                "models": [{"name": "gpt-5.4"}],
+            },
+            "other": {
+                "base_url": "https://other.example/v1",
+                "api_key_env": "OTHER_KEY",
+                "format": "openai",
+                "models": [{"name": "gpt-5.4"}],
+            },
+        }
+    }
+    cfg = client.resolve_model("gpt-5.4", models_config)
+    assert cfg.provider == "openai"
+    assert cfg.api_key == ""
+
+
 # ── complete — raises when tools + model doesn't support tools ────────────────
 
 

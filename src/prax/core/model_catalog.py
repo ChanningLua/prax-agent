@@ -84,10 +84,18 @@ def iter_model_catalog(models_config: dict) -> list[ModelCatalogEntry]:
 
 
 def get_model_entry(model_name: str, models_config: dict) -> ModelCatalogEntry | None:
+    # Prefer an available entry when the same model name exists in multiple
+    # providers (e.g. a user-defined provider that reuses a bundled model name
+    # like "glm-4-flash"). If no match is available, fall back to the first
+    # match so callers can still surface a useful "unavailable" reason.
+    first_match: ModelCatalogEntry | None = None
     for entry in iter_model_catalog(models_config):
         if entry.matches(model_name):
-            return entry
-    return None
+            if entry.available:
+                return entry
+            if first_match is None:
+                first_match = entry
+    return first_match
 
 
 def get_first_available_model(candidates: list[str], models_config: dict) -> ModelCatalogEntry | None:

@@ -69,56 +69,77 @@ class LLMClient:
         await self._http.aclose()
 
     def resolve_model(self, model_name: str, models_config: dict) -> ModelConfig:
-        """Resolve a model name to its full configuration."""
+        """Resolve a model name to its full configuration.
+
+        When multiple providers declare the same model name (e.g. a bundled
+        `openai.gpt-5.4` without `OPENAI_API_KEY` + a user's `soxio.gpt-5.4`
+        pointing at a proxy with a working key), prefer the first provider
+        whose api_key env is set. Falls back to the first match so the
+        caller still gets a meaningful missing-credentials diagnostic.
+        """
+        first_match: ModelConfig | None = None
+        deferred_base_url_error: ValueError | None = None
+
         for provider_name, provider_cfg in models_config.get("providers", {}).items():
             for m in provider_cfg.get("models", []):
                 aliases = [str(alias) for alias in m.get("aliases", [])]
-                if m["name"] == model_name or model_name in aliases:
-                    # Support multiple env var names for API key
-                    api_key_env = provider_cfg.get("api_key_env", "")
-                    api_key = ""
-                    if isinstance(api_key_env, list):
-                        for env_name in api_key_env:
-                            api_key = os.environ.get(env_name, "")
-                            if api_key:
-                                break
-                    else:
-                        api_key = os.environ.get(api_key_env, "")
+                if m["name"] != model_name and model_name not in aliases:
+                    continue
 
-                    # base_url comes from either the YAML field or an env var
-                    # (or both — env var wins when set). At least one must resolve.
-                    base_url_env = provider_cfg.get("base_url_env")
-                    base_url = provider_cfg.get("base_url", "")
-                    if base_url_env:
-                        base_url = os.environ.get(base_url_env, base_url)
-                    if not base_url:
-                        raise ValueError(
+                api_key_env = provider_cfg.get("api_key_env", "")
+                api_key = ""
+                if isinstance(api_key_env, list):
+                    for env_name in api_key_env:
+                        api_key = os.environ.get(env_name, "")
+                        if api_key:
+                            break
+                else:
+                    api_key = os.environ.get(api_key_env, "")
+
+                base_url_env = provider_cfg.get("base_url_env")
+                base_url = provider_cfg.get("base_url", "")
+                if base_url_env:
+                    base_url = os.environ.get(base_url_env, base_url)
+                if not base_url:
+                    if deferred_base_url_error is None:
+                        deferred_base_url_error = ValueError(
                             f"provider '{provider_name}' has no base_url: set the "
                             f"'base_url' field in models.yaml, or export the "
                             f"'base_url_env' variable ({base_url_env or 'not set'})"
                         )
+                    continue
 
-                    return ModelConfig(
-                        provider=provider_name,
-                        model=str(m.get("api_model", m["name"])),
-                        config_name=str(m["name"]),
-                        base_url=base_url.rstrip("/"),
-                        api_key=api_key,
-                        api_format=provider_cfg.get("format", "openai"),
-                        request_mode=str(m.get("request_mode", "chat_completions")),
-                        supports_tools=bool(m.get("supports_tools", True)),
-                        supports_streaming=bool(m.get("supports_streaming", True)),
-                        supports_reasoning_effort=bool(m.get("supports_reasoning_effort", False)),
-                        supports_thinking=bool(m.get("supports_thinking", False)),
-                        default_reasoning_effort=(
-                            str(m["default_reasoning_effort"])
-                            if m.get("default_reasoning_effort") is not None else None
-                        ),
-                        default_thinking_budget_tokens=(
-                            int(m["default_thinking_budget_tokens"])
-                            if m.get("default_thinking_budget_tokens") is not None else None
-                        ),
-                    )
+                config = ModelConfig(
+                    provider=provider_name,
+                    model=str(m.get("api_model", m["name"])),
+                    config_name=str(m["name"]),
+                    base_url=base_url.rstrip("/"),
+                    api_key=api_key,
+                    api_format=provider_cfg.get("format", "openai"),
+                    request_mode=str(m.get("request_mode", "chat_completions")),
+                    supports_tools=bool(m.get("supports_tools", True)),
+                    supports_streaming=bool(m.get("supports_streaming", True)),
+                    supports_reasoning_effort=bool(m.get("supports_reasoning_effort", False)),
+                    supports_thinking=bool(m.get("supports_thinking", False)),
+                    default_reasoning_effort=(
+                        str(m["default_reasoning_effort"])
+                        if m.get("default_reasoning_effort") is not None else None
+                    ),
+                    default_thinking_budget_tokens=(
+                        int(m["default_thinking_budget_tokens"])
+                        if m.get("default_thinking_budget_tokens") is not None else None
+                    ),
+                )
+
+                if api_key:
+                    return config
+                if first_match is None:
+                    first_match = config
+
+        if first_match is not None:
+            return first_match
+        if deferred_base_url_error is not None:
+            raise deferred_base_url_error
         raise ValueError(f"Model '{model_name}' not found in configuration")
 
     async def complete(
