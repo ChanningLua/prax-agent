@@ -6,7 +6,7 @@
     "prax": "bin/prax.js"
   },
   "scripts": {
-    "postinstall": "node -e \"const{execFileSync:e}=require('child_process');try{e('python3',['-c','import prax'],{stdio:'ignore'})}catch{console.log('\\nNote: prax Python package not found. Run: pip install prax-agent\\n')}\""
+    "postinstall": "node -e \"try{require('child_process').execFileSync('python3',['--version'],{stdio:'ignore'})}catch{console.log('\\nNote: Python 3.10+ is required at runtime. Install from https://www.python.org/downloads/\\n')}\""
   },
   "keywords": [
     "agent",
@@ -32,26 +32,12 @@
   },
   "files": [
     "bin/",
-    "agents/",
-    "commands/",
-    "config/",
-    "core/",
+    "src/",
     "docs/getting-started.md",
     "docs/recipes/",
     "docs/tutorials/",
-    "integrations/",
-    "runtime/",
-    "skills/",
-    "tools/",
-    "tui/",
-    "workflows/",
-    "assets/",
-    "__init__.py",
-    "__main__.py",
-    "cli.py",
-    "main.py",
-    "repl.py",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE",
     "!**/__pycache__",
     "!**/*.pyc"

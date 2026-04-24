@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2026-04-22
 
+### Breaking Changes
+- **Package layout migrated from flat to `src/` layout.** All internal modules now live under `src/prax/`. User-facing Python imports move from `agents.*`, `core.*`, `tools.*`, `commands.*`, `workflows.*`, `tui.*`, `runtime.*`, `integrations.*` → `prax.agents.*`, `prax.core.*`, etc. The `prax` CLI entry point is unchanged. Upgrade path for anyone importing internals directly:
+  ```python
+  # Before (0.3.x)
+  from core.llm_client import LLMClient
+  from agents.base import BaseAgent
+  # After (0.4.0)
+  from prax.core.llm_client import LLMClient
+  from prax.agents.base import BaseAgent
+  ```
+
 ### Added
 - **NotifyTool** (`tools/notify.py`) + `.prax/notify.yaml`: outbound notifications through named channels.
   - Providers: `feishu_webhook`, `lark_webhook`, `smtp`.

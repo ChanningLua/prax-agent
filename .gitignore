@@ -95,11 +95,9 @@ plugin.json
 verify_eval_suite.py
 verify_implementation.py
 
-# Node/TS artifacts (demo outputs, not core)
-package.json
+# Node/TS artifacts from demos (NOT the package.json or src/ at repo root)
 tsconfig.json
 vitest.config.ts
-src/
 
 # Local task state
 .prax/tasks/

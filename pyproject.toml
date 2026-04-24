@@ -1,6 +1,6 @@
 [project]
 name = "prax"
-version = "0.2.0"
+version = "0.4.0"
 description = "Open-source coding agent runtime for repository work"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -46,26 +46,10 @@ dev = [
 prax = "prax.main:main"
 
 [tool.setuptools.package-dir]
-prax = "."
+"" = "src"
 
-[tool.setuptools]
-packages = [
-    "prax",
-    "prax.agents",
-    "prax.assets",
-    "prax.assets.claude",
-    "prax.commands",
-    "prax.core",
-    "prax.core.memory",
-    "prax.core.sandbox",
-    "prax.integrations",
-    "prax.integrations.claude_code",
-    "prax.runtime",
-    "prax.tools",
-    "prax.tui",
-    "prax.tui.widgets",
-    "prax.workflows",
-]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
 prax = [
@@ -76,7 +60,8 @@ prax = [
     "assets/claude/prax/hooks/*.sh",
     "assets/claude/rules/*/*.md",
     "assets/claude/skills/*/SKILL.md",
-    "skills/*/SKILL.md",
+    "skills/**/*",
+    "config/*.yaml",
 ]
 
 [build-system]

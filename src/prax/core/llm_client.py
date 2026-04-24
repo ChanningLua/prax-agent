@@ -85,11 +85,18 @@ class LLMClient:
                     else:
                         api_key = os.environ.get(api_key_env, "")
 
-                    # Support base_url override from environment
+                    # base_url comes from either the YAML field or an env var
+                    # (or both — env var wins when set). At least one must resolve.
                     base_url_env = provider_cfg.get("base_url_env")
-                    base_url = provider_cfg["base_url"]
+                    base_url = provider_cfg.get("base_url", "")
                     if base_url_env:
                         base_url = os.environ.get(base_url_env, base_url)
+                    if not base_url:
+                        raise ValueError(
+                            f"provider '{provider_name}' has no base_url: set the "
+                            f"'base_url' field in models.yaml, or export the "
+                            f"'base_url_env' variable ({base_url_env or 'not set'})"
+                        )
 
                     return ModelConfig(
                         provider=provider_name,

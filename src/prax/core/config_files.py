@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .agent_spec import AgentSpec
 
 
-CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "config"
+CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
 
 def load_models_config(cwd: str | None = None) -> dict:

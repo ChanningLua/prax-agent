@@ -62,86 +62,47 @@ prax 0.4.0
 
 **See `command not found`?**
 - macOS with Homebrew Node: run `export PATH=/opt/homebrew/bin:$PATH` then add it to `~/.zshrc`
-- Fallback: `pip install prax-agent` if you prefer pip over npm
+- Linux: confirm `npm prefix -g`'s `bin/` is on your `$PATH`
 
-### Step 3 · Point Prax at an AI key
+### Step 3 · Point Prax at an LLM service
 
-Most users already have a **Claude** or **GPT** key through a **中转/relay proxy** (third-party service that resells the official API). Use whichever you have — Prax handles both.
+Prax needs two things to call any LLM: an **endpoint URL** and an **API key**.
+The procedure is the same whether you use an official API or a third-party proxy.
 
-#### Option A · Claude via relay (recommended for China users)
+1. Get the `base_url` and `api_key` from your service's dashboard or docs.
 
-If your relay gives you a URL like `https://your-relay.com/` and a key starting with `sk-...` or `cr-...`:
+2. Export them as environment variables (the names are arbitrary — any name your shell can `export` works; `LLM_BASE_URL` / `LLM_API_KEY` is just our recommended convention):
 
-```bash
-export ANTHROPIC_BASE_URL="https://your-relay.com"
-export ANTHROPIC_API_KEY="your-relay-key"
-```
+   ```bash
+   export LLM_BASE_URL="https://your-service-endpoint"
+   export LLM_API_KEY="your-key"
+   ```
 
-Then tell Prax to default to Claude:
+3. Wire them into Prax via `~/.prax/models.yaml`:
 
-```bash
-mkdir -p ~/.prax
-cat > ~/.prax/models.yaml <<'YAML'
-default_model: claude-sonnet-4-7
-YAML
-```
+   ```bash
+   mkdir -p ~/.prax
+   cat > ~/.prax/models.yaml <<'YAML'
+   providers:
+     default:
+       base_url_env: LLM_BASE_URL
+       api_key_env: LLM_API_KEY
+       format: openai          # use "anthropic" if your service speaks the Anthropic protocol
+       models:
+         - name: <your-model>  # the exact model name your service exposes
+   default_model: <your-model>
+   YAML
+   ```
 
-#### Option B · GPT via relay (also common in China)
+   Replace `<your-model>` with whatever model identifier your service supports (check the service's `/v1/models` endpoint or its dashboard).
 
-If your relay exposes an OpenAI-compatible endpoint, e.g. `https://your-relay.com/openai/v1`:
+4. Verify it works:
 
-```bash
-export OPENAI_API_KEY="your-relay-key"
+   ```bash
+   prax providers
+   ```
 
-mkdir -p ~/.prax
-cat > ~/.prax/models.yaml <<'YAML'
-providers:
-  openai:
-    base_url: "https://your-relay.com/openai/v1"
-    api_key_env: "OPENAI_API_KEY"
-    format: "openai"
-    models:
-      - name: gpt-5.4
-        aliases: ["gpt", "gpt5"]
-        tier: standard
-      - name: gpt-5.3-codex
-        aliases: ["codex"]
-        tier: high
-default_model: gpt-5.4
-YAML
-```
-
-Replace `gpt-5.4` with whatever model name your relay supports (run your relay's `/v1/models` endpoint to see the list).
-
-#### Option C · Direct Claude or OpenAI key (if you have overseas card access)
-
-Skip the `*_BASE_URL` line, set the key directly:
-
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-# or
-export OPENAI_API_KEY="sk-..."
-```
-
-#### Option D · No key? Free GLM fallback
-
-Register at <https://open.bigmodel.cn> (free tier, no credit card), copy a key, then:
-
-```bash
-export ZHIPU_API_KEY="your-glm-key"
-```
-
-GLM's free tier is enough to follow every tutorial on this page.
-
-#### Verify the key works
-
-```bash
-prax doctor all
-```
-
-You should see at least one `✓` line (e.g. `[claude] ✓ ANTHROPIC_API_KEY is set`).
-
-**All `✗`?** Re-run the `export` command above and make sure no typo; `echo $ANTHROPIC_API_KEY` should echo the key back.
+   You should see your provider listed with the model name and a status. With `LLM_API_KEY` set the status reads `available`; if it shows `missing-credentials`, the env var didn't reach Prax — re-run the `export` and make sure `echo $LLM_API_KEY` echoes the key back.
 
 ### Step 4 · Your first task
 
@@ -178,9 +139,9 @@ That's the distinguishing capability — Prax doesn't just chat, it **reads, wri
 
 | Symptom | Fix |
 |---|---|
-| `Error: Model 'xxx' not found` | The model name in `~/.prax/models.yaml` doesn't match anything your relay exposes. Check the relay's `/v1/models` list. |
-| `HTTP 401 / Unauthorized` | Key typo or expired. Regenerate and re-export. |
-| Silent exit with no output | Your relay is down. Try `curl -s $ANTHROPIC_BASE_URL/...` or switch to a fallback key. |
+| `Error: Model 'xxx' not found` | The `<your-model>` name in `~/.prax/models.yaml` doesn't match what your service exposes. Check its `/v1/models` endpoint or dashboard. |
+| `HTTP 401 / Unauthorized` | Key typo or expired. Regenerate and re-export `LLM_API_KEY`. |
+| Silent exit with no output | Your endpoint is unreachable. Try `curl -s "$LLM_BASE_URL"/...` to confirm, or point `LLM_BASE_URL` at a healthy endpoint. |
 | Chinese characters look broken | Set `export LANG=zh_CN.UTF-8` in your shell rc. |
 
 ---
@@ -219,7 +180,7 @@ If you use [Claude Code](https://claude.com/claude-code) and want Prax's skills,
 prax install --profile full
 ```
 
-This copies Prax's bundled skills (5 commercial use cases above + 4 developer workflows) into `~/.claude/`, registers Prax MCP servers, and wires hooks so Claude Code runs Prax's verification loop on every code change.
+This copies Prax's bundled skills (4 commercial recipes + 1 content-automation pipeline + 4 developer workflows) into `~/.claude/`, registers Prax MCP servers, and wires hooks so Claude Code runs Prax's verification loop on every code change.
 
 Verify:
 
@@ -231,14 +192,16 @@ Now reopen your project in Claude Code. You'll see new `/prax-status`, `/prax-do
 
 To undo: `prax uninstall --target claude`.
 
-> **Note on OpenAI Codex CLI**: Prax does not currently ship a `prax install --target codex` integration analogous to Claude Code. OpenAI's codex-family **models** (gpt-5-codex, gpt-5.3-codex, etc.) work fine as Prax's LLM backend via Step 3 Option B. A dedicated Codex CLI skill export is on the 0.5.x roadmap.
+> **Note**: `prax install` only ships a Claude Code integration today. Any LLM you configure via Step 3 still works as Prax's backend regardless of IDE choice. A skill-export path for additional IDE/CLI hosts is on the 0.5.x roadmap.
 
 ### One-liner for experienced users
 
 ```bash
 git clone https://github.com/ChanningLua/prax-agent.git && cd prax-agent
 pip install -e .
-export ANTHROPIC_API_KEY=sk-...    # or OPENAI_API_KEY / ZHIPU_API_KEY
+export LLM_BASE_URL="https://your-service-endpoint"
+export LLM_API_KEY="your-key"
+# (then write ~/.prax/models.yaml as shown in Step 3 above)
 prax prompt "run pytest -q, fix the failure, and stop when tests pass"
 ```
 
@@ -358,7 +321,7 @@ Most tools send a prompt and hope for the best. Prax runs a **test-verify-fix lo
 
 **Cross-Session Persistent Memory** — Context persists when you close the terminal. Two memory backends: JSON (zero-config) and SQLite (full-text search).
 
-**Multi-Model Orchestration** — Claude, GPT, GLM, and custom models with explicit routing, fallback chains, and cost tracking. Switch models mid-session with `/model claude-opus-4-7`.
+**Multi-Model Orchestration** — OpenAI-compatible, Anthropic-compatible, and custom-protocol LLMs with explicit routing, fallback chains, and cost tracking. Switch models mid-session with `/model <your-model>`.
 
 **Security by Design** — Permission modes (`read-only`, `workspace-write`, `danger-full-access`), schema validation, workspace boundaries, and full audit trail.
 
@@ -398,7 +361,7 @@ prax repl
 
 > analyze the codebase structure
 > fix the SQL injection in user_query.py
-> /model claude-opus-4-7
+> /model <your-model>
 > /cost
 Session: 12.4K tokens ($0.04)
 ```
@@ -438,7 +401,7 @@ See [docs/recipes/ai-news-daily.md](./docs/recipes/ai-news-daily.md) for the ful
 
 ### Bundled Skills
 
-Skills live under `skills/` (bundled) or `.prax/skills/` (project-local) and inject prompt guidance when their triggers match:
+Skills live under `skills/` (bundled) or `.prax/skills/` (project-local) and inject prompt guidance when their triggers match. Content / writing helpers:
 
 | Skill | Triggers | Purpose |
 |---|---|---|
@@ -447,7 +410,7 @@ Skills live under `skills/` (bundled) or `.prax/skills/` (project-local) and inj
 | `ai-news-daily` | `ai-news-daily` `daily digest` `日报` | End-to-end pipeline: scrape → compile → notify |
 | `chinese-coding` | `中文` `注释` `文档` | Chinese comments/docs style guide |
 
-Project-local skills in `.prax/skills/` override bundled ones with the same name.
+Four additional **commercial recipes** (`pr-triage`, `release-notes`, `docs-audit`, `support-digest`) ship under `skills/` as well — see the [Commercial Use Cases](#commercial-use-cases-new-in-04) table below for what each one does. Project-local skills in `.prax/skills/` override bundled ones with the same name.
 
 ### Commercial Use Cases (new in 0.4)
 
@@ -508,51 +471,31 @@ Prax offers two runtime paths — choose the right tool for the job:
 - **Session Persistence** — Auto-save session state, resume from breakpoints
 - **Bidirectional Collaboration** — Claude Code's conversational ability + Prax's verification loop
 
-### Installation and Usage
-
-```bash
-# Install Claude Code integration
-prax /init-models claude
-
-# Diagnose installation status
-prax /doctor claude
-
-# Use in Claude Code
-# 1. Open your project
-# 2. Use /prax commands or direct conversation
-# 3. Prax automatically runs test-verify-fix loops until completion
-```
-
 <p align="center">
   <img src="./docs/assets/integration-paths.svg" alt="Integration Paths" width="800">
 </p>
+
+> Installation lives under [Way 2 · Inside Claude Code IDE](#way-2--inside-claude-code-ide) above (`prax install --profile full`, then `prax doctor --target claude`).
 
 ---
 
 ## Configuration
 
-**Models** — create `.prax/models.yaml` in your project:
+**Models** — create `.prax/models.yaml` in your project (or edit the global `~/.prax/models.yaml` from Quick Start Step 3):
 
 ```yaml
-default_model: claude-sonnet-4-7
+default_model: <your-model>
 
 providers:
-  anthropic:
-    base_url: https://api.anthropic.com
-    api_key_env: ANTHROPIC_API_KEY
-    format: anthropic
+  default:
+    base_url_env: LLM_BASE_URL    # any env var name; declared in Quick Start Step 3
+    api_key_env: LLM_API_KEY
+    format: openai                # use "anthropic" if your endpoint speaks the Anthropic protocol
     models:
-      - name: claude-sonnet-4-7
-
-  openai:
-    base_url: https://api.openai.com/v1
-    api_key_env: OPENAI_API_KEY
-    format: openai
-    models:
-      - name: gpt-5.4
+      - name: <your-model>        # the model identifier your service exposes
 ```
 
-Or: `prax /init-models claude`
+To wire multiple endpoints (e.g. one OpenAI-compatible and one Anthropic-compatible), declare another `providers:` entry with its own `base_url_env` / `api_key_env` and list its models. Each provider can also override `base_url` directly instead of via env (see `core/llm_client.py` for the full schema).
 
 **Permission modes**
 

@@ -5,6 +5,7 @@ const { resolve } = require("path");
 
 const pythonCandidates = ["python3", "python"];
 const pkgDir = resolve(__dirname, "..");
+const srcDir = resolve(pkgDir, "src");
 
 function findPython() {
   for (const cmd of pythonCandidates) {
@@ -29,7 +30,7 @@ try {
     stdio: "inherit",
     env: {
       ...process.env,
-      PYTHONPATH: pkgDir + (process.env.PYTHONPATH ? ":" + process.env.PYTHONPATH : ""),
+      PYTHONPATH: srcDir + (process.env.PYTHONPATH ? ":" + process.env.PYTHONPATH : ""),
     },
   });
 } catch (e) {

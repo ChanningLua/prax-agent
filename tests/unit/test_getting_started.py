@@ -17,9 +17,12 @@ def test_getting_started_covers_install_key_and_first_prompt():
     for step in ("Step 1", "Step 2", "Step 3", "Step 4"):
         assert step in text, f"missing {step!r}"
 
-    # Three installation routes and three model providers must all be named.
-    for route in ("npm install -g praxagent", "pip install prax-agent"):
-        assert route in text, f"install command {route!r} must be documented"
+    # The single supported install route (npm) must be documented.
+    # PyPI publishing is not yet done; do not claim `pip install prax-agent`.
+    assert "npm install -g praxagent" in text, "npm install command must be documented"
+    assert "pip install prax-agent" not in text, (
+        "must not claim a PyPI package that hasn't been published"
+    )
 
     # At least the three providers we actually support.
     for provider_hint in ("ZHIPU_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
