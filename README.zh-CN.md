@@ -38,7 +38,7 @@ python3 --version   # 应打印 Python 3.10 或更高
 |---|---|
 | **macOS** | `brew install node python@3.12`（没 Homebrew 先按 <https://brew.sh> 装）|
 | **Linux** | `sudo apt install nodejs python3 python3-pip`（Debian/Ubuntu）或 `sudo dnf install nodejs python3`（Fedora）|
-| **Windows** | 用 [WSL2](https://learn.microsoft.com/windows/wsl/install) 按 Linux 命令装。原生 Windows 0.4 暂不支持 |
+| **Windows** | 用 [WSL2](https://learn.microsoft.com/windows/wsl/install) 按 Linux 命令装。原生 Windows 暂不支持（0.5.x 路线图上） |
 
 ### Step 2 · 装 Prax
 
@@ -55,10 +55,10 @@ prax --version
 **应该看到**：
 
 ```
-prax 0.4.0
+prax 0.5.0
 ```
 
-（0.4.0 或更高都行。）
+（0.5.0 或更高都行。）
 
 **看到 `command not found`？**
 - macOS 用 Homebrew 装的 Node：跑 `export PATH=/opt/homebrew/bin:$PATH`，加到 `~/.zshrc`

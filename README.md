@@ -38,7 +38,7 @@ Missing one? Install:
 |---|---|
 | **macOS** | `brew install node python@3.12` (install [Homebrew](https://brew.sh) first if needed) |
 | **Linux** | `sudo apt install nodejs python3 python3-pip` (Debian/Ubuntu) or `sudo dnf install nodejs python3` (Fedora) |
-| **Windows** | Use [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux commands. Native Windows is not supported for 0.4. |
+| **Windows** | Use [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux commands. Native Windows is not supported yet (on the 0.5.x roadmap). |
 
 ### Step 2 · Install Prax
 
@@ -55,10 +55,10 @@ prax --version
 **Should print**:
 
 ```
-prax 0.4.0
+prax 0.5.0
 ```
 
-(0.4.0 or higher is fine.)
+(0.5.0 or higher is fine.)
 
 **See `command not found`?**
 - macOS with Homebrew Node: run `export PATH=/opt/homebrew/bin:$PATH` then add it to `~/.zshrc`

@@ -30,7 +30,7 @@ prax --version
 **应该看到**：
 
 ```
-prax 0.4.0
+prax 0.5.0
 ```
 
 **看到 `command not found`？**
