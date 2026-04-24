@@ -1,12 +1,14 @@
 """Unit tests for background task tools.
 
-Uses tmp_path for a real BackgroundTaskStore on disk.
-The TaskExecutor is mocked so no real subagent runs.
+Uses tmp_path for a real BackgroundTaskStore on disk. The detached
+subprocess spawn (``_spawn_background_runner``) is patched so these
+tests don't actually fork a runner — that path is covered separately
+in the end-to-end smoke.
 """
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -18,6 +20,17 @@ from prax.tools.background_task import (
     StartTaskTool,
     UpdateTaskTool,
 )
+
+
+# Patch the spawn helper by default so tests don't accidentally fork a
+# real subprocess. Tests that need the real thing opt out explicitly.
+@pytest.fixture(autouse=True)
+def _no_real_spawn():
+    with patch(
+        "prax.tools.background_task._spawn_background_runner",
+        return_value=99999,
+    ) as mock_spawn:
+        yield mock_spawn
 
 
 # ---------------------------------------------------------------------------
@@ -48,13 +61,13 @@ def _make_task(store: BackgroundTaskStore, task_id: str, status: str = "running"
 def test_start_task_name(tmp_path):
     store = _store(tmp_path)
     executor = AsyncMock(return_value="done")
-    tool = StartTaskTool(store=store, executor=executor)
+    tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=executor)
     assert tool.name == "StartTask"
 
 
 def test_start_task_description_non_empty(tmp_path):
     store = _store(tmp_path)
-    tool = StartTaskTool(store=store, executor=AsyncMock())
+    tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=AsyncMock())
     assert tool.description.strip()
 
 
@@ -62,7 +75,7 @@ def test_start_task_description_non_empty(tmp_path):
 async def test_start_task_returns_task_id(tmp_path):
     store = _store(tmp_path)
     executor = AsyncMock(return_value="result text")
-    tool = StartTaskTool(store=store, executor=executor)
+    tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=executor)
     result = await tool.execute({"description": "my task", "prompt": "do stuff"})
     assert not result.is_error
     payload = json.loads(result.content)
@@ -74,7 +87,7 @@ async def test_start_task_returns_task_id(tmp_path):
 async def test_start_task_persists_to_store(tmp_path):
     store = _store(tmp_path)
     executor = AsyncMock(return_value="ok")
-    tool = StartTaskTool(store=store, executor=executor)
+    tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=executor)
     result = await tool.execute({"description": "persist test", "prompt": "do it"})
     payload = json.loads(result.content)
     task_id = payload["task_id"]
@@ -87,7 +100,7 @@ async def test_start_task_persists_to_store(tmp_path):
 @pytest.mark.asyncio
 async def test_start_task_empty_description_is_error(tmp_path):
     store = _store(tmp_path)
-    tool = StartTaskTool(store=store, executor=AsyncMock())
+    tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=AsyncMock())
     result = await tool.execute({"description": "   ", "prompt": "do stuff"})
     assert result.is_error
     assert "description" in result.content.lower()
@@ -96,10 +109,137 @@ async def test_start_task_empty_description_is_error(tmp_path):
 @pytest.mark.asyncio
 async def test_start_task_empty_prompt_is_error(tmp_path):
     store = _store(tmp_path)
-    tool = StartTaskTool(store=store, executor=AsyncMock())
+    tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=AsyncMock())
     result = await tool.execute({"description": "valid", "prompt": ""})
     assert result.is_error
     assert "prompt" in result.content.lower()
+
+
+# ---------------------------------------------------------------------------
+# M1 regression: detached-subprocess lifecycle
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_task_spawns_detached_runner(tmp_path, _no_real_spawn):
+    """StartTask must invoke _spawn_background_runner with task_id + cwd."""
+    store = _store(tmp_path)
+    tool = StartTaskTool(store=store, cwd=str(tmp_path))
+    result = await tool.execute({"description": "d", "prompt": "p"})
+    payload = json.loads(result.content)
+    task_id = payload["task_id"]
+    _no_real_spawn.assert_called_once_with(task_id, str(tmp_path))
+    # The returned payload exposes the PID from the mock.
+    assert payload["pid"] == 99999
+
+
+@pytest.mark.asyncio
+async def test_start_task_persists_cwd_and_pid(tmp_path, _no_real_spawn):
+    """cwd + pid must survive a store roundtrip so CheckTask can use them."""
+    store = _store(tmp_path)
+    tool = StartTaskTool(store=store, cwd=str(tmp_path))
+    result = await tool.execute({"description": "d", "prompt": "p"})
+    task_id = json.loads(result.content)["task_id"]
+    task = store.get(task_id)
+    assert task is not None
+    assert task.cwd == str(tmp_path)
+    assert task.pid == 99999
+
+
+@pytest.mark.asyncio
+async def test_start_task_records_spawn_failure_as_error(tmp_path, _no_real_spawn):
+    """If the OS refuses to spawn the subprocess, surface it as task error."""
+    _no_real_spawn.side_effect = OSError("out of file descriptors")
+    store = _store(tmp_path)
+    tool = StartTaskTool(store=store, cwd=str(tmp_path))
+    result = await tool.execute({"description": "d", "prompt": "p"})
+    assert result.is_error
+    payload = json.loads(result.content)
+    task = store.get(payload["task_id"])
+    assert task is not None
+    assert task.status == "error"
+    assert task.exit_code == -1
+
+
+@pytest.mark.asyncio
+async def test_check_task_reconciles_dead_pid(tmp_path):
+    """If status='running' but pid is dead, CheckTask flips it to 'error'."""
+    store = _store(tmp_path)
+    # pid=1 on POSIX is init and we have no permission to kill it — but for
+    # this test we want a pid that is *not* alive, so pick a deliberately
+    # huge number that won't exist on any sane host.
+    task = BackgroundTask(
+        task_id="task_zombie",
+        description="zombie",
+        prompt="p",
+        subagent_type="general-purpose",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        pid=2**30,  # astronomically unlikely to exist
+    )
+    store.create(task)
+
+    tool = CheckTaskTool(store=store)
+    result = await tool.execute({"task_id": "task_zombie"})
+    payload = json.loads(result.content)
+    assert payload["status"] == "error"
+    assert "no longer alive" in payload["error"]
+    # Store should be updated too, not just the response.
+    reloaded = store.get("task_zombie")
+    assert reloaded is not None
+    assert reloaded.status == "error"
+
+
+@pytest.mark.asyncio
+async def test_check_task_running_with_alive_pid_stays_running(tmp_path):
+    """If pid is alive, CheckTask must NOT flip the task to error."""
+    import os
+    store = _store(tmp_path)
+    task = BackgroundTask(
+        task_id="task_alive",
+        description="alive",
+        prompt="p",
+        subagent_type="general-purpose",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        pid=os.getpid(),  # ourselves — definitely alive
+    )
+    store.create(task)
+
+    tool = CheckTaskTool(store=store)
+    result = await tool.execute({"task_id": "task_alive"})
+    payload = json.loads(result.content)
+    assert payload["status"] == "running"
+
+
+@pytest.mark.asyncio
+async def test_cancel_task_signals_live_pid(tmp_path):
+    """CancelTask should send SIGTERM when the task has a live pid."""
+    from unittest.mock import patch as _patch
+    store = _store(tmp_path)
+    task = BackgroundTask(
+        task_id="task_cancel",
+        description="c",
+        prompt="p",
+        subagent_type="general-purpose",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        pid=12345,
+    )
+    store.create(task)
+
+    tool = CancelTaskTool(store=store)
+    # Make the pid "alive" and watch for the kill call.
+    with _patch("prax.tools.background_task._pid_alive", return_value=True), \
+         _patch("prax.tools.background_task.os.kill") as mock_kill:
+        result = await tool.execute({"task_id": "task_cancel"})
+
+    import signal
+    mock_kill.assert_called_once_with(12345, signal.SIGTERM)
+    payload = json.loads(result.content)
+    assert payload["cancelled"] is True
+    assert payload["signalled"] is True
+    assert store.get("task_cancel").status == "cancelled"
 
 
 # ---------------------------------------------------------------------------

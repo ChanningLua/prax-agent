@@ -407,7 +407,7 @@ def _build_tools(
         tools.append(TaskTool(executor=task_executor))
         store = BackgroundTaskStore(cwd=cwd)
         tools.extend([
-            StartTaskTool(store=store, executor=task_executor),
+            StartTaskTool(store=store, cwd=cwd),
             CheckTaskTool(store=store),
             UpdateTaskTool(store=store),
             CancelTaskTool(store=store),

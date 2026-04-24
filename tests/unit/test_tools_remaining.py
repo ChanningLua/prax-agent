@@ -530,24 +530,34 @@ def _make_task(task_id: str = "task_abc", status: str = "running") -> Background
 
 
 class TestStartTaskTool:
+    # Never let these tests actually fork a background runner subprocess.
+    @pytest.fixture(autouse=True)
+    def _no_spawn(self):
+        from unittest.mock import patch as _patch
+        with _patch(
+            "prax.tools.background_task._spawn_background_runner",
+            return_value=99999,
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_empty_description_is_error(self, tmp_path: Path) -> None:
         store = _make_store(tmp_path)
-        tool = StartTaskTool(store=store, executor=AsyncMock(return_value="done"))
+        tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=AsyncMock(return_value="done"))
         result = await tool.execute({"description": "   ", "prompt": "ok"})
         assert result.is_error
 
     @pytest.mark.asyncio
     async def test_empty_prompt_is_error(self, tmp_path: Path) -> None:
         store = _make_store(tmp_path)
-        tool = StartTaskTool(store=store, executor=AsyncMock(return_value="done"))
+        tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=AsyncMock(return_value="done"))
         result = await tool.execute({"description": "test", "prompt": ""})
         assert result.is_error
 
     @pytest.mark.asyncio
     async def test_starts_task_returns_task_id(self, tmp_path: Path) -> None:
         store = _make_store(tmp_path)
-        tool = StartTaskTool(store=store, executor=AsyncMock(return_value="done"))
+        tool = StartTaskTool(store=store, cwd=str(tmp_path), executor=AsyncMock(return_value="done"))
         result = await tool.execute({"description": "desc", "prompt": "do something"})
         assert not result.is_error
         payload = json.loads(result.content)

@@ -41,7 +41,9 @@ class TestBackgroundTaskStore:
         assert result.description == "Do something"
 
         payload = json.loads((tmp_path / ".prax" / "tasks" / "task_001.json").read_text(encoding="utf-8"))
-        assert payload["schema_version"] == "prax.background_task.v1"
+        # v2 adds detached-subprocess lifecycle fields but is backwards
+        # compatible with v1 records on disk.
+        assert payload["schema_version"] == "prax.background_task.v2"
 
     def test_get_missing_returns_none(self, tmp_path):
         store = BackgroundTaskStore(str(tmp_path))

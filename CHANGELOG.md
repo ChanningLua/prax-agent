@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-25
+
+### Changed (Breaking behaviour)
+- **Background tasks now survive the parent `prax prompt` process.** Previously
+  `StartTask` scheduled work via `asyncio.create_task`, which died with the
+  process that started it — meaning the "background" was effectively a fiction
+  in the standalone CLI. The tool now spawns a detached OS subprocess
+  (`python -m prax._background_runner`) with `start_new_session=True` on
+  POSIX (`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS` on Windows), writes
+  the PID to `.prax/tasks/<task_id>.json`, and streams the agent run into
+  `.prax/logs/background/<task_id>-<ts>.log`. The task JSON gains new v2
+  fields — `cwd`, `pid`, `started_at`, `heartbeat_at`, `exit_code` — while
+  remaining backwards compatible with v1 records on disk.
+  (`tools/background_task.py`, `core/background_store.py`, new
+  `_background_runner.py`)
+
+### Added
+- `CheckTask` now reconciles silent runner crashes: if the task JSON still
+  says `running` but `os.kill(pid, 0)` shows the subprocess is gone, it
+  flips the state to `error` with `exit_code=-1` so callers don't poll a
+  permanently-stale "running".
+- `CancelTask` sends `SIGTERM` to the detached subprocess (best-effort) and
+  reports `signalled: true/false` in the result so the caller knows whether
+  the OS accepted the cancellation.
+- New optional `PRAX_BIN` env var lets operators pin which `prax`
+  executable the background runner invokes for the inner agent call; by
+  default it picks the first `prax` on PATH, falling back to `python -m prax`.
+
+### Why this matters
+This is the first of four milestones (M1–M4) spelled out in the audit plan
+that brings Prax's real capabilities in line with the public-facing "24/7"
+promise. Cron + Notify were already production-ready; after this release,
+**background tasks are too**. Upcoming releases add cron job dependencies
+(0.5.1), Linux auto-crontab (0.5.2), and Windows Task Scheduler (0.5.3).
+
 ## [0.4.2] - 2026-04-24
 
 ### Fixed

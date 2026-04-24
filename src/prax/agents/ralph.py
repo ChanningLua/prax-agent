@@ -187,7 +187,7 @@ class RalphAgent(BaseAgent):
         # Background task tools
         store = BackgroundTaskStore(cwd=self.cwd)
         tools.extend([
-            StartTaskTool(store=store, executor=task_executor),
+            StartTaskTool(store=store, cwd=self.cwd),
             CheckTaskTool(store=store),
             UpdateTaskTool(store=store),
             CancelTaskTool(store=store),
