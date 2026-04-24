@@ -742,6 +742,15 @@ async def _execute(
             history.extend(upgrade_events)
             session.metadata["upgrade_history"] = history
     finally:
+        # Drain any in-flight memory extraction before closing the shared
+        # httpx client; otherwise the background task races client.close()
+        # and nothing from the session persists to .prax/memory.json.
+        extraction_mw = next(
+            (m for m in middlewares if isinstance(m, MemoryExtractionMiddleware)),
+            None,
+        )
+        if extraction_mw is not None:
+            await extraction_mw.wait_for_pending_extraction()
         if hook_mw is not None:
             await hook_mw._registry.execute_lifecycle_hooks(
                 "Stop",

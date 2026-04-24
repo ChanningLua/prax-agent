@@ -1,7 +1,9 @@
 """Tests for memory middleware (pure unit tests, no real I/O)."""
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -120,7 +122,11 @@ def mock_deps(tmp_path):
         content='{"workContext": "test", "topOfMind": "test", "facts": [{"content": "fact1", "category": "context", "confidence": 0.9}], "triples": []}',
         stop_reason="end_turn",
     ))
+    # Default to non-streaming so existing tests exercise the `complete` path.
+    # Tests that want to cover `stream_complete` can set
+    # `mock_model.supports_streaming = True` and stub `mock_llm.stream_complete`.
     mock_model = MagicMock()
+    mock_model.supports_streaming = False
     with patch("prax.core.memory_middleware.get_vector_store") as mock_vs_factory:
         mock_vs = AsyncMock()
         mock_vs.query = AsyncMock(return_value=[])
@@ -318,6 +324,102 @@ async def test_extract_and_save_handles_invalid_json(mock_deps):
     )
     msgs = [{"role": "user", "content": "test"}]
     await mw._extract_and_save(msgs)  # Should not raise
+
+
+# ── wait_for_pending_extraction ──────────────────────────
+#
+# Regression tests for the session-teardown drain. Before this fix,
+# `prax prompt` closed the shared httpx client while the extraction task
+# scheduled by after_model() was still awaiting an LLM response; the task
+# surfaced `Cannot send a request, as the client has been closed` and
+# MemoryStore.save() at memory_middleware.py:334 was never reached.
+
+@pytest.mark.asyncio
+async def test_wait_for_pending_extraction_noop_when_no_task(mock_deps):
+    mw, _, _, _ = mock_deps
+    assert mw._extraction_task is None
+    await mw.wait_for_pending_extraction(timeout=0.01)  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_wait_for_pending_extraction_drains_in_flight_task(mock_deps, tmp_path):
+    mw, mock_llm, _, cwd = mock_deps
+    (cwd / ".prax").mkdir(exist_ok=True)
+
+    # Simulate a slow LLM that finishes within the drain budget.
+    async def slow_complete(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return LLMResponse(
+            content=[{"type": "text", "text": '{"workContext":"ctx","topOfMind":"","facts":[],"triples":[]}'}],
+            stop_reason="end_turn",
+        )
+    mock_llm.complete = slow_complete
+
+    state = _make_state()
+    response = LLMResponse(content=[{"type": "text", "text": "done"}], stop_reason="end_turn")
+    await mw.after_model(state, response)
+    assert mw._extraction_task is not None
+    assert not mw._extraction_task.done()
+
+    await mw.wait_for_pending_extraction(timeout=5.0)
+    assert mw._extraction_task.done()
+
+
+@pytest.mark.asyncio
+async def test_extract_and_save_uses_stream_complete_when_supported(mock_deps):
+    # Some OpenAI-compatible proxies (e.g. third-party Codex relays) reject
+    # non-streaming chat/completions with 400. Extraction must use the
+    # streaming transport when the model_config advertises it — otherwise the
+    # extraction call 400s and nothing persists even after the teardown drain.
+    mw, mock_llm, _, tmp_path = mock_deps
+    (tmp_path / ".prax").mkdir(exist_ok=True)
+    mw.model_config.supports_streaming = True
+
+    final_response = LLMResponse(
+        content=[{"type": "text", "text": '{"workContext":"","topOfMind":"","facts":[],"triples":[]}'}],
+        stop_reason="end_turn",
+    )
+
+    async def fake_stream(*args, **kwargs):
+        yield "partial "
+        yield "text"
+        yield final_response
+
+    mock_llm.stream_complete = fake_stream
+
+    await mw._extract_and_save([{"role": "user", "content": "hi"}])
+    # The non-streaming path must NOT have been used when streaming is on.
+    assert mock_llm.complete.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_wait_for_pending_extraction_bounded_by_timeout(mock_deps):
+    mw, mock_llm, _, _ = mock_deps
+
+    async def very_slow(*args, **kwargs):
+        await asyncio.sleep(10.0)
+        return LLMResponse(
+            content=[{"type": "text", "text": "{}"}],
+            stop_reason="end_turn",
+        )
+    mock_llm.complete = very_slow
+
+    state = _make_state()
+    response = LLMResponse(content=[{"type": "text", "text": "hi"}], stop_reason="end_turn")
+    await mw.after_model(state, response)
+
+    t0 = time.monotonic()
+    await mw.wait_for_pending_extraction(timeout=0.05)
+    elapsed = time.monotonic() - t0
+    assert elapsed < 1.0, f"drain did not honour timeout; took {elapsed:.2f}s"
+
+    # The shielded task is still running — cancel it explicitly so pytest
+    # does not warn about an unawaited coroutine.
+    mw._extraction_task.cancel()
+    try:
+        await mw._extraction_task
+    except (asyncio.CancelledError, Exception):
+        pass
 
 
 # ── _format_messages ─────────────────────────────────────

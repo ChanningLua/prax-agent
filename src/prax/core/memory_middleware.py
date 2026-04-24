@@ -280,6 +280,71 @@ class MemoryExtractionMiddleware(AgentMiddleware):
 
         return response
 
+    async def wait_for_pending_extraction(self, timeout: float = 15.0) -> None:
+        """Block until any in-flight extraction task finishes, bounded by timeout.
+
+        Called from the session teardown path so the background task scheduled
+        by ``after_model`` can reach ``self.store.save`` before the shared
+        httpx client is closed. Without this drain, closing the client races
+        the task and surfaces as
+        ``Memory extraction failed: Cannot send a request, as the client has
+        been closed`` — meaning nothing from the session actually persists.
+
+        Best-effort: a stuck LLM extraction must not hang CLI exit, so the
+        timeout simply stops waiting and returns. The task keeps running under
+        a shield so it still has a chance to finish before process exit.
+        """
+        task = self._extraction_task
+        if task is None or task.done():
+            return
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Memory extraction exceeded %.0fs budget on exit; session state may be partial.",
+                timeout,
+            )
+        except Exception:
+            pass
+
+    async def _extraction_llm_call(self, prompt: str) -> LLMResponse:
+        """Run a one-shot extraction prompt against the model, choosing transport
+        based on provider capability.
+
+        Some OpenAI-compatible proxies (e.g. third-party Codex relays) reject
+        non-streaming requests with `400 Stream must be set to true`. The main
+        agent loop already handles this via ``stream_complete`` — extraction
+        needs the same treatment or the response never makes it back and
+        nothing persists. Falls back to the plain ``complete`` path for
+        providers that don't support streaming.
+        """
+        messages = [{"role": "user", "content": prompt}]
+        system_prompt = "You are a knowledge extraction assistant. Return only valid JSON."
+
+        if self.model_config.supports_streaming:
+            response: LLMResponse | None = None
+            async for chunk in self.llm_client.stream_complete(
+                messages=messages,
+                tools=[],
+                model_config=self.model_config,
+                system_prompt=system_prompt,
+                thinking_enabled=False,
+            ):
+                if not isinstance(chunk, str):
+                    response = chunk
+            if response is None:
+                response = LLMResponse(content=[{"type": "text", "text": ""}])
+            return response
+
+        return await self.llm_client.complete(
+            messages=messages,
+            tools=[],
+            model_config=self.model_config,
+            system_prompt=system_prompt,
+            thinking_enabled=False,
+            reasoning_effort=None,
+        )
+
     async def _extract_and_save(self, messages: list[dict[str, Any]]) -> None:
         """Extract knowledge from recent messages and save to memory."""
         try:
@@ -304,15 +369,8 @@ class MemoryExtractionMiddleware(AgentMiddleware):
                 correction_hint=correction_hint
             )
 
-            # Call LLM with lightweight model
-            response = await self.llm_client.complete(
-                messages=[{"role": "user", "content": extraction_prompt}],
-                tools=[],
-                model_config=self.model_config,
-                system_prompt="You are a knowledge extraction assistant. Return only valid JSON.",
-                thinking_enabled=False,
-                reasoning_effort=None,
-            )
+            # Call LLM with lightweight model (streams when provider supports it)
+            response = await self._extraction_llm_call(extraction_prompt)
 
             # Parse response
             text = response.text.strip()
@@ -479,14 +537,7 @@ class MemoryExtractionMiddleware(AgentMiddleware):
             formatted = self._format_messages(messages)
             prompt = COMPOUND_PROMPT.format(messages=formatted)
 
-            response = await self.llm_client.complete(
-                messages=[{"role": "user", "content": prompt}],
-                tools=[],
-                model_config=self.model_config,
-                system_prompt="You are a knowledge extraction assistant. Return only valid JSON.",
-                thinking_enabled=False,
-                reasoning_effort=None,
-            )
+            response = await self._extraction_llm_call(prompt)
 
             text = response.text.strip()
             if text.startswith("```"):

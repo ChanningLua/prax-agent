@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-04-24
+
+### Fixed
+- **Persistent memory now actually persists in `prax prompt` mode.** The
+  `MemoryExtractionMiddleware.after_model` hook scheduled extraction as a
+  fire-and-forget `asyncio.create_task`; the shared httpx client was then
+  closed in `_execute`'s `finally` before the task reached `store.save()`,
+  so every `prax prompt` run silently produced the warning `Memory
+  extraction failed: Cannot send a request, as the client has been closed`
+  and wrote nothing to `.prax/memory.json`. `_execute` now drains the
+  pending extraction (bounded by a 15 s timeout so a stuck LLM cannot hang
+  CLI exit) before closing the client.
+  (`core/memory_middleware.py`, `main.py`)
+- **Extraction now uses streaming transport** when the provider declares
+  `supports_streaming: true`. Some OpenAI-compatible proxies (e.g. Codex
+  relays) reject non-streaming `chat/completions` with `400 Stream must be
+  set to true`; the main agent loop already streams in this case, but
+  `_extract_and_save` and `_extract_compound` were both using the plain
+  `complete()` path and therefore 400ing once the preceding race was
+  fixed. Shared helper `_extraction_llm_call` picks the right transport.
+  (`core/memory_middleware.py`)
+
 ## [0.4.1] - 2026-04-24
 
 ### Fixed
