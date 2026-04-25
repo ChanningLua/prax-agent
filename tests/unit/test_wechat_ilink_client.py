@@ -133,6 +133,30 @@ async def test_send_text_raises_when_ret_nonzero():
 
 
 @pytest.mark.asyncio
+async def test_send_text_translates_ret_minus_2_to_friendly_hint():
+    """ret=-2 means iLink has no chat context with the recipient — the raw
+    error 'ret=-2 errmsg=unknown' is unactionable. Surface a Chinese hint
+    that tells the user to send the bot a message in WeChat first."""
+    def handler(request):
+        return httpx.Response(200, json={"ret": -2})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(RuntimeError, match="ret=-2") as exc_info:
+            await send_text(
+                _account(),
+                to_user_id="u_no_context",
+                text="x",
+                http_client=client,
+            )
+        msg = str(exc_info.value)
+        # The actionable bits the user must see.
+        assert "会话上下文" in msg
+        assert "微信" in msg
+        assert "先发一句话" in msg
+
+
+@pytest.mark.asyncio
 async def test_send_text_raises_when_errcode_nonzero():
     def handler(request):
         return httpx.Response(200, json={"errcode": -99, "errmsg": "bad"})

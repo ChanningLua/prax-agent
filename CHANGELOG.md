@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-04-25
+
+### Fixed
+- **`wechat_personal` first-push UX gap.** iLink doesn't let a bot push
+  to a user_id it has never received a message from — the first
+  `prax wechat send` after `prax wechat login` failed with the cryptic
+  `iLink sendmessage error: ret=-2 errcode=None errmsg='unknown'` and
+  no hint about the cause. Two surface fixes:
+  - `prax wechat login` now prints a clear "one-time step" notice after
+    success: open WeChat, find the bot in your contacts, send it any
+    message, then `prax wechat send` will work.
+  - `send_text` translates `ret=-2` into a Chinese-readable hint with
+    the same fix.
+  - The underlying iLink limitation is unchanged (Hermes uses the same
+    pattern via `WEIXIN_HOME_CHANNEL`); we just stopped letting users
+    bounce off it without a recovery path.
+
 ## [0.5.2] - 2026-04-25
 
 ### Added

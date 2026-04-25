@@ -275,7 +275,16 @@ async def qr_login(
                 )
                 print(f"\n微信连接成功！account_id={account_id}")
                 if user_id:
-                    print(f"你的 user_id: {user_id}  ← 在 notify.yaml 里写 'to: self' 默认就推到这里。")
+                    print(f"你的 user_id: {user_id}")
+                # iLink 的硬约束：bot 必须先收到对方一条消息，才能反向 push。
+                # 不在这里提示，新用户首次 send 会撞 ret=-2 一头雾水。
+                print(
+                    "\n⚠ 一次性必做的小步骤（否则 push 会被 iLink 拒，报 ret=-2）：\n"
+                    "  1. 打开微信 App，在通讯录里找新加的机器人（名字可能就是一段编号或默认昵称）\n"
+                    "  2. 给它发任意一句话，比如 hi\n"
+                    "  3. 之后 prax wechat send / 定时推送都会到你这个会话\n"
+                    "  做完这一步后，bot 就有了和你的会话上下文，后续完全自动化。"
+                )
                 return QrLoginResult(
                     account_id=account_id,
                     token=token,
@@ -345,6 +354,17 @@ async def send_text(
     bad_errcode = errcode is not None and errcode != 0
     if bad_ret or bad_errcode:
         errmsg = resp.get("errmsg") or resp.get("msg") or "unknown"
+        # ret=-2 in practice almost always means "bot has no chat context with
+        # this recipient yet". iLink doesn't let bots cold-push to a user_id
+        # who has never messaged them. Translate the cryptic raw error so the
+        # caller (and CLI users) immediately see the fix.
+        if ret == -2:
+            raise RuntimeError(
+                "iLink 拒收 (ret=-2)：bot 没有和该 user_id 的会话上下文。\n"
+                "  → 打开微信，找到机器人联系人，给它先发一句话（任何内容），\n"
+                "    然后重新 prax wechat send 即可。\n"
+                f"  raw: ret=-2 errmsg={errmsg!r}"
+            )
         raise RuntimeError(
             f"iLink sendmessage error: ret={ret} errcode={errcode} errmsg={errmsg!r}"
         )
