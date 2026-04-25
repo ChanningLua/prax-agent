@@ -143,6 +143,45 @@ def build_parser() -> argparse.ArgumentParser:
     c_uninstall = cron_sub.add_parser("uninstall", help="Remove the dispatcher")
     _add_shared_json_flag(c_uninstall)
 
+    wechat = subparsers.add_parser(
+        "wechat",
+        help="Manage personal-WeChat (iLink) credentials for the wechat_personal notify provider",
+    )
+    wechat_sub = wechat.add_subparsers(dest="wechat_action", required=True)
+
+    w_login = wechat_sub.add_parser(
+        "login",
+        help="Run the QR-code login flow and persist credentials under ~/.prax/wechat/",
+    )
+    w_login.add_argument(
+        "--bot-type",
+        default="3",
+        help="iLink bot_type parameter; defaults to '3' (matches Hermes)",
+    )
+    w_login.add_argument(
+        "--timeout",
+        type=int,
+        default=480,
+        help="Seconds to wait for the QR scan before giving up",
+    )
+
+    w_list = wechat_sub.add_parser("list", help="List saved iLink accounts")
+    _add_shared_json_flag(w_list)
+
+    w_send = wechat_sub.add_parser("send", help="Send a one-off test message to verify a saved account")
+    w_send.add_argument("--account", required=True, help="account_id from `prax wechat list`")
+    w_send.add_argument(
+        "--to",
+        default="self",
+        help="Recipient user_id, or the literal 'self' to send to the logged-in account itself",
+    )
+    w_send.add_argument("text", nargs="+", help="Message text")
+
+    w_logout = wechat_sub.add_parser(
+        "logout", help="Delete a saved iLink account credential file"
+    )
+    w_logout.add_argument("--account", required=True)
+
     return parser
 
 
@@ -260,6 +299,80 @@ def main() -> None:
             print(f"Error: {e}", file=sys.stderr)
             raise SystemExit(2)
         return
+
+    if args.command == "wechat":
+        from .integrations import wechat_ilink as wx
+
+        action = args.wechat_action
+        if action == "login":
+            result = asyncio.run(
+                wx.qr_login(bot_type=args.bot_type, timeout_seconds=args.timeout)
+            )
+            if result is None:
+                raise SystemExit(1)
+            return
+
+        if action == "list":
+            accounts = wx.list_accounts()
+            if not accounts:
+                _render(
+                    {"text": "No saved iLink accounts. Run `prax wechat login` first.",
+                     "accounts": []},
+                    as_json=args.json,
+                )
+                return
+            payload = {
+                "accounts": [
+                    {
+                        "account_id": a.account_id,
+                        "user_id": a.user_id,
+                        "base_url": a.base_url,
+                        "saved_at": a.saved_at,
+                    }
+                    for a in accounts
+                ]
+            }
+            text_lines = [
+                f"  {a.account_id}  user_id={a.user_id or '(none)'}  saved_at={a.saved_at}"
+                for a in accounts
+            ]
+            payload["text"] = "Saved iLink accounts:\n" + "\n".join(text_lines)
+            _render(payload, as_json=args.json)
+            return
+
+        if action == "send":
+            account = wx.load_account(args.account)
+            if account is None:
+                print(
+                    f"Error: account {args.account!r} not found. Run `prax wechat login` or `prax wechat list`.",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+            recipient = account.user_id if args.to == "self" else args.to
+            if not recipient:
+                print(
+                    "Error: account has no user_id; specify an explicit --to <user_id>.",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+            text = " ".join(args.text)
+            try:
+                asyncio.run(wx.send_text(account, to_user_id=recipient, text=text))
+            except Exception as exc:
+                print(f"Error: send failed: {exc}", file=sys.stderr)
+                raise SystemExit(1)
+            print(f"OK — sent to {recipient}")
+            return
+
+        if action == "logout":
+            removed = wx.delete_account(args.account)
+            if not removed:
+                print(f"No saved account named {args.account!r}.", file=sys.stderr)
+                raise SystemExit(1)
+            print(f"Deleted account {args.account!r}.")
+            return
+
+        raise SystemExit(1)
 
     if args.command == "export-plugin":
         _render(

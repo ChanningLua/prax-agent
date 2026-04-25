@@ -6,10 +6,14 @@ Each channel picks a provider; providers are deliberately minimal:
 - ``feishu_webhook`` / ``lark_webhook``: HTTP POST an interactive card to a
   group bot webhook.
 - ``wechat_work_webhook``: HTTP POST a markdown message to a 企业微信
-  (WeCom) group bot webhook. Use this to push to WeChat — personal WeChat
-  is deliberately out of scope (no stable official API), but the WeCom
-  group bot is officially supported and the bridge most users actually
-  reach for.
+  (WeCom) group bot webhook — the official, free, 60-second-setup path
+  for team chats.
+- ``wechat_personal``: push to a **personal** WeChat account via Tencent's
+  iLink Bot API. Requires a one-time ``prax wechat login`` (QR scan with
+  WeChat) so credentials get written to ``~/.prax/wechat/<account_id>.json``;
+  after that, the channel just references the account by id and the
+  recipient by user_id (or the literal ``self`` to send to the logged-in
+  account itself).
 - ``smtp``: send email, with the password read from an environment variable
   (never embedded in YAML).
 """
@@ -153,6 +157,52 @@ class WechatWorkWebhookProvider(NotifyProvider):
                 await client.aclose()
 
 
+class WechatPersonalProvider(NotifyProvider):
+    """Push to a personal WeChat account via the iLink bot.
+
+    The actual transport lives in ``prax.integrations.wechat_ilink``;
+    this thin wrapper just resolves ``self`` to the logged-in account's
+    own user_id and combines title + body into a single text message
+    (iLink's text item supports newlines but not rich markdown, so we
+    keep formatting minimal).
+    """
+
+    def __init__(
+        self,
+        *,
+        account_id: str,
+        to: str = "self",
+        title_prefix: str = "",
+    ):
+        self._account_id = account_id
+        self._to = to
+        self._title_prefix = title_prefix
+
+    async def send(self, *, title: str, body: str, level: str) -> None:
+        # Imported here so anything in this module that doesn't touch the
+        # personal-WeChat path stays free of the integration dependency.
+        from ..integrations.wechat_ilink import load_account, send_text
+
+        account = load_account(self._account_id)
+        if account is None:
+            raise RuntimeError(
+                f"wechat_personal channel: account {self._account_id!r} not found. "
+                f"Run `prax wechat login` first."
+            )
+
+        recipient = account.user_id if self._to == "self" else self._to
+        if not recipient:
+            raise RuntimeError(
+                f"wechat_personal channel: account {self._account_id!r} has no user_id "
+                f"saved; specify an explicit `to:` in notify.yaml."
+            )
+
+        full_title = f"{self._title_prefix}{title}" if self._title_prefix else title
+        # iLink text payload is plain text — newline-separate the title.
+        text = f"{full_title}\n\n{body}" if full_title else body
+        await send_text(account, to_user_id=recipient, text=text)
+
+
 class SmtpProvider(NotifyProvider):
     """Send email via SMTP. Password must come from an environment variable."""
 
@@ -212,6 +262,14 @@ def build_provider(channel_cfg: dict) -> NotifyProvider:
             raise ValueError(f"channel {provider}: missing url")
         prefix = channel_cfg.get("default_title_prefix", "")
         return WechatWorkWebhookProvider(url=url, title_prefix=prefix)
+
+    if provider == "wechat_personal":
+        account_id = str(channel_cfg.get("account_id", "")).strip()
+        if not account_id:
+            raise ValueError(f"channel {provider}: missing account_id")
+        to = str(channel_cfg.get("to", "self")).strip() or "self"
+        prefix = channel_cfg.get("default_title_prefix", "")
+        return WechatPersonalProvider(account_id=account_id, to=to, title_prefix=prefix)
 
     if provider == "smtp":
         missing = [k for k in ("host", "from", "to", "auth_env") if k not in channel_cfg]

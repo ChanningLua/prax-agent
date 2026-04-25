@@ -28,8 +28,11 @@ def test_getting_started_covers_install_key_and_first_prompt():
     for provider_hint in ("ZHIPU_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
         assert provider_hint in text, f"provider env var {provider_hint!r} must be documented"
 
-    # `prax doctor` is the canonical sanity-check — tutorial must point at it.
-    assert "prax doctor" in text
+    # The canonical sanity-check is `prax providers` (we used to point users
+    # at `prax doctor`, but doctor is the Claude-Code-integration doctor and
+    # doesn't tell new users whether their LLM key is wired up — the
+    # provider listing does).
+    assert "prax providers" in text
 
     # First-prompt example + expected-output convention.
     assert "prax prompt" in text

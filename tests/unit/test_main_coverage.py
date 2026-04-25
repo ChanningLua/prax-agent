@@ -438,7 +438,11 @@ async def test_run_with_model_upgrades_exception_last_attempt_reraises():
 
 
 @pytest.mark.asyncio
-async def test_run_with_model_upgrades_no_report_raises():
+async def test_run_with_model_upgrades_synthesizes_report_when_loop_skips_on_complete():
+    """When the agent loop returns without firing on_complete, the runtime
+    must synthesize a fallback report rather than raise — earlier behaviour
+    was a hard RuntimeError that broke any provider whose loop variant
+    didn't propagate the callback."""
     mock_client = MagicMock()
     mock_config = MagicMock()
     mock_client.resolve_model.return_value = mock_config
@@ -446,24 +450,24 @@ async def test_run_with_model_upgrades_no_report_raises():
     mock_context.model = "gpt-4"
 
     async def fake_loop(*args, **kwargs):
-        # No on_complete called
         return "text"
 
-    with (
-        patch("prax.main.get_upgrade_path", return_value=["gpt-4"]),
-    ):
-        with pytest.raises(RuntimeError, match="without completion report"):
-            await _run_with_model_upgrades(
-                "task",
-                context=mock_context,
-                llm_client=mock_client,
-                models_config={},
-                initial_model="gpt-4",
-                tools=[],
-                middlewares=[],
-                base_history=[],
-                run_loop=fake_loop,
-            )
+    with patch("prax.main.get_upgrade_path", return_value=["gpt-4"]):
+        result = await _run_with_model_upgrades(
+            "task",
+            context=mock_context,
+            llm_client=mock_client,
+            models_config={},
+            initial_model="gpt-4",
+            tools=[],
+            middlewares=[],
+            base_history=[],
+            run_loop=fake_loop,
+        )
+
+    # Tuple shape comes from main._run_with_model_upgrades
+    assert result is not None
+    assert len(result) == 5
 
 
 # ── _build_pipeline ───────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ from prax.tools.notify import (
     LarkWebhookProvider,
     NotifyTool,
     SmtpProvider,
+    WechatPersonalProvider,
     WechatWorkWebhookProvider,
     build_provider,
 )
@@ -125,6 +126,27 @@ def test_build_provider_wechat_work():
 def test_build_provider_wechat_work_missing_url_raises():
     with pytest.raises(ValueError, match="missing url"):
         build_provider({"provider": "wechat_work_webhook"})
+
+
+def test_build_provider_wechat_personal():
+    p = build_provider({
+        "provider": "wechat_personal",
+        "account_id": "ilink_abc",
+        "to": "self",
+    })
+    assert isinstance(p, WechatPersonalProvider)
+    assert p._account_id == "ilink_abc"
+    assert p._to == "self"
+
+
+def test_build_provider_wechat_personal_missing_account_id_raises():
+    with pytest.raises(ValueError, match="missing account_id"):
+        build_provider({"provider": "wechat_personal"})
+
+
+def test_build_provider_wechat_personal_defaults_to_self():
+    p = build_provider({"provider": "wechat_personal", "account_id": "ilink_x"})
+    assert p._to == "self"
 
 
 def test_build_provider_expands_env_var_in_url(monkeypatch):

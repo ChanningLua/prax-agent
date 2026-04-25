@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-04-25
+
+### Added
+- **`wechat_personal` notify provider — push to personal WeChat accounts
+  via Tencent's iLink Bot API.** Companion CLI: `prax wechat
+  {login, list, send, logout}`. Workflow:
+  1. `prax wechat login` runs the iLink QR-scan flow; once the user
+     confirms in WeChat, credentials land at
+     `~/.prax/wechat/<account_id>.json` (mode 0o600).
+  2. Reference the account in `.prax/notify.yaml`:
+     ```yaml
+     channels:
+       daily-digest:
+         provider: wechat_personal
+         account_id: ilink_xxxxx
+         to: self          # default — sends to the logged-in account itself
+     ```
+  3. Any cron job with `notify_channel: daily-digest` now lands directly
+     in personal WeChat — no WeCom group, no third-party SaaS, no
+     ServerChan/wxpusher relay.
+  - Optional dependency: install `qrcode` (`pip install qrcode`) to render
+    the scan code as ASCII in the terminal; otherwise the URL is printed
+    and the user can open it in a browser.
+  - **License attribution:** the iLink protocol shape (endpoint paths,
+    headers, message-payload structure, QR-poll state machine) is adapted
+    from [hermes-agent](https://github.com/Nous-Research/hermes-agent)'s
+    `gateway/platforms/weixin.py` (MIT, 2025 Nous Research). Prax
+    reproduces only the push-only subset — long-poll inbound, media
+    encryption, typing tickets, and the bidirectional adapter intentionally
+    stay in Hermes.
+
+### Why this matters
+The "AI 信息助理" flagship use case lives or dies on whether non-developers
+can receive their daily digest somewhere they actually check —
+**WeChat**. WeCom (`wechat_work_webhook`, shipped in 0.5.1) covers team
+chats, but personal users who don't have a WeCom org now have a first-
+class path too. The iLink approach uses Tencent's official bot API rather
+than scraping or third-party SaaS, so it's neither bannable nor leaks
+data through someone else's relay.
+
+### Internal
+- Pre-existing test debt cleaned up: `test_getting_started_covers_install_key_and_first_prompt`
+  now expects `prax providers` (the doc fix landed in 0.4.x); 
+  `test_run_with_model_upgrades_no_report_raises` renamed to
+  `test_run_with_model_upgrades_synthesizes_report_when_loop_skips_on_complete`
+  to match the runtime's switch from "raise" to "synthesize a fallback
+  report" semantics.
+
 ## [0.5.1] - 2026-04-25
 
 ### Added

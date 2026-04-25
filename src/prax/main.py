@@ -937,6 +937,7 @@ def main() -> None:
         print("       prax repl --session-id session_xxxxx")
         print("       prax status --session-id session_xxxxx")
         print("       prax cron list | add | remove | run | install | uninstall")
+        print("       prax wechat login | list | send | logout")
         print("       prax install / doctor / repair / uninstall")
         print(format_help())
         sys.exit(0)
@@ -947,6 +948,7 @@ def main() -> None:
         print("       prax repl --session-id session_xxxxx")
         print("       prax status --session-id session_xxxxx")
         print("       prax cron list | add | remove | run | install | uninstall")
+        print("       prax wechat login | list | send | logout")
         print("       prax install / doctor / repair / uninstall")
         print(format_help())
         sys.exit(1)
@@ -970,7 +972,7 @@ def main() -> None:
         "install", "doctor", "list-installed", "show-state", "history",
         "list-archives", "list-backups", "repair", "export-plugin",
         "export-marketplace", "restore", "uninstall", "debug-claude",
-        "cron",
+        "cron", "wechat",
     }
     if positional and positional[0] in CLI_SUBCOMMANDS:
         from . import cli as cli_module
