@@ -15,6 +15,7 @@ from prax.tools.notify import (
     LarkWebhookProvider,
     NotifyTool,
     SmtpProvider,
+    WechatWorkWebhookProvider,
     build_provider,
 )
 
@@ -112,6 +113,20 @@ def test_build_provider_unknown_raises():
         build_provider({"provider": "carrier_pigeon"})
 
 
+def test_build_provider_wechat_work():
+    p = build_provider({
+        "provider": "wechat_work_webhook",
+        "url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=abc",
+        "default_title_prefix": "[Prax] ",
+    })
+    assert isinstance(p, WechatWorkWebhookProvider)
+
+
+def test_build_provider_wechat_work_missing_url_raises():
+    with pytest.raises(ValueError, match="missing url"):
+        build_provider({"provider": "wechat_work_webhook"})
+
+
 def test_build_provider_expands_env_var_in_url(monkeypatch):
     monkeypatch.setenv("FEISHU_HOOK", "https://real.url/x")
     p = build_provider({"provider": "feishu_webhook", "url": "${FEISHU_HOOK}"})
@@ -182,6 +197,81 @@ async def test_feishu_provider_raises_on_http_error():
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
         provider = FeishuWebhookProvider(url="https://x/y", http_client=client)
+        with pytest.raises(httpx.HTTPStatusError):
+            await provider.send(title="t", body="b", level="info")
+
+
+# ── WechatWorkWebhookProvider (企业微信群机器人) ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_wechat_work_provider_posts_markdown():
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"errcode": 0, "errmsg": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = WechatWorkWebhookProvider(
+            url="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test",
+            title_prefix="[Prax] ",
+            http_client=client,
+        )
+        await provider.send(title="今日简报", body="hello world", level="info")
+
+    assert len(captured) == 1
+    import json as _json
+    payload = _json.loads(captured[0].content)
+    assert payload["msgtype"] == "markdown"
+    content = payload["markdown"]["content"]
+    assert "[Prax] 今日简报" in content
+    assert "hello world" in content
+    # info level → "info" colour tag
+    assert 'color="info"' in content
+
+
+@pytest.mark.asyncio
+async def test_wechat_work_provider_maps_error_level_to_warning():
+    captured: list[httpx.Request] = []
+
+    def handler(request):
+        captured.append(request)
+        return httpx.Response(200, json={"errcode": 0})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = WechatWorkWebhookProvider(url="https://x/y", http_client=client)
+        await provider.send(title="t", body="b", level="error")
+
+    import json as _json
+    content = _json.loads(captured[0].content)["markdown"]["content"]
+    # WeCom only supports info|comment|warning colours; error → warning
+    assert 'color="warning"' in content
+
+
+@pytest.mark.asyncio
+async def test_wechat_work_provider_raises_on_errcode():
+    # WeCom returns 200 even on logical errors — the real signal is in body.
+    def handler(request):
+        return httpx.Response(200, json={"errcode": 93000, "errmsg": "invalid webhook key"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = WechatWorkWebhookProvider(url="https://x/y", http_client=client)
+        with pytest.raises(RuntimeError, match="errcode=93000"):
+            await provider.send(title="t", body="b", level="info")
+
+
+@pytest.mark.asyncio
+async def test_wechat_work_provider_raises_on_http_error():
+    def handler(request):
+        return httpx.Response(500, text="bad gateway")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        provider = WechatWorkWebhookProvider(url="https://x/y", http_client=client)
         with pytest.raises(httpx.HTTPStatusError):
             await provider.send(title="t", body="b", level="info")
 

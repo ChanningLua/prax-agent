@@ -5,11 +5,13 @@ Each channel picks a provider; providers are deliberately minimal:
 
 - ``feishu_webhook`` / ``lark_webhook``: HTTP POST an interactive card to a
   group bot webhook.
+- ``wechat_work_webhook``: HTTP POST a markdown message to a 企业微信
+  (WeCom) group bot webhook. Use this to push to WeChat — personal WeChat
+  is deliberately out of scope (no stable official API), but the WeCom
+  group bot is officially supported and the bridge most users actually
+  reach for.
 - ``smtp``: send email, with the password read from an environment variable
   (never embedded in YAML).
-
-Personal WeChat is intentionally not supported here — the stable way to reach
-WeChat is via the 企业微信 webhook, which can be added as a provider later.
 """
 
 from __future__ import annotations
@@ -92,6 +94,65 @@ class LarkWebhookProvider(_WebhookCardProvider):
     """Lark (international) webhook bot — same card format as Feishu."""
 
 
+# 企业微信 group-bot markdown only renders a small subset (headings, bold,
+# links, lists, quotes, and four named font colours). We map our level →
+# colour by prepending an inline `<font color="...">` so the level is
+# visually distinguishable in the chat.
+_LEVEL_TO_WECOM_COLOR = {"info": "info", "warn": "warning", "error": "warning"}
+
+
+class WechatWorkWebhookProvider(NotifyProvider):
+    """企业微信 (WeCom) group-bot webhook.
+
+    Endpoint: ``https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<key>``.
+    The bot accepts a few message types; we use ``markdown`` because it
+    supports the small set of formatting we need (title, level colour,
+    body) without the layout overhead of ``template_card``.
+
+    WeCom returns HTTP 200 even on logical errors — the real status lives
+    in the JSON body's ``errcode`` field, so this provider raises whenever
+    ``errcode != 0`` instead of relying on raise_for_status alone.
+    """
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        title_prefix: str = "",
+        http_client: httpx.AsyncClient | None = None,
+        timeout: float = 10.0,
+    ):
+        self._url = url
+        self._title_prefix = title_prefix
+        self._http = http_client
+        self._timeout = timeout
+
+    async def send(self, *, title: str, body: str, level: str) -> None:
+        full_title = f"{self._title_prefix}{title}" if self._title_prefix else title
+        colour = _LEVEL_TO_WECOM_COLOR.get(level, "info")
+        # Markdown subset reference:
+        # https://developer.work.weixin.qq.com/document/path/91770
+        content = (
+            f'## <font color="{colour}">{full_title}</font>\n\n{body}'
+        )
+        payload = {"msgtype": "markdown", "markdown": {"content": content}}
+
+        client = self._http or httpx.AsyncClient(timeout=self._timeout)
+        try:
+            resp = await client.post(self._url, json=payload)
+            resp.raise_for_status()
+            data = resp.json() if resp.content else {}
+            errcode = data.get("errcode") if isinstance(data, dict) else None
+            if errcode is not None and errcode != 0:
+                errmsg = data.get("errmsg", "unknown")
+                raise RuntimeError(
+                    f"WeCom webhook rejected: errcode={errcode} errmsg={errmsg!r}"
+                )
+        finally:
+            if self._http is None:
+                await client.aclose()
+
+
 class SmtpProvider(NotifyProvider):
     """Send email via SMTP. Password must come from an environment variable."""
 
@@ -144,6 +205,13 @@ def build_provider(channel_cfg: dict) -> NotifyProvider:
         prefix = channel_cfg.get("default_title_prefix", "")
         cls = FeishuWebhookProvider if provider == "feishu_webhook" else LarkWebhookProvider
         return cls(url=url, title_prefix=prefix)
+
+    if provider == "wechat_work_webhook":
+        url = _expand_env(str(channel_cfg.get("url", "")))
+        if not url:
+            raise ValueError(f"channel {provider}: missing url")
+        prefix = channel_cfg.get("default_title_prefix", "")
+        return WechatWorkWebhookProvider(url=url, title_prefix=prefix)
 
     if provider == "smtp":
         missing = [k for k in ("host", "from", "to", "auth_env") if k not in channel_cfg]

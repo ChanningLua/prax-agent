@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-25
+
+### Added
+- **`wechat_work_webhook` notify provider** — push notifications to a 企业微信
+  (WeCom) group bot. Same YAML shape as `feishu_webhook` / `lark_webhook`:
+  ```yaml
+  channels:
+    daily-digest:
+      provider: wechat_work_webhook
+      url: "${WECOM_WEBHOOK_URL}"
+      default_title_prefix: "[Prax] "
+  ```
+  Posts a markdown message; level (`info` / `warn` / `error`) maps to
+  WeCom's three font colours (`info` / `warning` / `warning` — WeCom only
+  ships those). The provider checks the response body's `errcode` and
+  raises a clear `RuntimeError` when WeCom rejects the call (it returns
+  HTTP 200 even on logical failure, so `raise_for_status` alone is not
+  enough). (`tools/notify.py`)
+
+### Why this matters
+WeChat reach is the missing piece for non-developer users — most of the
+audience for the upcoming `praxdaily` flagship app lives in WeChat, not
+Feishu/Lark. Personal WeChat still has no stable official API, but the
+WeCom group-bot is officially supported, free, and a 60-second setup. With
+this provider in 0.5.1, `praxdaily` can ship its WeChat push channel
+without forking notify logic.
+
 ## [0.5.0] - 2026-04-25
 
 ### Changed (Breaking behaviour)
