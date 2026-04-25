@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-04-25
+
+### Changed
+- **`ai-news-daily` skill now reads its source list and keywords from
+  `.prax/sources.yaml`** (with full backward-compatible defaults baked
+  into the skill prompt). Adds Step 1.5 to the SKILL.md that loads the
+  config (or uses `DEFAULTS` when the file is missing), and reframes
+  Step 2 as "iterate enabled sources" instead of hardcoding four named
+  blocks. Step 3's keyword filter likewise reads `keywords.include` /
+  `keywords.exclude` from the config.
+  ```yaml
+  # .prax/sources.yaml
+  sources:
+    - id: twitter
+      enabled: true
+      limit: 50
+      top_n: 10
+    - id: bilibili
+      enabled: false      # turn off without editing the skill
+  keywords:
+    include: [AI, LLM, GPT]
+    exclude: [广告, 推广]
+  ```
+  Behaviour with no `.prax/sources.yaml` is unchanged from 0.5.3 — the
+  skill uses the same four sources (twitter / zhihu / bilibili /
+  hackernews) and the same AI keyword list it always did.
+
+### Why this matters
+Unblocks the upcoming `praxdaily 0.5.0` Sources screen — without a
+config file to read, the GUI would have nowhere to write to. With
+this contract in place, the GUI is a thin yaml editor on top.
+
 ## [0.5.3] - 2026-04-25
 
 ### Fixed

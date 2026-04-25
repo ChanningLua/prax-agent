@@ -44,23 +44,59 @@ VAULT = .prax/vault/ai-news-hub/$DATE
 mkdir -p $VAULT $VAULT/raw
 ```
 
+### Step 1.5：加载源配置（新增 — 0.5.4 起）
+
+读 `.prax/sources.yaml`，若不存在或字段缺失就用 **DEFAULTS** 兜底。配置完整 schema：
+
+```yaml
+# 每个 source 都是可选 enable / 可改 limit
+sources:
+  - id: twitter         # 已知 id：twitter / zhihu / bilibili / hackernews
+    enabled: true
+    limit: 50           # autocli 抓取条数（拉得多但下面只过滤前 N 条）
+    top_n: 10           # 关键词过滤后保留 top N（按平台原生热度）
+  - id: zhihu
+    enabled: true
+    limit: 30
+    top_n: 10
+  - id: bilibili
+    enabled: true
+    limit: 20
+    top_n: 5
+  - id: hackernews
+    enabled: true
+    limit: 20
+    top_n: 10
+
+# 关键词过滤：必须命中 include 之一，且不命中任何 exclude
+keywords:
+  include: [AI, LLM, GPT, Claude, 模型, 智能体, agent, RAG, 推理, 微调, transformer]
+  exclude: []           # 比如 [广告, 推广] 用来去噪
+```
+
+**DEFAULTS** = 上面这份完整配置（即 `.prax/sources.yaml` 不存在时的行为，跟 0.5.4 之前完全一致）。
+
+GUI 用户通常通过 praxdaily Sources 屏写这个文件，命令行用户也可以手写。
+
 ### Step 2：抓取（browser-scrape 的风格）
 
-目标源（每个都做，失败的单独记录，不要一错就整批停）：
+**遍历配置里 `enabled: true` 的每个 source**（失败的单独记录，不要一错就整批停）：
 
-- **X/Twitter**: `autocli twitter timeline --limit 50 --format json > $VAULT/raw/twitter-$DATE.json`
-- **知乎热榜**: `autocli zhihu hot --limit 30 --format json > $VAULT/raw/zhihu-$DATE.json`
-- **Bilibili 热门**: `autocli bilibili hot --limit 20 --format json > $VAULT/raw/bilibili-$DATE.json`
-- **HackerNews（公开无需登录）**: `autocli hackernews top --limit 20 --format json > $VAULT/raw/hn-$DATE.json`
+| source id | autocli 命令 | 输出文件 |
+|---|---|---|
+| `twitter` | `autocli twitter timeline --limit <limit> --format json` | `$VAULT/raw/twitter-$DATE.json` |
+| `zhihu` | `autocli zhihu hot --limit <limit> --format json` | `$VAULT/raw/zhihu-$DATE.json` |
+| `bilibili` | `autocli bilibili hot --limit <limit> --format json` | `$VAULT/raw/bilibili-$DATE.json` |
+| `hackernews` | `autocli hackernews top --limit <limit> --format json` | `$VAULT/raw/hn-$DATE.json` |
+
+`<limit>` 取自配置；如果用户设置了别的 source id 但映射不到 autocli 命令，跳过它并在最终汇报里说明。
 
 ### Step 3：筛选 + 落盘为 markdown
 
-从每个 json 里筛出 **AI 相关** 的条目（关键词：AI/LLM/GPT/Claude/模型/智能体/agent/RAG/推理/微调/transformer ...），按点赞/热度 top-N：
+从每个抓回来的 json 里：
 
-- Twitter: top 10（按 likes/retweets）
-- Zhihu: top 10（按热度）
-- Bilibili: top 5（按播放 + 弹幕）
-- HackerNews: top 10（按 points）
+1. 用 `keywords.include` / `keywords.exclude`（来自 Step 1.5 配置或 DEFAULTS）过滤
+2. 按平台原生热度排序，取该 source 的 `top_n` 条
 
 每条存成一个 markdown 文件：
 
