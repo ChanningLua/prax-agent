@@ -30,7 +30,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("providers", "List configured providers and model availability"),
     CommandSpec("doctor", "Check glm/codex/claude flow readiness", "[glm|codex|claude|all] [--fix] [--write-env-file]"),
     CommandSpec("template", "Show setup templates for glm/codex/claude", "[glm|codex|claude|all]"),
-    CommandSpec("init-models", "Create or update .prax/models.yaml", "[glm|codex|claude|all] [--force] [--set-default]"),
+    CommandSpec("init-models", "Create .prax/models.yaml (default: empty skeleton; --full seeds full schema)", "[glm|codex|claude|all] [--full] [--force] [--set-default]"),
     CommandSpec("config", "Show loaded config", "[models|rules|all]"),
     CommandSpec("permissions", "Show or set the preferred permission mode", "[mode]"),
     CommandSpec("session", "Manage sessions", "[list|show <id>|delete <id>]"),

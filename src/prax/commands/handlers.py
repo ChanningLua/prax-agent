@@ -14,7 +14,9 @@ from ..core.todo_store import TodoItem
 from ..core.model_catalog import get_model_entry, iter_model_catalog
 from ..core.permissions import PermissionMode
 from ..core.provider_setup import (
+    SKELETON_HEADER,
     build_flow_template,
+    detect_user_level_overlap,
     flow_names,
     load_local_models_config,
     merge_into_local_config,
@@ -211,11 +213,16 @@ def _handle_doctor(args: list[str], ctx: CommandContext) -> CommandResult:
 
     if fix:
         fixed_flow = target
+        # `doctor --fix` is the user explicitly asking "set me up to run
+        # this flow". Always emit the full template here — empty skeleton
+        # would defeat the purpose. Skeleton mode only applies to
+        # `/init-models` without --full.
         merged = merge_into_local_config(
             load_local_models_config(ctx.cwd),
             fixed_flow,
             overwrite=force,
             set_default=set_default,
+            full=True,
         )
         path = write_local_models_config(ctx.cwd, merged)
         fix_data: dict[str, Any] = {"path": str(path), "flow": fixed_flow, "force": force, "set_default": set_default}
@@ -244,23 +251,54 @@ def _handle_template(args: list[str], _ctx: CommandContext) -> CommandResult:
 
 
 def _handle_init_models(args: list[str], ctx: CommandContext) -> CommandResult:
-    flow = (args[0].lower() if args else "all")
+    flag_tokens = {"--force", "--set-default", "--full"}
+    positional = [a for a in args if a not in flag_tokens]
+    flow = (positional[0].lower() if positional else "all")
     force = "--force" in args
     set_default = "--set-default" in args
-    if flow == "--force":
-        flow = "all"
-    if flow == "--set-default":
-        flow = "all"
+    full = "--full" in args
     if flow not in {"glm", "codex", "claude", "all"}:
         raise ValueError("init-models target must be glm|codex|claude|all")
+
+    # Detect when this write would shadow user-level config the user
+    # actually wrote — surface providers that overlap so they're not
+    # silently overridden by the workspace yaml we're about to create.
+    overlap = detect_user_level_overlap(flow) if (force or full) else []
+
     merged = merge_into_local_config(
         load_local_models_config(ctx.cwd),
         flow,
         overwrite=force,
         set_default=set_default,
+        full=full,
     )
-    path = write_local_models_config(ctx.cwd, merged)
-    data = {"path": str(path), "flow": flow, "force": force, "set_default": set_default}
+    header = SKELETON_HEADER if (not force and not full) else ""
+    path = write_local_models_config(ctx.cwd, merged, header=header)
+
+    # Compose human-facing notes alongside the machine-readable data so
+    # both stdout and tooling get the warning.
+    notes: list[str] = []
+    if overlap:
+        notes.append(
+            f"⚠ user level (~/.prax/models.yaml) already configures: {', '.join(overlap)}. "
+            "Workspace yaml takes priority and will silently override it. "
+            "Remove the workspace yaml or use the default skeleton mode if that wasn't intended."
+        )
+    if not force and not full:
+        notes.append(
+            "Wrote empty skeleton — user level + bundled defaults flow through. "
+            "Use --full to seed the complete schema as a starting point."
+        )
+
+    data = {
+        "path": str(path),
+        "flow": flow,
+        "force": force,
+        "full": full,
+        "set_default": set_default,
+        "user_level_overlap": overlap,
+        "notes": notes,
+    }
     return CommandResult(text=json.dumps(data, indent=2, ensure_ascii=False), data=data)
 
 

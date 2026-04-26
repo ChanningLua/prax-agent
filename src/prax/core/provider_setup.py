@@ -158,12 +158,37 @@ def merge_into_local_config(
     *,
     overwrite: bool = False,
     set_default: bool = False,
+    full: bool = False,
 ) -> dict[str, Any]:
+    """Build the workspace yaml content.
+
+    Default behaviour as of 0.5.5: write an empty skeleton (`providers: {}`)
+    so the user-level `~/.prax/models.yaml` and bundled defaults can flow
+    through unchanged. Without this, the auto-generated workspace yaml
+    silently overrode user-level `base_url` / `api_key_env` settings —
+    every field looked configured but was just a copy of the bundled
+    default. See https://github.com/.../issues/<id-of-init-models-bug>.
+
+    - `full=True` reproduces the old behaviour (full template merge),
+      kept for users who want the schema fully expanded as a starting
+      point and for back-compat with scripts.
+    - `overwrite=True` (the `--force` flag) still writes the full
+      template — explicit overwrite always wins.
+    """
     if overwrite:
         config = build_flow_template(flow)
         if set_default and flow != "all":
             config["default_model"] = FLOW_TEMPLATES[flow]["default_model"]
         return config
+
+    if not full:
+        # Skeleton mode: do not seed any provider fields. If existing
+        # workspace yaml already had hand-written content, preserve it
+        # verbatim — we don't touch what the user explicitly authored.
+        if existing:
+            return deepcopy(existing)
+        return {"providers": {}}
+
     base = deepcopy(existing or {})
     template = build_flow_template(flow)
     merged = {
@@ -174,6 +199,69 @@ def merge_into_local_config(
     if set_default and flow != "all":
         merged["default_model"] = FLOW_TEMPLATES[flow]["default_model"]
     return merged
+
+
+SKELETON_HEADER = """\
+# .prax/models.yaml — workspace-level model overrides for this project.
+#
+# YOU DON'T HAVE TO EDIT THIS FILE. prax already ships with working
+# defaults for OpenAI / Anthropic / Zhipu (GLM). To start using prax:
+#
+#   1. Set the API key for the provider you want, e.g.:
+#        export OPENAI_API_KEY=sk-...        # OpenAI / compatible relays
+#        export ANTHROPIC_API_KEY=sk-ant-... # Claude
+#        export ZHIPU_API_KEY=...            # GLM
+#   2. Run `prax prompt "hi"` to test.
+#
+# This file is for OVERRIDING those defaults — only fields you write
+# here will take effect; the rest inherit from ~/.prax/models.yaml
+# (your cross-project user-level config) and bundled defaults.
+#
+# Common overrides:
+#
+#   providers:
+#     openai:
+#       base_url: https://my-relay.example.com/openai   # route through a relay
+#   default_model: claude-sonnet-4-7                    # this project uses Claude
+#
+# Want the full schema as a starting point (all providers, every field,
+# placeholders to replace)? Run:
+#
+#   prax /init-models --full
+#
+# Want to see what's currently in effect (bundled + user + workspace
+# merged)? Run:
+#
+#   prax /providers
+"""
+
+
+def load_user_models_config() -> dict[str, Any] | None:
+    """Read `~/.prax/models.yaml` if present. Used to detect overlap when
+    the user is about to write workspace yaml that would override their
+    user-level config (e.g. running /init-models repeatedly).
+    """
+    path = Path.home() / ".prax" / "models.yaml"
+    if not path.exists():
+        return None
+    try:
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def detect_user_level_overlap(flow: str) -> list[str]:
+    """Return user-level provider names that the requested flow would
+    cover. Empty list = no risk of unintended override.
+    """
+    user = load_user_models_config()
+    if not user:
+        return []
+    user_providers = set((user.get("providers") or {}).keys())
+    template_providers: set[str] = set()
+    for fname in flow_names(flow):
+        template_providers.update(FLOW_TEMPLATES[fname].get("providers", {}).keys())
+    return sorted(user_providers & template_providers)
 
 
 def render_yaml(config: dict[str, Any]) -> str:
@@ -187,10 +275,12 @@ def load_local_models_config(cwd: str) -> dict[str, Any] | None:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def write_local_models_config(cwd: str, config: dict[str, Any]) -> Path:
+def write_local_models_config(cwd: str, config: dict[str, Any], *, header: str = "") -> Path:
     path = Path(cwd) / ".prax" / "models.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_yaml(config), encoding="utf-8")
+    body = render_yaml(config)
+    text = (header + "\n" + body) if header else body
+    path.write_text(text, encoding="utf-8")
     return path
 
 

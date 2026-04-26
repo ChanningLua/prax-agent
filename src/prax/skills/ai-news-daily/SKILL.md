@@ -44,6 +44,17 @@ VAULT = .prax/vault/ai-news-hub/$DATE
 mkdir -p $VAULT $VAULT/raw
 ```
 
+### Step 1.6：解析推送通道（新增 — 0.5.5 起）
+
+读 `.prax/notify.yaml` 取通道名，**绝不硬编码** `"daily-digest"`。挑选规则（按优先级）：
+
+1. 若 `.prax/cron.yaml` 里当前 job 的 `notify_channel` 在 `notify.yaml` 中存在 → 用它
+2. 否则取 `notify.yaml.channels` 第一个 `wechat_personal` 类型的通道
+3. 否则取 `notify.yaml.channels` 任意第一个通道
+4. 都没有 → 在 Step 6 的汇报里明确告诉用户"未推送（无可用通道）"，但 wiki 已落盘的事实仍要写
+
+把选中的 channel 名字记成 `CHANNEL`，给 Step 5 用。
+
 ### Step 1.5：加载源配置（新增 — 0.5.4 起）
 
 读 `.prax/sources.yaml`，若不存在或字段缺失就用 **DEFAULTS** 兜底。配置完整 schema：
@@ -135,16 +146,18 @@ $VAULT/topics/<slug>.md ...
 
 ### Step 5：推送（Notify）
 
-读 `$VAULT/daily-digest.md` 内容，调 Notify 工具：
+读 `$VAULT/daily-digest.md` 内容，调 Notify 工具。**channel 必须用 Step 1.6 解析出来的 `CHANNEL`，不要硬编码**：
 
 ```
 Notify(
-  channel = "daily-digest",
+  channel = CHANNEL,                      # ← 来自 Step 1.6
   title   = "AI 日报 · " + DATE,
-  body    = <daily-digest.md 的内容>,
+  body    = <daily-digest.md 的内容>,    # 完整正文，让用户在微信里直接读
   level   = "info"
 )
 ```
+
+如果 daily-digest.md 超过 2000 字，按主题截到 2000 字以内 + 末尾加 `\n\n— 完整版见 $VAULT/index.md`。微信单条消息 4096 字符上限，留余量给标题。
 
 ### Step 6：汇报
 
@@ -176,10 +189,13 @@ prax cron add \
   --prompt "触发 ai-news-daily 技能" \
   --session-id cron-ai-news \
   --notify-on failure \
-  --notify-channel daily-digest
+  --notify-channel <你 notify.yaml 里的通道名>
 ```
 
-`notify-on: failure` 让 cron 自己在 pipeline 整体失败时兜底推一条通知（Step 5 已经推了成功的情况）。
+**重要**：`notify-on` **只填 `failure`**，绝不要 `success`。理由：
+- 成功时 Step 5 已经把日报正文推到微信了 — 这才是用户真正想要的
+- 如果 `notify-on` 还包含 `success`，cron dispatcher 会在 skill 之外**额外**发一条 dev-speak 状态 ping（"job: xxx, schedule: xxx, log: xxx"），用户看不懂还会以为日报跑两遍
+- 留 `failure` 是兜底：当 skill 整体崩了（连 Step 5 都没跑到），dispatcher 至少能告诉用户"今天没成"
 
 ## 不做的事
 

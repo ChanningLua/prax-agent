@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-04-26
+
+### Fixed
+- **`ai-news-daily` skill now auto-resolves the notify channel** instead
+  of hard-coding `"daily-digest"`. The skill reads `.prax/notify.yaml`
+  and picks the channel matching the current cron job's
+  `notify_channel`, falling back to the first `wechat_personal` channel,
+  then any first channel. Removes a long-standing footgun where users
+  with a channel named anything other than `daily-digest` would get the
+  pipeline running but no push delivered.
+- **`/init-models` no longer silently overrides user-level configuration.**
+  Previously, running `prax /init-models` in a project directory wrote a
+  full provider template to `<cwd>/.prax/models.yaml`, which—because
+  workspace > user in the merge order—shadowed `base_url` /
+  `api_key_env` overrides users had set in `~/.prax/models.yaml`. Reports
+  showed users configuring an OpenAI relay at user level, then running
+  `/init-models` once for unrelated reasons, then puzzling over 401s
+  weeks later because requests had silently started going to
+  `api.openai.com` instead of the relay.
+
+### Changed
+- **`/init-models` default behaviour is now an empty skeleton** (`providers: {}`
+  with a header comment that explains how to extend). The full template
+  is opt-in via `--full`. `--force` is unchanged. `doctor --fix` continues
+  to write the full template (it's the user's explicit "set me up"
+  signal).
+- When `--full` (or `--force`) would seed a provider that's already
+  configured at user level, the command now prints a one-line warning so
+  the user can decide whether to remove the workspace yaml afterwards.
+
+### Migration
+- Anyone with a `<cwd>/.prax/models.yaml` that they didn't write
+  intentionally can delete it: `rm <project>/.prax/models.yaml`. Their
+  user-level config will then take effect.
+- `prax /init-models codex` callers who relied on the old "writes the
+  full schema as a starting point" behaviour should add `--full`.
+
 ## [0.5.4] - 2026-04-25
 
 ### Changed

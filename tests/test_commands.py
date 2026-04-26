@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from prax.commands.handlers import CommandContext, run_command
 from prax.commands.registry import ParsedCommand, parse_command_tokens, parse_slash_command
@@ -235,32 +236,121 @@ def test_run_command_doctor_export_env_hints(monkeypatch, tmp_path):
     assert ".prax/.env" in codex["next_step"]
 
 
-def test_run_command_init_models_and_doctor_fix(tmp_path):
+def test_run_command_init_models_default_writes_empty_skeleton(tmp_path, monkeypatch):
+    """As of 0.5.5: default `init-models` writes an empty skeleton, NOT a
+    full template — the old behaviour silently overrode user-level
+    configuration via the workspace yaml's higher precedence.
+    """
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "fake-home")
     ctx = CommandContext(
         cwd=str(tmp_path),
         models_config=_models_config(),
         session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
     )
 
-    init_result = run_command(ParsedCommand(name="init-models", args=["codex"]), ctx)
-    doctor_fix_result = run_command(ParsedCommand(name="doctor", args=["glm", "--fix"]), ctx)
+    result = run_command(ParsedCommand(name="init-models", args=["codex"]), ctx)
+    text = (tmp_path / ".prax" / "models.yaml").read_text(encoding="utf-8")
 
+    assert result.data["full"] is False
+    # Skeleton: no provider field overrides leaked into workspace yaml.
+    # Strip the header comment block before asserting on the actual yaml body.
+    body = "\n".join(line for line in text.splitlines() if not line.startswith("#"))
+    assert "<replace-with-codex-model>" not in body
+    assert "base_url" not in body
+    assert "providers: {}" in body
+    # User-friendly header (in the comments) explains how to extend.
+    assert "user-level" in text or "user level" in text
+
+
+def test_run_command_init_models_full_seeds_complete_template(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "fake-home")
+    ctx = CommandContext(
+        cwd=str(tmp_path),
+        models_config=_models_config(),
+        session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
+    )
+
+    result = run_command(ParsedCommand(name="init-models", args=["codex", "--full"]), ctx)
     local_models = (tmp_path / ".prax" / "models.yaml").read_text(encoding="utf-8")
 
-    assert "codex" in init_result.text
-    assert "zhipu" in local_models
-    assert "<replace-with-codex-model>" in local_models
-    assert doctor_fix_result.data["flows"]["fix"]["flow"] == "glm"
+    assert result.data["full"] is True
+    assert "<replace-with-codex-model>" in local_models  # old behaviour preserved
 
 
-def test_run_command_init_models_force_overwrites_existing(tmp_path):
+def test_run_command_init_models_warns_when_user_level_overlaps(tmp_path, monkeypatch):
+    """Running `--full` (or `--force`) when ~/.prax/models.yaml already
+    has the same provider must surface a warning so the user isn't
+    surprised when their user-level config gets shadowed."""
+    fake_home = tmp_path / "fake-home"
+    (fake_home / ".prax").mkdir(parents=True)
+    (fake_home / ".prax" / "models.yaml").write_text(
+        "providers:\n  openai:\n    base_url: https://my-relay.example.com/openai\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+
     ctx = CommandContext(
         cwd=str(tmp_path),
         models_config=_models_config(),
         session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
     )
 
-    run_command(ParsedCommand(name="init-models", args=["codex"]), ctx)
+    result = run_command(ParsedCommand(name="init-models", args=["codex", "--full"]), ctx)
+    assert "openai" in result.data["user_level_overlap"]
+    assert any("openai" in n for n in result.data["notes"])
+
+
+def test_run_command_init_models_skeleton_does_not_warn_about_overlap(tmp_path, monkeypatch):
+    """Skeleton mode can't shadow user level (writes nothing for providers),
+    so no overlap warning needed."""
+    fake_home = tmp_path / "fake-home"
+    (fake_home / ".prax").mkdir(parents=True)
+    (fake_home / ".prax" / "models.yaml").write_text(
+        "providers:\n  openai:\n    base_url: https://my-relay.example.com/openai\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+    ctx = CommandContext(
+        cwd=str(tmp_path),
+        models_config=_models_config(),
+        session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
+    )
+
+    result = run_command(ParsedCommand(name="init-models", args=["codex"]), ctx)
+    assert result.data["user_level_overlap"] == []
+
+
+def test_run_command_doctor_fix_still_seeds_full_template(tmp_path, monkeypatch):
+    """`doctor --fix` is "set me up to run this flow" — must keep writing
+    the complete template, otherwise the fix doesn't actually fix.
+    Empty skeleton mode is for /init-models only.
+    """
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "fake-home")
+    ctx = CommandContext(
+        cwd=str(tmp_path),
+        models_config=_models_config(),
+        session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
+    )
+
+    result = run_command(ParsedCommand(name="doctor", args=["glm", "--fix"]), ctx)
+    text = (tmp_path / ".prax" / "models.yaml").read_text(encoding="utf-8")
+    assert result.data["flows"]["fix"]["flow"] == "glm"
+    assert "zhipu" in text
+    assert "base_url" in text
+
+
+def test_run_command_init_models_force_overwrites_existing(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "fake-home")
+    ctx = CommandContext(
+        cwd=str(tmp_path),
+        models_config=_models_config(),
+        session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
+    )
+
+    # Seed with --full so there's actual content to overwrite, then --force
+    # to a different flow to verify replacement (not merge).
+    run_command(ParsedCommand(name="init-models", args=["codex", "--full"]), ctx)
     force_result = run_command(ParsedCommand(name="init-models", args=["claude", "--force"]), ctx)
 
     local_models = (tmp_path / ".prax" / "models.yaml").read_text(encoding="utf-8")
@@ -286,14 +376,18 @@ def test_run_command_doctor_all_fix(tmp_path):
     assert "codex" in local_models
 
 
-def test_run_command_init_models_set_default(tmp_path):
+def test_run_command_init_models_set_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "fake-home")
     ctx = CommandContext(
         cwd=str(tmp_path),
         models_config=_models_config(),
         session_store=FileSessionStore(str(tmp_path / ".prax" / "sessions")),
     )
 
-    result = run_command(ParsedCommand(name="init-models", args=["claude", "--set-default"]), ctx)
+    # `--set-default` only takes effect when content is actually written
+    # (skeleton mode would have nothing meaningful to "set default" on).
+    # So pair it with `--full` for the assertion to make sense.
+    result = run_command(ParsedCommand(name="init-models", args=["claude", "--full", "--set-default"]), ctx)
     local_models = (tmp_path / ".prax" / "models.yaml").read_text(encoding="utf-8")
 
     assert result.data["set_default"] is True
