@@ -19,6 +19,8 @@ priority: 8
 
 或 `prax cron` 调度到期。
 
+**重要 — 不要递归 shell out**：你已经被这个 skill 触发了。**直接按下面的 Step 1-6 自己执行**，不要再 `python -m praxdaily run-now` / `prax prompt "..."` / `prax cron run` 之类把同样的事情又派出去 —— 那会无限递归 + 把 permission-mode 重置回默认。autocli / Bash 命令直接用 Bash 工具跑就行。
+
 ## 前置条件（不满足就停）
 
 先验证：
