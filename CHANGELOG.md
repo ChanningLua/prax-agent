@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-01
+
+### Added
+- **Development-workflow 检查点 4: 遇到阻塞点 / 想偏离既定方案.** When a
+  dependency isn't ready, when switching away from the agreed technical
+  approach, or when about to implement something the user didn't ask for,
+  the agent must stop, report, lay out options with trade-offs, and wait
+  for approval — instead of silently shipping an "emergency workaround".
+  The `prax-planner` agent now also requires dependencies/blockers to be
+  listed separately and steps needing sign-off to be tagged as approval
+  gates.
+
+### Fixed
+- **Claude Code hook install is now idempotent.** `merge_settings` pruned
+  no stale entries, so reinstalling with a different `target_root` left
+  orphaned `*/prax/hooks/*.sh` hooks pointing at dead paths — producing a
+  `Stop hook error: ... No such file or directory` on every turn. Stale
+  prax-managed hook entries are now pruned before the current ones are
+  written; user-authored hooks are preserved.
+
+### Changed
+- **Default model lineup bumped** to `claude-opus-4-8` /
+  `claude-sonnet-4-8` / `gpt-5.5` across the model catalog, router,
+  provider templates, and bundled agents.
+
 ## [0.5.5] - 2026-04-26
 
 ### Fixed

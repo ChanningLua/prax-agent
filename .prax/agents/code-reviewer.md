@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: Code quality, security, and maintainability reviewer
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - WebSearch

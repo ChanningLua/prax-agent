@@ -1,7 +1,7 @@
 ---
 name: api-designer
 description: API design, documentation, and contract specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

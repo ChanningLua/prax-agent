@@ -1,7 +1,7 @@
 ---
 name: build-error-resolver
 description: Build, compile, and runtime error diagnosis and fix specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

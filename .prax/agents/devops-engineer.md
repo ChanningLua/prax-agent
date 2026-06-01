@@ -1,7 +1,7 @@
 ---
 name: devops-engineer
 description: CI/CD, deployment, and infrastructure automation specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

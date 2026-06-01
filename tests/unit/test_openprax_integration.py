@@ -132,6 +132,33 @@ class TestMergeSettings:
         result = merge_settings(existing, managed)
         assert hook_entry in result["hooks"]["SessionStart"]
 
+    def test_prunes_stale_prax_hook_on_reinstall(self) -> None:
+        # A previous install left a Stop hook pointing at an old target_root.
+        stale = {
+            "hooks": [{"type": "command", "command": 'bash "/old/root/prax/hooks/stop.sh"'}]
+        }
+        existing = {"hooks": {"Stop": [stale]}}
+        current = {
+            "hooks": [{"type": "command", "command": 'bash "/new/root/prax/hooks/stop.sh"'}]
+        }
+        managed = {"hooks": {"Stop": [current]}}
+        result = merge_settings(existing, managed)
+        stop_entries = result["hooks"]["Stop"]
+        # Stale orphan dropped, current entry kept — no accumulation.
+        assert stale not in stop_entries
+        assert current in stop_entries
+        assert len(stop_entries) == 1
+
+    def test_preserves_user_authored_hooks(self) -> None:
+        user_hook = {"hooks": [{"type": "command", "command": 'bash "/my/own/hook.sh"'}]}
+        prax_hook = {"hooks": [{"type": "command", "command": 'bash "/root/prax/hooks/stop.sh"'}]}
+        existing = {"hooks": {"Stop": [user_hook]}}
+        managed = {"hooks": {"Stop": [prax_hook]}}
+        result = merge_settings(existing, managed)
+        # User's non-prax hook is never pruned.
+        assert user_hook in result["hooks"]["Stop"]
+        assert prax_hook in result["hooks"]["Stop"]
+
     def test_existing_not_mutated(self) -> None:
         existing = {"permissions": {"allow": ["Bash(x *)"]}}
         managed = {"permissions": {"allow": ["Bash(y *)"]}}

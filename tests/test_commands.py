@@ -12,8 +12,8 @@ from prax.core.session_store import FileSessionStore, SessionData
 
 def _models_config() -> dict:
     return {
-        "default_model": "gpt-5.4",
-        "upgrade_chain": ["gpt-5.4", "claude-sonnet-4-7"],
+        "default_model": "gpt-5.5",
+        "upgrade_chain": ["gpt-5.5", "claude-sonnet-4-8"],
         "providers": {
             "zhipu": {
                 "base_url": "https://open.bigmodel.cn/api/paas/v4",
@@ -37,8 +37,8 @@ def _models_config() -> dict:
                 "format": "openai",
                 "models": [
                     {
-                        "name": "gpt-5.4",
-                        "api_model": "gpt-5.4",
+                        "name": "gpt-5.5",
+                        "api_model": "gpt-5.5",
                         "aliases": ["gpt"],
                         "request_mode": "chat_completions",
                         "tier": "standard",
@@ -67,8 +67,8 @@ def _models_config() -> dict:
                 "format": "anthropic",
                 "models": [
                     {
-                        "name": "claude-sonnet-4-7",
-                        "api_model": "claude-sonnet-4-7",
+                        "name": "claude-sonnet-4-8",
+                        "api_model": "claude-sonnet-4-8",
                         "aliases": ["sonnet"],
                         "request_mode": "chat_completions",
                         "tier": "premium",
@@ -86,10 +86,10 @@ def _models_config() -> dict:
 
 def test_parse_command_tokens_and_slash():
     command = parse_command_tokens(["status"])
-    slash = parse_slash_command("/model claude-sonnet-4-7")
+    slash = parse_slash_command("/model claude-sonnet-4-8")
 
     assert command == ParsedCommand(name="status", args=[])
-    assert slash == ParsedCommand(name="model", args=["claude-sonnet-4-7"])
+    assert slash == ParsedCommand(name="model", args=["claude-sonnet-4-8"])
 
 
 def test_model_catalog_marks_availability(monkeypatch):
@@ -100,11 +100,11 @@ def test_model_catalog_marks_availability(monkeypatch):
     catalog = iter_model_catalog(_models_config())
 
     by_name = {entry.name: entry for entry in catalog}
-    assert by_name["gpt-5.4"].available is True
-    assert by_name["gpt-5.4"].matches("gpt") is True
-    assert by_name["claude-sonnet-4-7"].available is False
+    assert by_name["gpt-5.5"].available is True
+    assert by_name["gpt-5.5"].matches("gpt") is True
+    assert by_name["claude-sonnet-4-8"].available is False
     assert by_name["codex"].available is False
-    assert get_first_available_model(["claude-sonnet-4-7", "gpt-5.4"], _models_config()).name == "gpt-5.4"
+    assert get_first_available_model(["claude-sonnet-4-8", "gpt-5.5"], _models_config()).name == "gpt-5.5"
 
 
 def test_run_command_session_and_cost(tmp_path):
@@ -118,13 +118,13 @@ def test_run_command_session_and_cost(tmp_path):
     session = SessionData(
         session_id="session_demo",
         cwd=str(tmp_path),
-        model="gpt-5.4",
+        model="gpt-5.5",
         messages=[{"role": "user", "content": "hello"}],
         metadata={
             "usage": {"total_tokens": 2000},
-            "upgrade_history": [{"from": "gpt-5.4", "to": "claude-sonnet-4-7", "reason": "tool_error"}],
+            "upgrade_history": [{"from": "gpt-5.5", "to": "claude-sonnet-4-8", "reason": "tool_error"}],
             "last_run": {
-                "model": "gpt-5.4",
+                "model": "gpt-5.5",
                 "executor": "direct-api",
                 "runtime_path": "native",
                 "integration_mode": "native",
@@ -171,9 +171,9 @@ def test_run_command_status_without_session_includes_model_details(tmp_path):
     status = run_command(ParsedCommand(name="status", args=[]), ctx)
     data = json.loads(status.text)
 
-    assert data["default_model"] == "gpt-5.4"
+    assert data["default_model"] == "gpt-5.5"
     assert data["provider"] == "openai"
-    assert data["api_model"] == "gpt-5.4"
+    assert data["api_model"] == "gpt-5.5"
     assert data["request_mode"] == "chat_completions"
     assert data["supports_reasoning_effort"] is True
 
@@ -391,7 +391,7 @@ def test_run_command_init_models_set_default(tmp_path, monkeypatch):
     local_models = (tmp_path / ".prax" / "models.yaml").read_text(encoding="utf-8")
 
     assert result.data["set_default"] is True
-    assert "default_model: claude-sonnet-4-7" in local_models
+    assert "default_model: claude-sonnet-4-8" in local_models
 
 
 def test_run_command_doctor_fix_writes_env_file(tmp_path):
@@ -441,12 +441,12 @@ def test_run_command_model_updates_session(tmp_path):
         permission_mode=PermissionMode.WORKSPACE_WRITE,
     )
 
-    result = run_command(ParsedCommand(name="model", args=["claude-sonnet-4-7"]), ctx)
+    result = run_command(ParsedCommand(name="model", args=["claude-sonnet-4-8"]), ctx)
     saved = store.load("session_demo")
 
-    assert json.loads(result.text)["preferred_model"] == "claude-sonnet-4-7"
+    assert json.loads(result.text)["preferred_model"] == "claude-sonnet-4-8"
     assert saved is not None
-    assert saved.metadata == {"preferred_model": "claude-sonnet-4-7"}
+    assert saved.metadata == {"preferred_model": "claude-sonnet-4-8"}
 
 
 def test_run_command_thinking_and_reasoning_update_session(tmp_path):

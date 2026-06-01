@@ -1,8 +1,8 @@
 """Multi-model router — DeerFlow-style adapter pattern for model selection.
 
 Routes tasks to the most appropriate model based on task type:
-- Claude Opus 4.6: complex reasoning, architecture, code
-- GPT-4.1: deep research, debugging
+- Claude Opus 4.8: complex reasoning, architecture, code
+- GPT-5.5: deep research, debugging
 - GLM-5: Chinese content, quick tasks (cost-efficient)
 
 Supports fallback chain: Claude → GPT → GLM
@@ -25,15 +25,15 @@ _cache_lock = threading.Lock()
 
 # Default routing rules (can be overridden by config/models.yaml)
 DEFAULT_ROUTING_RULES: dict[str, str] = {
-    "complex_reasoning": "claude-opus-4-7",
-    "architecture": "claude-opus-4-7",
-    "code_review": "claude-opus-4-7",
-    "deep_research": "gpt-5.4",
-    "debugging": "gpt-5.4",
+    "complex_reasoning": "claude-opus-4-8",
+    "architecture": "claude-opus-4-8",
+    "code_review": "claude-opus-4-8",
+    "deep_research": "gpt-5.5",
+    "debugging": "gpt-5.5",
     "chinese_content": "glm-4-flash",
     "quick_tasks": "glm-4-flash",
     "translation": "glm-4-flash",
-    "default": "claude-opus-4-7",
+    "default": "claude-opus-4-8",
 }
 
 # Keyword patterns for task type detection
@@ -47,7 +47,7 @@ TASK_TYPE_KEYWORDS: dict[str, list[str]] = {
 }
 
 # Default fallback chain
-DEFAULT_FALLBACK_CHAIN = ["claude-opus-4-7", "gpt-5.4", "glm-4-flash"]
+DEFAULT_FALLBACK_CHAIN = ["claude-opus-4-8", "gpt-5.5", "glm-4-flash"]
 
 
 class ModelRouter:
@@ -112,7 +112,7 @@ class ModelRouter:
             return ctx["force_model"]
 
         task_type = self.classify_task(task)
-        model = self._routing_rules.get(task_type) or self._routing_rules.get("default", "claude-opus-4-7")
+        model = self._routing_rules.get(task_type) or self._routing_rules.get("default", "claude-opus-4-8")
 
         logger.debug("ModelRouter: task_type=%s → model=%s", task_type, model)
         return model

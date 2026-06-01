@@ -1,7 +1,7 @@
 ---
 name: database-expert
 description: Database design, query optimization, and migration specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

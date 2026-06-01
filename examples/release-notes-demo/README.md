@@ -108,7 +108,7 @@ LLM 的行为不是确定性的。同一 prompt 不同模型、不同温度、�
 假设契约 3 FAIL（`chore: bump version` 出现在 CHANGELOG 里）：
 
 1. 看 `run.log` 里 LLM 的推理轨迹
-2. 如果 LLM 明显跳过了 SKILL.md 的"跳过 chore: bump version"这条 → 模型理解不够，换更强的：加 `--model claude-sonnet-4-7`
+2. 如果 LLM 明显跳过了 SKILL.md 的"跳过 chore: bump version"这条 → 模型理解不够，换更强的：加 `--model claude-sonnet-4-8`
 3. 如果换最强模型还失败 → `skills/release-notes/SKILL.md` 的描述不够清晰。往里面加更醒目的"**必须跳过的 commit 前缀**"枚举
 4. 两个都试过还不行 → skill 的设计假设（从 commit message 分类）不成立，得换方案（从 issue label 分类等）
 

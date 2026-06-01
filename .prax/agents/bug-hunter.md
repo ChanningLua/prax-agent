@@ -1,7 +1,7 @@
 ---
 name: bug-hunter
 description: Bug localization, root cause analysis, and fix specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

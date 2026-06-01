@@ -1,7 +1,7 @@
 ---
 name: frontend-specialist
 description: Frontend UI/UX implementation specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

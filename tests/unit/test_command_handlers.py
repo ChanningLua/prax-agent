@@ -31,7 +31,7 @@ def _minimal_models_config(model_name="test-model"):
                 "models": [
                     {
                         "name": model_name,
-                        "api_model": "claude-sonnet-4-7",
+                        "api_model": "claude-sonnet-4-8",
                         "tier": "mid",
                         "supports_tools": True,
                         "supports_streaming": True,

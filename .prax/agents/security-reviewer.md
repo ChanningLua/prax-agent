@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Security vulnerability detection and remediation specialist
-model: claude-opus-4-7
+model: claude-opus-4-8
 tools:
   - HashlineRead
   - WebSearch

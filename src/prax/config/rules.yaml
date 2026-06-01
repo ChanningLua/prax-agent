@@ -29,8 +29,8 @@ rules:
 
 # Tier to model mapping (uses first available)
 tier_models:
-  low: ["gpt-4.1-mini", "gpt-5.4"]
-  standard: ["gpt-5.4", "claude-sonnet-4-7"]
-  high: ["claude-sonnet-4-7", "gpt-5.4"]
-  premium: ["claude-sonnet-4-7", "o3"]
-  ultra: ["claude-opus-4-7"]
+  low: ["gpt-4.1-mini", "gpt-5.5"]
+  standard: ["gpt-5.5", "claude-sonnet-4-8"]
+  high: ["claude-sonnet-4-8", "gpt-5.5"]
+  premium: ["claude-sonnet-4-8", "o3"]
+  ultra: ["claude-opus-4-8"]

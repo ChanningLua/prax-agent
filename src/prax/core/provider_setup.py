@@ -52,7 +52,7 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
     },
     "codex": {
         "default_model": "codex",
-        "upgrade_chain": ["codex", "gpt-5.4", "claude-sonnet-4-7"],
+        "upgrade_chain": ["codex", "gpt-5.5", "claude-sonnet-4-8"],
         "providers": {
             "openai": {
                 "base_url": "https://api.openai.com/v1",
@@ -60,8 +60,8 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
                 "format": "openai",
                 "models": [
                     {
-                        "name": "gpt-5.4",
-                        "api_model": "gpt-5.4",
+                        "name": "gpt-5.5",
+                        "api_model": "gpt-5.5",
                         "aliases": ["gpt", "gpt4"],
                         "request_mode": "chat_completions",
                         "tier": "standard",
@@ -86,8 +86,8 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
         },
     },
     "claude": {
-        "default_model": "claude-sonnet-4-7",
-        "upgrade_chain": ["claude-sonnet-4-7", "claude-opus-4-7"],
+        "default_model": "claude-sonnet-4-8",
+        "upgrade_chain": ["claude-sonnet-4-8", "claude-opus-4-8"],
         "providers": {
             "anthropic": {
                 "base_url": "https://api.anthropic.com",
@@ -95,7 +95,7 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
                 "format": "anthropic",
                 "models": [
                     {
-                        "name": "claude-sonnet-4-7",
+                        "name": "claude-sonnet-4-8",
                         "aliases": ["sonnet"],
                         "request_mode": "chat_completions",
                         "tier": "premium",
@@ -106,7 +106,7 @@ FLOW_TEMPLATES: dict[str, dict[str, Any]] = {
                         "default_thinking_budget_tokens": 12000,
                     },
                     {
-                        "name": "claude-opus-4-7",
+                        "name": "claude-opus-4-8",
                         "aliases": ["opus"],
                         "request_mode": "chat_completions",
                         "tier": "ultra",
@@ -148,7 +148,7 @@ def merge_flow_templates(flows: list[str]) -> dict[str, Any]:
             default_model = template.get("default_model")
         result["providers"] = _merge_providers(result["providers"], template.get("providers", {}))
         result["upgrade_chain"] = _merge_upgrade_chain(result["upgrade_chain"], template.get("upgrade_chain", []))
-    result["default_model"] = default_model or "gpt-5.4"
+    result["default_model"] = default_model or "gpt-5.5"
     return result
 
 
@@ -222,7 +222,7 @@ SKELETON_HEADER = """\
 #   providers:
 #     openai:
 #       base_url: https://my-relay.example.com/openai   # route through a relay
-#   default_model: claude-sonnet-4-7                    # this project uses Claude
+#   default_model: claude-sonnet-4-8                    # this project uses Claude
 #
 # Want the full schema as a starting point (all providers, every field,
 # placeholders to replace)? Run:

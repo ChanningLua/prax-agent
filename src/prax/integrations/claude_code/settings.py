@@ -103,6 +103,22 @@ def build_managed_settings(target_root: Path) -> dict[str, Any]:
     }
 
 
+def _references_prax_hook(entry: Any) -> bool:
+    """True if a hook entry's command points at a prax-managed hook script.
+
+    Prax hooks always live under a ``*/prax/hooks/*.sh`` path, so that substring
+    is a reliable fingerprint for "this entry was installed by prax".
+    """
+    if not isinstance(entry, dict):
+        return False
+    for hook in entry.get("hooks", []) or []:
+        if isinstance(hook, dict):
+            command = hook.get("command", "")
+            if isinstance(command, str) and "/prax/hooks/" in command:
+                return True
+    return False
+
+
 def _append_unique(existing: list[Any], required: list[Any]) -> list[Any]:
     merged = list(existing)
     existing_keys = {json.dumps(item, sort_keys=True, ensure_ascii=False) for item in existing}
@@ -153,7 +169,12 @@ def merge_settings(existing: dict[str, Any], managed: dict[str, Any]) -> dict[st
             existing_entries = hooks.get(event_name, [])
             if not isinstance(existing_entries, list):
                 existing_entries = []
-            hooks[event_name] = _append_unique(existing_entries, entries if isinstance(entries, list) else [])
+            # Drop stale prax-managed hook entries (e.g. left over from a previous
+            # install with a different target_root) so reinstall is idempotent and
+            # never accumulates orphans pointing at dead paths. User-authored hooks
+            # don't reference */prax/hooks/ and are preserved.
+            pruned = [e for e in existing_entries if not _references_prax_hook(e)]
+            hooks[event_name] = _append_unique(pruned, entries if isinstance(entries, list) else [])
 
     return merged
 

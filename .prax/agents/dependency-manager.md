@@ -1,7 +1,7 @@
 ---
 name: dependency-manager
 description: Dependency management, version upgrades, and compatibility specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

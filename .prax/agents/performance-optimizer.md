@@ -1,7 +1,7 @@
 ---
 name: performance-optimizer
 description: Performance analysis and optimization specialist
-model: claude-sonnet-4-7
+model: claude-sonnet-4-8
 tools:
   - HashlineRead
   - HashlineEdit

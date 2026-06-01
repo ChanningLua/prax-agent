@@ -72,7 +72,7 @@ class LLMClient:
         """Resolve a model name to its full configuration.
 
         When multiple providers declare the same model name (e.g. a bundled
-        `openai.gpt-5.4` without `OPENAI_API_KEY` + a user's `soxio.gpt-5.4`
+        `openai.gpt-5.5` without `OPENAI_API_KEY` + a user's `soxio.gpt-5.5`
         pointing at a proxy with a working key), prefer the first provider
         whose api_key env is set. Falls back to the first match so the
         caller still gets a meaningful missing-credentials diagnostic.

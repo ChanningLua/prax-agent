@@ -199,7 +199,7 @@ def test_resolve_model_uses_api_model_field() -> None:
 
 def test_resolve_model_prefers_provider_with_api_key(monkeypatch) -> None:
     # Mirror of the "user reuses a bundled model name" scenario:
-    # bundled provider declares gpt-5.4 with OPENAI_API_KEY (unset),
+    # bundled provider declares gpt-5.5 with OPENAI_API_KEY (unset),
     # user's proxy provider declares the same name with USER_KEY (set).
     # resolve_model must pick the user's provider so outbound headers carry
     # a real Bearer token instead of an empty string.
@@ -212,17 +212,17 @@ def test_resolve_model_prefers_provider_with_api_key(monkeypatch) -> None:
                 "base_url": "https://api.openai.com/v1",
                 "api_key_env": "OPENAI_API_KEY",
                 "format": "openai",
-                "models": [{"name": "gpt-5.4"}],
+                "models": [{"name": "gpt-5.5"}],
             },
             "proxy": {
                 "base_url": "https://proxy.example/v1",
                 "api_key_env": "USER_KEY",
                 "format": "openai",
-                "models": [{"name": "gpt-5.4"}],
+                "models": [{"name": "gpt-5.5"}],
             },
         }
     }
-    cfg = client.resolve_model("gpt-5.4", models_config)
+    cfg = client.resolve_model("gpt-5.5", models_config)
     assert cfg.provider == "proxy"
     assert cfg.api_key == "sk-user-real"
     assert cfg.base_url == "https://proxy.example/v1"
@@ -240,17 +240,17 @@ def test_resolve_model_falls_back_to_first_match_when_no_keys(monkeypatch) -> No
                 "base_url": "https://api.openai.com/v1",
                 "api_key_env": "OPENAI_API_KEY",
                 "format": "openai",
-                "models": [{"name": "gpt-5.4"}],
+                "models": [{"name": "gpt-5.5"}],
             },
             "other": {
                 "base_url": "https://other.example/v1",
                 "api_key_env": "OTHER_KEY",
                 "format": "openai",
-                "models": [{"name": "gpt-5.4"}],
+                "models": [{"name": "gpt-5.5"}],
             },
         }
     }
-    cfg = client.resolve_model("gpt-5.4", models_config)
+    cfg = client.resolve_model("gpt-5.5", models_config)
     assert cfg.provider == "openai"
     assert cfg.api_key == ""
 

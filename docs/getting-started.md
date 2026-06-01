@@ -96,9 +96,9 @@ zhipu:
   - glm-4-flash (low, available, ...)
   - glm-4 (standard, available, ...)
 anthropic:
-  - claude-sonnet-4-7 (premium, missing-credentials, ...)
+  - claude-sonnet-4-8 (premium, missing-credentials, ...)
 openai:
-  - gpt-5.4 (standard, missing-credentials, ...)
+  - gpt-5.5 (standard, missing-credentials, ...)
 ```
 
 只要你用的那家 provider 下至少有一条 `available`，就可以进下一步。

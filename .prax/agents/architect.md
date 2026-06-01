@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Software architecture design and technical decision specialist
-model: claude-opus-4-7
+model: claude-opus-4-8
 tools:
   - HashlineRead
   - WebSearch
