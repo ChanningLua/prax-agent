@@ -19,6 +19,7 @@ class ExecutionResult:
     usage: dict[str, Any] | None = None
     session_id: str | None = None
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
+    cost_usd: float | None = None  # top-level total_cost_usd from the result event
 
 
 def is_available() -> bool:
@@ -71,6 +72,7 @@ class ClaudeCliExecutor:
         collected_text: list[str] = []
         usage: dict[str, Any] | None = None
         result_session_id: str | None = session_id
+        result_cost: float | None = None
         tool_calls: list[dict[str, Any]] = []
         seen_tool_call_ids: set[str] = set()
 
@@ -123,6 +125,7 @@ class ClaudeCliExecutor:
                 if result_text and not collected_text:
                     collected_text.append(result_text)
                 usage = event.get("usage")
+                result_cost = event.get("total_cost_usd", result_cost)
                 result_session_id = event.get("session_id", result_session_id)
 
             elif etype == "system" and event.get("subtype") == "init":
@@ -135,6 +138,7 @@ class ClaudeCliExecutor:
             usage=usage,
             session_id=result_session_id,
             tool_calls=tool_calls,
+            cost_usd=result_cost,
         )
 
     async def _iter_stdout_lines(self, stdout: Any) -> Any:

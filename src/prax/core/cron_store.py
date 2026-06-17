@@ -171,6 +171,7 @@ class CronJob:
     model: str | None = None
     notify_on: list[str] = field(default_factory=list)
     notify_channel: str | None = None
+    run_mode: str = "prompt"  # "prompt" (default) | "orchestrate" (7x24 outer loop)
 
     def validate(self) -> None:
         if not self.name:
@@ -202,6 +203,8 @@ class CronJob:
             data["notify_on"] = list(self.notify_on)
         if self.notify_channel:
             data["notify_channel"] = self.notify_channel
+        if self.run_mode and self.run_mode != "prompt":
+            data["run_mode"] = self.run_mode
         return data
 
     @classmethod
@@ -215,6 +218,7 @@ class CronJob:
                 model=raw.get("model"),
                 notify_on=list(raw.get("notify_on", [])),
                 notify_channel=raw.get("notify_channel"),
+                run_mode=str(raw.get("run_mode", "prompt")),
             )
         except KeyError as e:
             raise ValueError(f"cron job missing required field {e.args[0]!r}") from e

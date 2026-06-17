@@ -95,8 +95,11 @@ async def run_due_jobs(
 
 
 def _argv_for_job(job: CronJob, *, prefix: list[str]) -> list[str]:
-    argv = list(prefix) + ["prompt", job.prompt]
-    if job.session_id:
+    verb = "orchestrate" if job.run_mode == "orchestrate" else "prompt"
+    argv = list(prefix) + [verb, job.prompt]
+    # session resumption is a prompt-mode concept; orchestrate owns its own
+    # run journal, so --session-id is not forwarded there.
+    if job.run_mode != "orchestrate" and job.session_id:
         argv += ["--session-id", job.session_id]
     if job.model:
         argv += ["--model", job.model]

@@ -42,6 +42,30 @@ async def test_run_basic_text_response():
 
 
 @pytest.mark.asyncio
+async def test_run_captures_total_cost_usd():
+    """run surfaces the result event's top-level total_cost_usd as cost_usd."""
+    executor = ClaudeCliExecutor()
+
+    mock_proc = MagicMock()
+    mock_proc.stdin = AsyncMock()
+    mock_proc.stdout = _async_lines([
+        json.dumps({
+            "type": "result",
+            "result": "ok",
+            "total_cost_usd": 0.1690925,
+            "usage": {"input_tokens": 3391, "output_tokens": 6},
+        }),
+    ])
+    mock_proc.wait = AsyncMock()
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        result = await executor.run("test prompt")
+
+    assert result.cost_usd == 0.1690925
+    assert result.usage == {"input_tokens": 3391, "output_tokens": 6}
+
+
+@pytest.mark.asyncio
 async def test_run_with_session_id():
     """run includes --session-id flag when valid UUID provided."""
     executor = ClaudeCliExecutor()

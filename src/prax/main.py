@@ -1020,6 +1020,16 @@ def main() -> None:
         )
         return
 
+    if positional and positional[0] == "orchestrate":
+        from .commands.orchestrate import handle_orchestrate
+        outcome = handle_orchestrate(cwd, positional[1:])
+        print(
+            f"\033[90m[prax] orchestrate stop_reason={outcome.stop_reason} "
+            f"iterations={outcome.iterations} verified={outcome.verified}\033[0m",
+            flush=True,
+        )
+        return
+
     if positional and positional[0] == "prompt":
         positional = positional[1:]
 
