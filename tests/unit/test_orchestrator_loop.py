@@ -141,3 +141,120 @@ class TestOrchestratorLoop:
         assert outcome.verified is True
         assert outcome.stop_reason == "verified"
         assert len(ex2.instructions) == 0  # short-circuited via journal replay
+
+
+class TestApprovalGate:
+    """Run-level approval: a prod-affecting goal must be approved before ANY
+    work is dispatched to the black-box executor. Park-and-continue — pending
+    stops the window cleanly and a later resume re-checks; never blocks inline."""
+
+    def _loop(self, tmp_path, run_id, gate):
+        return OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), run_id),
+            executor=FakeExecutor(),
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=gate,
+        )
+
+    def test_pending_parks_without_executing(self, tmp_path):
+        ex = FakeExecutor()
+        loop = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag1"),
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: "pending",
+        )
+        outcome = loop.run("部署到生产")
+        assert outcome.stop_reason == "awaiting_approval"
+        assert outcome.verified is False
+        assert len(ex.instructions) == 0  # parked: executor never ran
+
+    def test_rejected_stops_without_executing(self, tmp_path):
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag2"),
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: "rejected",
+        ).run("部署到生产")
+        assert outcome.stop_reason == "approval_rejected"
+        assert outcome.verified is False
+        assert len(ex.instructions) == 0
+
+    def test_unknown_decision_parks_failsafe(self, tmp_path):
+        # never run prod work on an unrecognized decision
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag2b"),
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: "timed_out",
+        ).run("部署到生产")
+        assert outcome.stop_reason == "awaiting_approval"
+        assert len(ex.instructions) == 0
+
+    def test_approved_proceeds_and_verifies(self, tmp_path):
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag3"),
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: "approved",
+        ).run("部署到生产")
+        assert outcome.verified is True
+        assert outcome.stop_reason == "verified"
+        assert len(ex.instructions) == 1
+
+    def test_gate_receives_goal(self, tmp_path):
+        seen: list[str] = []
+        OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag4"),
+            executor=FakeExecutor(),
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: seen.append(goal) or "approved",
+        ).run("部署到生产 DB")
+        assert seen == ["部署到生产 DB"]
+
+    def test_no_gate_runs_normally(self, tmp_path):
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag4b"),
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=None,
+        ).run("普通任务")
+        assert outcome.verified is True
+        assert len(ex.instructions) == 1
+
+    def test_approval_event_journalled(self, tmp_path):
+        journal = RunJournal(str(tmp_path), "ag4c")
+        OrchestratorLoop(
+            journal=journal,
+            executor=FakeExecutor(),
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: "approved",
+        ).run("部署到生产")
+        assert "approval" in journal.done_steps()
+
+    def test_resume_after_approval_then_proceeds(self, tmp_path):
+        # park first (pending) ...
+        ex1 = FakeExecutor()
+        o1 = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag5"),
+            executor=ex1,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: "pending",
+        ).run("部署到生产")
+        assert o1.stop_reason == "awaiting_approval"
+        assert len(ex1.instructions) == 0
+
+        # ... then a fresh loop on the SAME journal, gate now approving, proceeds
+        ex2 = FakeExecutor()
+        o2 = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "ag5"),
+            executor=ex2,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            approval_gate=lambda goal: "approved",
+        ).run("部署到生产")
+        assert o2.verified is True
+        assert len(ex2.instructions) == 1  # park-and-continue: ran after approval

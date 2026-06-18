@@ -66,6 +66,42 @@ class TestHandleOrchestrate:
         assert len(ex.calls) == 2
 
 
+class TestApprovalWiring:
+    def test_injected_pending_gate_parks_before_executing(self, tmp_path):
+        ex = _FakeExec()
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["部署到生产", "--run-id", "ra1"],
+            executor=ex,
+            verifier=lambda: VerifyResult(passed=True),
+            approval_gate=lambda goal: "pending",
+        )
+        assert outcome.stop_reason == "awaiting_approval"
+        assert outcome.verified is False
+        assert len(ex.calls) == 0  # parked: never dispatched to the executor
+
+    def test_gate_built_from_config_autoapproves_nonprod_goal(self, tmp_path):
+        # config present (relay opt-in) but the goal is NOT prod-affecting →
+        # the built gate auto-approves and the run proceeds, no relay/network.
+        cfgdir = tmp_path / ".prax"
+        cfgdir.mkdir(parents=True, exist_ok=True)
+        (cfgdir / "config.yaml").write_text(
+            "approval:\n"
+            "  relay_url: http://relay\n"
+            "  admin_token: T\n",
+            encoding="utf-8",
+        )
+        ex = _FakeExec()
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["写一个登录页并跑测试", "--run-id", "ra2"],
+            executor=ex,
+            verifier=lambda: VerifyResult(passed=True),
+        )
+        assert outcome.verified is True
+        assert len(ex.calls) == 1
+
+
 class TestCronOrchestrateWiring:
     def test_run_mode_defaults_to_prompt(self):
         job = CronJob(name="j", schedule="* * * * *", prompt="hi")

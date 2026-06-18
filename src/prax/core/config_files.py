@@ -217,6 +217,45 @@ def list_agent_specs(cwd: str | None = None) -> list[str]:
     return [p.stem for p in sorted(agents_dir.glob("*.yaml"))]
 
 
+def load_approval_config(cwd: str | None = None) -> dict | None:
+    """Load the production-approval relay config (``approval:`` block).
+
+    Reads ``~/.prax/config.yaml`` then ``{cwd}/.prax/config.yaml`` (project
+    overrides user). Returns ``{relay_url, admin_token, deny_patterns?,
+    notify_channel?}`` or ``None`` when ``relay_url``/``admin_token`` are absent.
+
+    ``None`` means NO production gating — the orchestrator runs fully
+    allow-all (no human in the loop). Gating only switches on when an operator
+    opts in by configuring a relay (see core.approval_policy / remote_approval_client).
+    """
+    merged: dict = {}
+    paths = [Path.home() / ".prax" / "config.yaml"]
+    if cwd:
+        paths.append(Path(cwd) / ".prax" / "config.yaml")
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception as e:
+            logger.warning("Failed to read approval config from %s: %s", path, e)
+            continue
+        section = data.get("approval") if isinstance(data, dict) else None
+        if isinstance(section, dict):
+            merged.update({k: v for k, v in section.items() if v is not None})
+
+    relay_url = str(merged.get("relay_url", "")).strip()
+    admin_token = str(merged.get("admin_token", "")).strip()
+    if not relay_url or not admin_token:
+        return None
+    return {
+        "relay_url": relay_url,
+        "admin_token": admin_token,
+        "deny_patterns": merged.get("deny_patterns"),
+        "notify_channel": merged.get("notify_channel"),
+    }
+
+
 def load_permission_mode(cwd: str | None = None):
     """Resolve a default permission mode from config files.
 

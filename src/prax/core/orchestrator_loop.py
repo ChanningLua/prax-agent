@@ -41,7 +41,8 @@ class VerifyResult:
 class OrchestrationOutcome:
     """Terminal result of a loop run."""
 
-    stop_reason: str  # "verified" | "max_iterations"
+    stop_reason: str  # verified | max_iterations | completed_no_verify
+    #                   | awaiting_approval | approval_rejected
     iterations: int
     verified: bool
 
@@ -54,6 +55,11 @@ class Executor(Protocol):
 
 Composer = Callable[[str, str | None, int], str]
 Verifier = Callable[[], VerifyResult]
+# Given the goal, decide whether work may be dispatched. Returns one of
+# "approved" | "pending" | "rejected" (any other value is treated as pending,
+# fail-safe). Non-prod goals return "approved" immediately; prod-affecting goals
+# go through the remote approval relay (see core.approval_policy).
+ApprovalGate = Callable[[str], str]
 
 
 def _default_compose(goal: str, feedback: str | None, iteration: int) -> str:
@@ -74,6 +80,7 @@ class OrchestratorLoop:
         max_iterations: int = 10,
         compose: Composer | None = None,
         session_id: str | None = None,
+        approval_gate: ApprovalGate | None = None,
     ) -> None:
         self._journal = journal
         self._executor = executor
@@ -81,6 +88,7 @@ class OrchestratorLoop:
         self._max_iterations = max_iterations
         self._compose = compose or _default_compose
         self._session_id = session_id
+        self._approval_gate = approval_gate
 
     def run(self, goal: str) -> OrchestrationOutcome:
         # ── Resume: a journal that already verified short-circuits ──────────
@@ -96,6 +104,20 @@ class OrchestratorLoop:
         events = self._journal.events()
         iteration = sum(1 for e in events if e.get("step") == "step")
         feedback = self._last_feedback(events)
+
+        # ── Approval gate (run-level) ────────────────────────────────────────
+        # A production-affecting goal must be approved before we dispatch ANY
+        # work to the black-box executor (which we can't intercept per-command).
+        # Park-and-continue: "pending" stops THIS window cleanly (journalled) and
+        # a later resume re-checks the gate — the run never blocks inline waiting
+        # for a human. Fail-safe: anything other than "approved"/"rejected" parks.
+        if self._approval_gate is not None:
+            decision = self._approval_gate(goal)
+            self._journal.record("approval", output={"decision": decision}, iteration=iteration)
+            if decision == "rejected":
+                return self._finish("approval_rejected", iteration, False)
+            if decision != "approved":
+                return self._finish("awaiting_approval", iteration, False)
 
         # ── Main loop ───────────────────────────────────────────────────────
         while iteration < self._max_iterations:
