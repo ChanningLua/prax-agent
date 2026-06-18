@@ -12,6 +12,8 @@ Link shape: ``GET /a/<id>?t=<token>&d=approve|reject``
 """
 from __future__ import annotations
 
+import json
+import secrets
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -46,20 +48,88 @@ def route_approval(
     return 200, f"<!doctype html><meta charset=utf-8><h3>{label}：{approval_id}</h3>"
 
 
-def serve(cwd: str, *, port: int = 7879) -> None:  # pragma: no cover - socket glue
+def _admin_ok(query: dict, body: Any, admin_token: str) -> bool:
+    """Agent endpoints require the shared admin token (in ?k= or body 'k')."""
+    if not admin_token:  # none configured → open (local/dev)
+        return True
+    provided = ""
+    if query and query.get("k"):
+        provided = query["k"]
+    elif isinstance(body, dict) and body.get("k"):
+        provided = str(body["k"])
+    return secrets.compare_digest(str(provided), admin_token)
+
+
+def dispatch(
+    method: str,
+    path: str,
+    query: dict,
+    body: Any,
+    *,
+    gate: ApprovalGate,
+    now: float,
+    admin_token: str = "",
+) -> "tuple[int, str]":
+    """HTTP router for the approval relay.
+
+    - ``GET /a/<id>?t=&d=``     phone tap (per-approval token)         → resolve
+    - ``POST /request``        agent parks {id,instruction} (admin)   → {token}
+    - ``GET /status/<id>``     agent polls (admin)                    → {status}
+    """
+    if method == "GET" and (path == "/a" or path.startswith("/a/")):
+        return route_approval(path, query, gate=gate, now=now)
+
+    if not _admin_ok(query, body, admin_token):
+        return 401, "unauthorized"
+
+    if method == "POST" and path == "/request":
+        data = body if isinstance(body, dict) else {}
+        approval_id = str(data.get("id", "")).strip()
+        instruction = str(data.get("instruction", "")).strip()
+        if not approval_id or not instruction:
+            return 400, "missing id or instruction"
+        req = gate.request(
+            approval_id, instruction, created_at=now, deadline_at=data.get("deadline_at")
+        )
+        return 200, json.dumps({"id": approval_id, "token": req.token})
+
+    if method == "GET" and path.startswith("/status/"):
+        approval_id = path[len("/status/") :]
+        return 200, json.dumps({"id": approval_id, "status": gate.status(approval_id, now=now)})
+
+    return 404, "not found"
+
+
+def serve(cwd: str, *, port: int = 7879, admin_token: str = "") -> None:  # pragma: no cover - socket glue
     import time
 
     gate = ApprovalGate(cwd)
 
     class _Handler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
+        def _handle(self, method: str) -> None:
             parsed = urlparse(self.path)
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
-            status, body = route_approval(parsed.path, q, gate=gate, now=time.time())
+            body: Any = None
+            if method == "POST":
+                length = int(self.headers.get("Content-Length", 0) or 0)
+                raw = self.rfile.read(length) if length else b""
+                try:
+                    body = json.loads(raw) if raw else {}
+                except Exception:
+                    body = {}
+            status, content = dispatch(
+                method, parsed.path, q, body, gate=gate, now=time.time(), admin_token=admin_token
+            )
             self.send_response(status)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(body.encode("utf-8"))
+            self.wfile.write(content.encode("utf-8"))
+
+        def do_GET(self) -> None:
+            self._handle("GET")
+
+        def do_POST(self) -> None:
+            self._handle("POST")
 
         def log_message(self, *args: Any) -> None:  # keep it quiet
             pass

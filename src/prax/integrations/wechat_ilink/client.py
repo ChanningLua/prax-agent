@@ -177,7 +177,10 @@ async def qr_login(
     show "waiting / scanned / confirmed" without re-implementing the
     underlying flow.
     """
-    async with httpx.AsyncClient(trust_env=True) as client:
+    # trust_env=False: iLink calls must bypass any HTTP_PROXY in the env — iLink
+    # (Tencent) is reached directly where WeChat works, and a stray/dev proxy
+    # (e.g. for an LLM relay) only breaks it with a ConnectError.
+    async with httpx.AsyncClient(trust_env=False) as client:
         try:
             qr_resp = await _api_get(
                 client,
@@ -335,7 +338,7 @@ async def send_text(
     msg = _build_message(to_user_id=to_user_id, text=text, client_id=client_id)
     payload = {"msg": msg}
 
-    own = http_client or httpx.AsyncClient()
+    own = http_client or httpx.AsyncClient(trust_env=False)  # bypass env proxy (see _login above)
     try:
         resp = await _api_post(
             own,
