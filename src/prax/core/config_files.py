@@ -215,3 +215,45 @@ def list_agent_specs(cwd: str | None = None) -> list[str]:
     if not agents_dir.exists():
         return []
     return [p.stem for p in sorted(agents_dir.glob("*.yaml"))]
+
+
+def load_permission_mode(cwd: str | None = None):
+    """Resolve a default permission mode from config files.
+
+    Reads a top-level ``permission_mode`` key from ``~/.prax/config.yaml`` then
+    ``{cwd}/.prax/config.yaml`` (project overrides user). Returns a
+    ``PermissionMode`` or ``None`` when unset/invalid — callers then fall back to
+    the safe ``workspace-write`` default.
+
+    This is the operator knob for running prax allow-all by default (set
+    ``permission_mode: danger-full-access`` once) without passing
+    ``--permission-mode`` every time. The shipped fallback stays
+    ``workspace-write``, so this only widens access when a config opts in.
+    """
+    from .permissions import PermissionMode
+
+    aliases = {"dangerous": "danger-full-access"}
+    value: str | None = None
+    paths = [Path.home() / ".prax" / "config.yaml"]
+    if cwd:
+        paths.append(Path(cwd) / ".prax" / "config.yaml")
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception as e:
+            logger.warning("Failed to read permission_mode from %s: %s", path, e)
+            continue
+        raw = data.get("permission_mode") if isinstance(data, dict) else None
+        if raw:
+            value = str(raw)  # project (read later) overrides user (read earlier)
+
+    if not value:
+        return None
+    value = aliases.get(value, value)
+    try:
+        return PermissionMode(value)
+    except ValueError:
+        logger.warning("Invalid permission_mode %r in config; ignoring", value)
+        return None

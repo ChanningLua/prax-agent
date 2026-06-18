@@ -27,6 +27,11 @@ class TestCommandVerifier:
         with pytest.raises(ValueError):
             CommandVerifier("rm -rf /", cwd=str(tmp_path))
 
+    def test_accepts_npm_run_build(self, tmp_path):
+        # G1: build/lint scripts must be allowed, not just `npm test`
+        v = CommandVerifier("npm run build", cwd=str(tmp_path), runner=_runner(0, "built"))
+        assert v().passed is True
+
     def test_passing_command_maps_to_passed(self, tmp_path):
         v = CommandVerifier("pytest -q", cwd=str(tmp_path), runner=_runner(0, "5 passed"))
         result = v()

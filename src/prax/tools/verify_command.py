@@ -41,9 +41,14 @@ def parse_verify_command(command: str) -> list[str]:
         return argv
 
     if program in {"npm", "pnpm"}:
-        if len(argv) < 2 or argv[1] != "test":
-            raise ValueError("Only `npm test ...` and `pnpm test ...` are allowed")
-        return argv
+        # `npm test ...` or `npm run <script> ...` (build / lint / typecheck etc.)
+        if len(argv) >= 2 and argv[1] == "test":
+            return argv
+        if len(argv) >= 3 and argv[1] == "run":
+            return argv
+        raise ValueError(
+            "Only `npm test ...`, `npm run <script> ...` (and pnpm equivalents) are allowed"
+        )
 
     if program == "cargo":
         if len(argv) < 2 or argv[1] != "test":

@@ -18,6 +18,7 @@ Timestamps are epoch seconds supplied by the caller (the orchestrator passes
 from __future__ import annotations
 
 import json
+import secrets
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -43,6 +44,7 @@ class ApprovalRequest:
     deadline_at: float | None = None
     resolved_at: float | None = None
     note: str = ""
+    token: str = ""  # unguessable secret for remote (phone-tap) resolution
     schema_version: str = APPROVAL_SCHEMA_VERSION
 
 
@@ -69,6 +71,7 @@ class ApprovalGate:
             status=PENDING,
             created_at=created_at,
             deadline_at=deadline_at,
+            token=secrets.token_urlsafe(16),
         )
         self._dir.mkdir(parents=True, exist_ok=True)
         atomic_write_json(self._path(approval_id), asdict(req))
@@ -119,3 +122,10 @@ class ApprovalGate:
         ):
             return TIMED_OUT
         return req.status
+
+    def check_token(self, approval_id: str, token: str) -> bool:
+        """Constant-time check that *token* matches the request's secret."""
+        req = self.get(approval_id)
+        if req is None or not req.token:
+            return False
+        return secrets.compare_digest(req.token, token or "")

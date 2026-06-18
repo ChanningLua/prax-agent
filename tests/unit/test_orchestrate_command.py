@@ -34,11 +34,23 @@ class TestHandleOrchestrate:
         assert len(ex.calls) == 1
         assert (tmp_path / ".prax" / "runs" / "rt1" / "journal.jsonl").exists()
 
-    def test_default_verifier_completes_after_one_step(self, tmp_path):
+    def test_no_verify_reports_unverified_not_verified(self, tmp_path):
+        # G3: no --verify must NOT claim "verified"
         ex = _FakeExec()
         outcome = handle_orchestrate(str(tmp_path), ["g", "--run-id", "rt2"], executor=ex)
-        assert outcome.verified is True
+        assert outcome.verified is False
+        assert outcome.stop_reason == "completed_no_verify"
         assert len(ex.calls) == 1
+
+    def test_bad_verify_command_does_not_crash(self, tmp_path):
+        # G2: an invalid --verify degrades gracefully, not a traceback
+        ex = _FakeExec()
+        outcome = handle_orchestrate(
+            str(tmp_path), ["g", "--verify", "rm -rf /", "--run-id", "rt9"], executor=ex
+        )
+        assert outcome.stop_reason == "bad_verifier"
+        assert outcome.verified is False
+        assert len(ex.calls) == 0  # bailed before running the executor
 
     def test_max_iterations_when_verifier_never_passes(self, tmp_path):
         ex = _FakeExec()

@@ -8,21 +8,14 @@ directly from the CLI, or driven by a cron job with ``run_mode: orchestrate``
 from __future__ import annotations
 
 import argparse
+import sys
 import uuid
 
 from ..core.claude_step_executor import ClaudeStepExecutor
 from ..core.command_verifier import CommandVerifier
 from ..core.context_composer import ContextComposer
-from ..core.orchestrator_loop import (
-    OrchestrationOutcome,
-    OrchestratorLoop,
-    VerifyResult,
-)
+from ..core.orchestrator_loop import OrchestrationOutcome, OrchestratorLoop
 from ..core.run_journal import RunJournal
-
-
-def _always_pass() -> VerifyResult:
-    return VerifyResult(passed=True)
 
 
 def handle_orchestrate(cwd, args, *, executor=None, verifier=None) -> OrchestrationOutcome:
@@ -47,8 +40,18 @@ def handle_orchestrate(cwd, args, *, executor=None, verifier=None) -> Orchestrat
 
     if executor is None:
         executor = ClaudeStepExecutor(cwd, model=ns.model)
-    if verifier is None:
-        verifier = CommandVerifier(ns.verify, cwd=cwd) if ns.verify else _always_pass
+    if verifier is None and ns.verify:
+        try:
+            verifier = CommandVerifier(ns.verify, cwd=cwd)
+        except ValueError as exc:
+            # Don't crash an (unattended) run on a bad --verify command (G2).
+            print(
+                f"[prax] orchestrate: invalid --verify {ns.verify!r}: {exc}",
+                file=sys.stderr,
+            )
+            return OrchestrationOutcome(stop_reason="bad_verifier", iterations=0, verified=False)
+    # No --verify and none injected → verifier stays None; the loop reports
+    # "completed_no_verify" instead of a hollow "verified" (G3).
 
     loop = OrchestratorLoop(
         journal=journal,

@@ -31,6 +31,14 @@ class TestApprovalGate:
         assert data["status"] == PENDING
         assert data["schema_version"].startswith("prax.approval")
 
+    def test_request_generates_token_and_check(self, tmp_path):
+        gate = ApprovalGate(str(tmp_path))
+        req = gate.request("tk1", "do", created_at=0.0)
+        assert req.token  # non-empty secret for remote resolution
+        assert gate.check_token("tk1", req.token) is True
+        assert gate.check_token("tk1", "wrong") is False
+        assert gate.check_token("ghost", "x") is False
+
     def test_get_missing_returns_none(self, tmp_path):
         assert ApprovalGate(str(tmp_path)).get("nope") is None
 

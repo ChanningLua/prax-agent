@@ -70,7 +70,7 @@ class OrchestratorLoop:
         *,
         journal: Any,
         executor: Executor,
-        verifier: Verifier,
+        verifier: Verifier | None,
         max_iterations: int = 10,
         compose: Composer | None = None,
         session_id: str | None = None,
@@ -108,6 +108,12 @@ class OrchestratorLoop:
                 instruction=instruction,
                 iteration=iteration,
             )
+
+            # No verifier configured → be honest: the work ran but nothing was
+            # checked. Report "completed_no_verify" (verified=False), never a
+            # hollow "verified" (G3).
+            if self._verifier is None:
+                return self._finish("completed_no_verify", iteration + 1, False)
 
             verdict = self._verifier()
             self._journal.record(

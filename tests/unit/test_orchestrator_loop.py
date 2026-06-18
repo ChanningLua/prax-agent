@@ -106,6 +106,20 @@ class TestOrchestratorLoop:
         assert "outcome" in steps
         assert journal.result_for("outcome")["verified"] is True
 
+    def test_no_verifier_completes_unverified(self, tmp_path):
+        # G3: verifier=None must report completed_no_verify, never a hollow verified
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "rn"),
+            executor=ex,
+            verifier=None,
+            max_iterations=5,
+        ).run("目标")
+        assert outcome.verified is False
+        assert outcome.stop_reason == "completed_no_verify"
+        assert outcome.iterations == 1
+        assert len(ex.instructions) == 1
+
     def test_resume_short_circuits_when_already_verified(self, tmp_path):
         journal = RunJournal(str(tmp_path), "r5")
         OrchestratorLoop(

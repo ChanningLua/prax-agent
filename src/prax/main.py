@@ -961,6 +961,13 @@ def main() -> None:
 
     cwd = str(Path.cwd())
 
+    # Default permission mode from config when no --permission-mode flag was
+    # given. Shipped fallback stays workspace-write (see load_permission_mode);
+    # an operator opts into allow-all via `permission_mode: danger-full-access`.
+    if options["permission_mode"] is None:
+        from .core.config_files import load_permission_mode
+        options["permission_mode"] = load_permission_mode(cwd)
+
     # Launch TUI if requested
     if options["tui"]:
         from .tui import launch_tui
