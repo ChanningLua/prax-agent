@@ -51,20 +51,52 @@ def _make_notifier(cwd, channel):
     return notify
 
 
+# Terminal stop_reasons that mean a human should look. Deliberately excludes
+# "verified" (success — no ping) and "awaiting_approval" (the approval gate
+# already sends its own pending notification) and "completed_no_verify" (the
+# intentional no-verifier / monitoring case, already warned at config time).
+_ATTENTION_STOPS = frozenset(
+    {"stuck_no_progress", "executor_error", "max_iterations", "approval_rejected", "bad_verifier"}
+)
+
+
+def _notify_terminal(notifier, goal: str, run_id: str, outcome: OrchestrationOutcome) -> None:
+    """Ping the operator when a window ends in an attention state. Best-effort:
+    ``notifier`` is already crash-safe; no-op when unset or on a success/quiet
+    outcome."""
+    if notifier is None or outcome.stop_reason not in _ATTENTION_STOPS:
+        return
+    snippet = goal if len(goal) <= 60 else goal[:57] + "..."
+    notifier(
+        f"prax 7x24 需要你看一眼：{outcome.stop_reason}",
+        f"目标：{snippet}\n"
+        f"run：{run_id}\n"
+        f"结果：{outcome.stop_reason}（iterations={outcome.iterations}, verified={outcome.verified}）\n"
+        f"续跑：prax orchestrate <goal> --run-id {run_id}（journal 在 .prax/runs/{run_id}/）",
+    )
+
+
 def handle_orchestrate(
-    cwd, args, *, executor=None, verifier=None, approval_gate=None
+    cwd, args, *, executor=None, verifier=None, approval_gate=None, notifier=None
 ) -> OrchestrationOutcome:
     """Parse ``orchestrate`` args, assemble the loop, run it, return the outcome.
 
-    ``executor`` / ``verifier`` / ``approval_gate`` are injectable so the
-    assembly + run is testable without a real ``claude -p`` or a live relay; in
-    production the executor defaults to the claude adapter, the verifier to a
-    CommandVerifier (when ``--verify`` is given), and the approval gate is built
-    from the ``approval:`` config block (absent → no gating, fully allow-all).
+    ``executor`` / ``verifier`` / ``approval_gate`` / ``notifier`` are injectable
+    so the assembly + run is testable without a real ``claude -p`` or a live
+    relay; in production the executor defaults to the claude adapter, the
+    verifier to a CommandVerifier (when ``--verify`` is given), the approval gate
+    is built from the ``approval:`` config block, and the notifier is built from
+    ``--notify <channel>`` (a notify.yaml channel; absent → no terminal ping).
     """
     parser = argparse.ArgumentParser(prog="prax orchestrate", add_help=False)
     parser.add_argument("goal", nargs="+")
     parser.add_argument("--verify", default=None, help="verify command, e.g. 'pytest -q'")
+    parser.add_argument(
+        "--notify",
+        default=None,
+        help="notify.yaml channel to ping when a window ends needing attention "
+        "(stuck / executor_error / max_iterations / rejected / bad_verifier)",
+    )
     parser.add_argument("--max-iterations", type=int, default=10)
     parser.add_argument(
         "--stuck-after",
@@ -81,6 +113,12 @@ def handle_orchestrate(
     run_id = ns.run_id or f"run-{uuid.uuid4().hex[:8]}"
     journal = RunJournal(cwd, run_id)
 
+    # Terminal "a human should look" ping. Built from --notify (a notify.yaml
+    # channel) unless injected; None → no ping. Closes the "AI 等人" loop: the
+    # operator gets called back on attention states instead of polling logs.
+    if notifier is None:
+        notifier = _make_notifier(cwd, ns.notify)
+
     if executor is None:
         executor = ClaudeStepExecutor(cwd, model=ns.model)
     if verifier is None and ns.verify:
@@ -92,7 +130,9 @@ def handle_orchestrate(
                 f"[prax] orchestrate: invalid --verify {ns.verify!r}: {exc}",
                 file=sys.stderr,
             )
-            return OrchestrationOutcome(stop_reason="bad_verifier", iterations=0, verified=False)
+            outcome = OrchestrationOutcome(stop_reason="bad_verifier", iterations=0, verified=False)
+            _notify_terminal(notifier, goal, run_id, outcome)
+            return outcome
     # No --verify and none injected → verifier stays None; the loop reports
     # "completed_no_verify" instead of a hollow "verified" (G3). That's correct
     # for a pure monitoring/heartbeat goal, but for real work it means the loop
@@ -133,4 +173,6 @@ def handle_orchestrate(
         compose=ContextComposer(cwd, reinject_every=ns.reinject_every),
         approval_gate=approval_gate,
     )
-    return loop.run(goal)
+    outcome = loop.run(goal)
+    _notify_terminal(notifier, goal, run_id, outcome)
+    return outcome

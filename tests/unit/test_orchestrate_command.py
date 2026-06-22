@@ -102,6 +102,55 @@ class TestApprovalWiring:
         assert len(ex.calls) == 1
 
 
+class _FakeNotifier:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def __call__(self, title: str, body: str) -> None:
+        self.calls.append((title, body))
+
+
+class TestTerminalNotify:
+    def test_pings_on_stuck_no_progress(self, tmp_path):
+        notifier = _FakeNotifier()
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["修一个 bug", "--run-id", "n1", "--max-iterations", "10"],
+            executor=_FakeExec(),
+            verifier=lambda: VerifyResult(passed=False, output="boom"),  # identical -> stuck
+            notifier=notifier,
+        )
+        assert outcome.stop_reason == "stuck_no_progress"
+        assert len(notifier.calls) == 1
+        title, body = notifier.calls[0]
+        assert "stuck_no_progress" in title
+        assert "n1" in body  # run-id for resume is in the message
+
+    def test_silent_on_verified(self, tmp_path):
+        notifier = _FakeNotifier()
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["做一个登录页", "--run-id", "n2"],
+            executor=_FakeExec(),
+            verifier=lambda: VerifyResult(passed=True),
+            notifier=notifier,
+        )
+        assert outcome.verified is True
+        assert notifier.calls == []  # success must not ping
+
+    def test_pings_on_bad_verifier(self, tmp_path):
+        notifier = _FakeNotifier()
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["g", "--verify", "rm -rf /", "--run-id", "n3"],
+            executor=_FakeExec(),
+            notifier=notifier,
+        )
+        assert outcome.stop_reason == "bad_verifier"
+        assert len(notifier.calls) == 1
+        assert "bad_verifier" in notifier.calls[0][0]
+
+
 class TestCronOrchestrateWiring:
     def test_run_mode_defaults_to_prompt(self):
         job = CronJob(name="j", schedule="* * * * *", prompt="hi")
