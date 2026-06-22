@@ -82,3 +82,57 @@ class TestCommandVerifier:
         assert outcome.verified is True
         assert outcome.iterations == 2
         assert "boom" in ex.instructions[1]  # verifier failure fed back into next step
+
+
+class TestRepoScriptEscapeHatch:
+    """Operator escape hatch: a repo-local ./script for non-test-runner checks."""
+
+    def _make_script(self, tmp_path, rel="scripts/verify.sh", executable=True):
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        if executable:
+            p.chmod(0o755)
+        return p
+
+    def test_accepts_executable_repo_script(self, tmp_path):
+        self._make_script(tmp_path)
+        seen = {}
+
+        def _r(argv, cwd, timeout):
+            seen["argv"] = argv
+            return 0, "ok"
+
+        v = CommandVerifier("./scripts/verify.sh --quick", cwd=str(tmp_path), runner=_r)
+        assert v().passed is True
+        # resolved to an ABSOLUTE path inside the repo + extra arg preserved
+        assert seen["argv"][0] == str((tmp_path / "scripts/verify.sh").resolve())
+        assert seen["argv"][1] == "--quick"
+
+    def test_rejects_absolute_path(self, tmp_path):
+        with pytest.raises(ValueError):
+            CommandVerifier("/etc/evil.sh", cwd=str(tmp_path))
+
+    def test_rejects_parent_traversal(self, tmp_path):
+        with pytest.raises(ValueError, match="without '\\.\\.'|inside the repo"):
+            CommandVerifier("./../escape.sh", cwd=str(tmp_path))
+
+    def test_rejects_missing_script(self, tmp_path):
+        with pytest.raises(ValueError, match="not found"):
+            CommandVerifier("./scripts/nope.sh", cwd=str(tmp_path))
+
+    def test_rejects_non_executable_script(self, tmp_path):
+        self._make_script(tmp_path, executable=False)
+        with pytest.raises(ValueError, match="not executable"):
+            CommandVerifier("./scripts/verify.sh", cwd=str(tmp_path))
+
+    def test_rejects_shell_composition_in_script_command(self, tmp_path):
+        self._make_script(tmp_path)
+        with pytest.raises(ValueError, match="Shell composition"):
+            CommandVerifier("./scripts/verify.sh && rm -rf /", cwd=str(tmp_path))
+
+    def test_non_dotslash_typo_still_raises_allowlist_error(self, tmp_path):
+        # a plain unsupported program keeps the helpful allowlist message,
+        # not re-routed into script resolution
+        with pytest.raises(ValueError, match="Unsupported verification command"):
+            CommandVerifier("make test", cwd=str(tmp_path))

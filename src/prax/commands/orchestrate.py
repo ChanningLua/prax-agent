@@ -88,7 +88,20 @@ def handle_orchestrate(
             )
             return OrchestrationOutcome(stop_reason="bad_verifier", iterations=0, verified=False)
     # No --verify and none injected → verifier stays None; the loop reports
-    # "completed_no_verify" instead of a hollow "verified" (G3).
+    # "completed_no_verify" instead of a hollow "verified" (G3). That's correct
+    # for a pure monitoring/heartbeat goal, but for real work it means the loop
+    # runs ONE step then stops with no self-heal and no authoritative done-signal
+    # — the most common "it looks stuck / never makes progress" footgun. Warn
+    # loudly (stderr) so an unattended operator sees WHY, without forcing a
+    # verifier (which would break legitimate no-verify monitoring goals).
+    if verifier is None:
+        print(
+            "[prax] orchestrate: no verifier — running UNCHECKED: one step, no "
+            "self-heal, stops as 'completed_no_verify' (verified=False). For work "
+            "that should loop-until-done, pass --verify '<cmd>' (e.g. "
+            "--verify 'pytest -q' or an acceptance script).",
+            file=sys.stderr,
+        )
 
     # Production-approval gate: built from the ``approval:`` config block when an
     # operator has opted in (relay_url + admin_token). Absent → None → no gating
