@@ -120,6 +120,58 @@ class TestOrchestratorLoop:
         assert outcome.iterations == 1
         assert len(ex.instructions) == 1
 
+    def test_executor_error_retries_then_succeeds(self, tmp_path):
+        # D3: a transient executor crash must NOT kill the window — it's
+        # journalled, backed off, and retried as the next turn.
+        class FlakyExec:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def run(self, instruction, *, session_id=None):
+                self.calls += 1
+                if self.calls == 1:
+                    raise RuntimeError("claude -p: rate limited")
+                return StepResult(text="ran", session_id="s")
+
+        ex = FlakyExec()
+        journal = RunJournal(str(tmp_path), "e1")
+        outcome = OrchestratorLoop(
+            journal=journal,
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            max_iterations=5,
+            sleep=lambda _s: None,  # don't actually back off in tests
+        ).run("目标")
+
+        assert outcome.verified is True
+        assert outcome.stop_reason == "verified"
+        assert ex.calls == 2  # crashed once, retried, then ran
+        assert "step_error" in journal.done_steps()
+
+    def test_executor_error_limit_stops_cleanly_not_crash(self, tmp_path):
+        # persistent crash → "executor_error" (bounded), never a naked traceback.
+        class AlwaysErrors:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def run(self, instruction, *, session_id=None):
+                self.calls += 1
+                raise RuntimeError("not logged in")
+
+        ex = AlwaysErrors()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "e2"),
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=True)]),
+            max_iterations=10,
+            error_limit=3,
+            sleep=lambda _s: None,
+        ).run("目标")
+
+        assert outcome.verified is False
+        assert outcome.stop_reason == "executor_error"
+        assert ex.calls == 3  # stopped at the consecutive-error limit
+
     def test_resume_short_circuits_when_already_verified(self, tmp_path):
         journal = RunJournal(str(tmp_path), "r5")
         OrchestratorLoop(

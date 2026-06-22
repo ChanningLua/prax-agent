@@ -16,6 +16,7 @@ tools itself (that's the black-box agent's job), and the backend (subscription
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
@@ -42,7 +43,7 @@ class OrchestrationOutcome:
     """Terminal result of a loop run."""
 
     stop_reason: str  # verified | max_iterations | completed_no_verify
-    #                   | awaiting_approval | approval_rejected
+    #                   | awaiting_approval | approval_rejected | executor_error
     iterations: int
     verified: bool
 
@@ -81,6 +82,8 @@ class OrchestratorLoop:
         compose: Composer | None = None,
         session_id: str | None = None,
         approval_gate: ApprovalGate | None = None,
+        error_limit: int = 3,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._journal = journal
         self._executor = executor
@@ -89,6 +92,11 @@ class OrchestratorLoop:
         self._compose = compose or _default_compose
         self._session_id = session_id
         self._approval_gate = approval_gate
+        # D3: how many *consecutive* executor crashes to tolerate (with backoff)
+        # before stopping the window with "executor_error". ``sleep`` is injected
+        # so tests don't actually wait out the backoff.
+        self._error_limit = max(1, error_limit)
+        self._sleep = sleep
 
     def run(self, goal: str) -> OrchestrationOutcome:
         # ── Resume: a journal that already verified short-circuits ──────────
@@ -120,9 +128,37 @@ class OrchestratorLoop:
                 return self._finish("awaiting_approval", iteration, False)
 
         # ── Main loop ───────────────────────────────────────────────────────
+        consecutive_errors = 0
         while iteration < self._max_iterations:
             instruction = self._compose(goal, feedback, iteration)
-            step = self._executor.run(instruction, session_id=self._session_id)
+
+            # D3: a black-box `claude -p` step can fail hard (rate limit, network,
+            # not-logged-in → Python traceback). An unattended 7x24 window must
+            # NOT crash on it: journal the error, back off, and retry it as the
+            # next turn. After `error_limit` CONSECUTIVE failures, stop cleanly
+            # with "executor_error" (a tooling problem, distinct from a code
+            # problem / max_iterations) so the operator is signalled rather than
+            # the run dying with a traceback.
+            try:
+                step = self._executor.run(instruction, session_id=self._session_id)
+            except Exception as exc:  # noqa: BLE001 — must catch all to stay alive
+                consecutive_errors += 1
+                self._journal.record(
+                    "step_error",
+                    output={"error": repr(exc), "attempt": consecutive_errors},
+                    instruction=instruction,
+                    iteration=iteration,
+                )
+                if consecutive_errors >= self._error_limit:
+                    return self._finish("executor_error", iteration, False)
+                self._sleep(min(2 ** (consecutive_errors - 1), 30))
+                feedback = (
+                    f"上一轮执行器报错（已重试 {consecutive_errors} 次），"
+                    f"请据此调整或直接重试：{exc}"
+                )
+                continue
+
+            consecutive_errors = 0
             self._session_id = step.session_id or self._session_id
             self._journal.record(
                 "step",
