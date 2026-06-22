@@ -16,6 +16,7 @@ tools itself (that's the black-box agent's job), and the backend (subscription
 """
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
@@ -44,6 +45,7 @@ class OrchestrationOutcome:
 
     stop_reason: str  # verified | max_iterations | completed_no_verify
     #                   | awaiting_approval | approval_rejected | executor_error
+    #                   | stuck_no_progress
     iterations: int
     verified: bool
 
@@ -69,6 +71,24 @@ def _default_compose(goal: str, feedback: str | None, iteration: int) -> str:
     return f"{goal}\n\n[上一轮验证未通过，请据此修复]\n{feedback}"
 
 
+_VOLATILE_DURATION = re.compile(r"\bin \d+\.\d+s\b")
+_HEX_ADDR = re.compile(r"0x[0-9a-fA-F]+")
+
+
+def _normalize_failure(text: str) -> str:
+    """Normalize a verify-failure for 'is this the SAME failure again?' compares.
+
+    Strips only non-semantic volatility (run duration, hex addresses) and
+    collapses whitespace, while PRESERVING failure counts / test names /
+    assertion text. So a shrinking failure count ("5 failed" -> "3 failed" =
+    progress) is NOT seen as identical, but "1 failed in 0.03s" vs
+    "1 failed in 0.14s" is.
+    """
+    t = _VOLATILE_DURATION.sub("in #s", text or "")
+    t = _HEX_ADDR.sub("0x#", t)
+    return " ".join(t.split()).strip()
+
+
 class OrchestratorLoop:
     """Loop-until-verified over a black-box executor, journalled + resumable."""
 
@@ -83,6 +103,7 @@ class OrchestratorLoop:
         session_id: str | None = None,
         approval_gate: ApprovalGate | None = None,
         error_limit: int = 3,
+        stuck_after: int = 3,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._journal = journal
@@ -96,6 +117,9 @@ class OrchestratorLoop:
         # before stopping the window with "executor_error". ``sleep`` is injected
         # so tests don't actually wait out the backoff.
         self._error_limit = max(1, error_limit)
+        # §8.1-7: stop early after this many CONSECUTIVE identical verify
+        # failures (no progress). < 2 disables stuck detection.
+        self._stuck_after = stuck_after
         self._sleep = sleep
 
     def run(self, goal: str) -> OrchestrationOutcome:
@@ -129,6 +153,8 @@ class OrchestratorLoop:
 
         # ── Main loop ───────────────────────────────────────────────────────
         consecutive_errors = 0
+        stuck_streak = 0
+        last_fail_norm: str | None = None
         while iteration < self._max_iterations:
             instruction = self._compose(goal, feedback, iteration)
 
@@ -184,6 +210,25 @@ class OrchestratorLoop:
             if verdict.passed:
                 return self._finish("verified", iteration, True)
             feedback = verdict.output
+
+            # Stuck detection (§8.1-7): if the verifier keeps failing with the
+            # SAME (normalized) output, the executor is making no progress — stop
+            # EARLY with "stuck_no_progress" rather than burning the whole budget
+            # re-feeding an identical failure (the operator should look). Guarded
+            # by `iteration < max_iterations` so a coincident ceiling stays
+            # "max_iterations" — this only ever stops things EARLY.
+            norm = _normalize_failure(verdict.output)
+            if norm == last_fail_norm:
+                stuck_streak += 1
+            else:
+                stuck_streak = 1
+                last_fail_norm = norm
+            if (
+                self._stuck_after >= 2
+                and stuck_streak >= self._stuck_after
+                and iteration < self._max_iterations
+            ):
+                return self._finish("stuck_no_progress", iteration, False)
 
         return self._finish("max_iterations", iteration, False)
 

@@ -66,6 +66,12 @@ def handle_orchestrate(
     parser.add_argument("goal", nargs="+")
     parser.add_argument("--verify", default=None, help="verify command, e.g. 'pytest -q'")
     parser.add_argument("--max-iterations", type=int, default=10)
+    parser.add_argument(
+        "--stuck-after",
+        type=int,
+        default=3,
+        help="stop early after N consecutive identical verify failures (<2 disables)",
+    )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--model", default=None)
     parser.add_argument("--reinject-every", type=int, default=3)
@@ -123,6 +129,7 @@ def handle_orchestrate(
         executor=executor,
         verifier=verifier,
         max_iterations=ns.max_iterations,
+        stuck_after=ns.stuck_after,
         compose=ContextComposer(cwd, reinject_every=ns.reinject_every),
         approval_gate=approval_gate,
     )

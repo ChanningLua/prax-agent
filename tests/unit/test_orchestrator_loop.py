@@ -120,6 +120,77 @@ class TestOrchestratorLoop:
         assert outcome.iterations == 1
         assert len(ex.instructions) == 1
 
+    def test_stops_early_when_stuck_same_failure(self, tmp_path):
+        # §8.1-7: identical failures repeating == no progress -> stop early.
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "s1"),
+            executor=ex,
+            verifier=_scripted_verifier([VerifyResult(passed=False, output="boom")] * 9),
+            max_iterations=10,
+            stuck_after=3,
+        ).run("目标")
+
+        assert outcome.verified is False
+        assert outcome.stop_reason == "stuck_no_progress"
+        assert outcome.iterations == 3  # stopped early, did NOT burn all 10
+        assert len(ex.instructions) == 3
+
+    def test_not_stuck_when_failures_differ(self, tmp_path):
+        # distinct failures each turn = the agent IS changing things -> run to
+        # the iteration ceiling, never "stuck".
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "s2"),
+            executor=ex,
+            verifier=_scripted_verifier(
+                [
+                    VerifyResult(passed=False, output="5 failed"),
+                    VerifyResult(passed=False, output="3 failed"),
+                    VerifyResult(passed=False, output="1 failed"),
+                ]
+            ),
+            max_iterations=3,
+            stuck_after=3,
+        ).run("目标")
+
+        assert outcome.stop_reason == "max_iterations"
+        assert outcome.iterations == 3
+
+    def test_duration_only_difference_counts_as_stuck(self, tmp_path):
+        # normalization: only the run duration changes -> still the SAME failure.
+        ex = FakeExecutor()
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "s3"),
+            executor=ex,
+            verifier=_scripted_verifier(
+                [
+                    VerifyResult(passed=False, output="1 failed in 0.03s"),
+                    VerifyResult(passed=False, output="1 failed in 0.11s"),
+                    VerifyResult(passed=False, output="1 failed in 0.27s"),
+                    VerifyResult(passed=False, output="1 failed in 0.40s"),
+                ]
+            ),
+            max_iterations=10,
+            stuck_after=3,
+        ).run("目标")
+
+        assert outcome.stop_reason == "stuck_no_progress"
+        assert outcome.iterations == 3
+
+    def test_stuck_detection_disabled_when_below_two(self, tmp_path):
+        # stuck_after < 2 disables it -> identical failures run to max_iterations.
+        outcome = OrchestratorLoop(
+            journal=RunJournal(str(tmp_path), "s4"),
+            executor=FakeExecutor(),
+            verifier=_scripted_verifier([VerifyResult(passed=False, output="boom")] * 9),
+            max_iterations=4,
+            stuck_after=0,
+        ).run("目标")
+
+        assert outcome.stop_reason == "max_iterations"
+        assert outcome.iterations == 4
+
     def test_executor_error_retries_then_succeeds(self, tmp_path):
         # D3: a transient executor crash must NOT kill the window — it's
         # journalled, backed off, and retried as the next turn.
