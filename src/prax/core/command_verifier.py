@@ -21,6 +21,7 @@ from typing import Callable
 
 from ..tools.verify_command import parse_verify_command
 from .orchestrator_loop import VerifyResult
+from .subprocess_env import child_env
 
 # (argv, cwd, timeout) -> (returncode, combined_output)
 Runner = Callable[[list[str], str, int], "tuple[int, str]"]
@@ -75,8 +76,11 @@ def resolve_repo_script(command: str, cwd: str) -> list[str]:
 
 
 def _default_runner(argv: list[str], cwd: str, timeout: int) -> "tuple[int, str]":
+    # Run the verifier over the host network stack (clash TUN), not an inherited
+    # China proxy — so `npm test` etc. fetch the same way the developer does.
     proc = subprocess.run(
-        argv, cwd=cwd, capture_output=True, text=True, timeout=timeout
+        argv, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+        env=child_env(),
     )
     out = proc.stdout or ""
     if proc.stderr:

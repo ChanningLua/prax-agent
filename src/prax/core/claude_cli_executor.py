@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import shutil
 from dataclasses import dataclass, field
 from typing import Any, Callable
+
+from .subprocess_env import child_env
 
 
 @dataclass
@@ -50,8 +51,10 @@ class ClaudeCliExecutor:
         if model and model.startswith("claude-"):
             cmd += ["--model", model]
 
-        env = os.environ.copy()
-        env.pop("CLAUDECODE", None)
+        # Inherit the host network stack (clash TUN), NOT an inherited China
+        # proxy — see core.subprocess_env. Also drop CLAUDECODE so the child
+        # claude doesn't think it's nested in a Claude Code session.
+        env = child_env(extra_pop=("CLAUDECODE",))
 
         proc = await asyncio.create_subprocess_exec(
             *cmd,
