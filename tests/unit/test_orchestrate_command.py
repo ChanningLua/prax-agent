@@ -151,6 +151,36 @@ class TestTerminalNotify:
         assert "bad_verifier" in notifier.calls[0][0]
 
 
+class TestMemoryWriteBack:
+    def test_verified_run_records_completion_fact(self, tmp_path):
+        # closes the loop: a verified outcome persists a fact the read side injects
+        from prax.core.memory_store import MemoryStore
+
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["实现登录页", "--run-id", "mw1"],
+            executor=_FakeExec(),
+            verifier=lambda: VerifyResult(passed=True),
+        )
+        assert outcome.verified is True
+        mem = MemoryStore(str(tmp_path)).format_for_prompt()
+        assert "已验证达成目标" in mem
+        assert "实现登录页" in mem
+
+    def test_unverified_run_records_nothing(self, tmp_path):
+        from prax.core.memory_store import MemoryStore
+
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["过不了的目标", "--run-id", "mw2", "--max-iterations", "1"],
+            executor=_FakeExec(),
+            verifier=lambda: VerifyResult(passed=False, output="nope"),
+        )
+        assert outcome.verified is False
+        mem = MemoryStore(str(tmp_path)).format_for_prompt()
+        assert "已验证达成目标" not in mem
+
+
 class TestCronOrchestrateWiring:
     def test_run_mode_defaults_to_prompt(self):
         job = CronJob(name="j", schedule="* * * * *", prompt="hi")

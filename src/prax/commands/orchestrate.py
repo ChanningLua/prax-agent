@@ -16,6 +16,7 @@ from ..core.claude_step_executor import ClaudeStepExecutor
 from ..core.command_verifier import CommandVerifier
 from ..core.config_files import load_approval_config
 from ..core.context_composer import ContextComposer
+from ..core.memory_store import MemoryStore
 from ..core.orchestrator_loop import OrchestrationOutcome, OrchestratorLoop
 from ..core.run_journal import RunJournal
 
@@ -74,6 +75,25 @@ def _notify_terminal(notifier, goal: str, run_id: str, outcome: OrchestrationOut
         f"结果：{outcome.stop_reason}（iterations={outcome.iterations}, verified={outcome.verified}）\n"
         f"续跑：prax orchestrate <goal> --run-id {run_id}（journal 在 .prax/runs/{run_id}/）",
     )
+
+
+def _record_completion(cwd: str, goal: str, verify: str | None, outcome: OrchestrationOutcome) -> None:
+    """Close the memory loop: on a verified run, persist a structural completion
+    fact so the store accumulates (ContextComposer injects facts on the read
+    side). Lightweight — no LLM extraction. Modest confidence so these logs rank
+    below genuine insights in the capped injection. Best-effort: never raises."""
+    if not outcome.verified:
+        return
+    try:
+        snippet = goal if len(goal) <= 80 else goal[:77] + "..."
+        MemoryStore(cwd).add_fact(
+            f"已验证达成目标：{snippet}（verifier: {verify or '(none)'}，{outcome.iterations} 轮）",
+            category="completion",
+            confidence=0.6,
+            source="orchestrate",
+        )
+    except Exception:
+        pass
 
 
 def handle_orchestrate(
@@ -173,5 +193,6 @@ def handle_orchestrate(
         approval_gate=approval_gate,
     )
     outcome = loop.run(goal)
+    _record_completion(cwd, goal, ns.verify, outcome)
     _notify_terminal(notifier, goal, run_id, outcome)
     return outcome
