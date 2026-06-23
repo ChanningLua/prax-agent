@@ -429,6 +429,28 @@ prax orchestrate "migrate the config loader to pydantic v2" \
   your own terminal reaches. Set `PRAX_KEEP_PROXY=1` to keep it (headless servers where the
   proxy is the only egress).
 
+**Feature mode (`--features`)** — for a multi-feature plan, drop a
+`.prax/feature_list.json` (each item carries its own acceptance, used as that
+feature's verifier) and run `prax orchestrate --features` (no goal needed). The
+loop advances the highest-priority unfinished feature, marks it `done` **only**
+when verified, then moves to the next — stopping at the first feature it can't
+verify (rather than thrashing the rest). Done status persists, so a crashed /
+quota-stopped window resumes at the right feature. `--max-features N` caps how
+many advance per window.
+
+`.prax/feature_list.json`:
+
+```json
+{"features": [
+  {"id": "f1", "title": "login page",  "acceptance": "pytest tests/test_login.py", "priority": 1, "status": "pending"},
+  {"id": "f2", "title": "session list", "acceptance": "npm test",                   "priority": 2, "status": "pending"}
+]}
+```
+
+```bash
+prax orchestrate --features --max-features 3 --notify ops
+```
+
 ### Bundled Skills
 
 Skills live under `skills/` (bundled) or `.prax/skills/` (project-local) and inject prompt guidance when their triggers match. Content / writing helpers:
@@ -586,6 +608,8 @@ Key modules:
 | `workflows/` | Task decomposition and orchestration |
 | `commands/orchestrate.py` · `core/orchestrator_loop.py` | `prax orchestrate` 7×24 goal loop — verifier-driven self-heal, stuck detection, crash survival, approval gate |
 | `core/command_verifier.py` | Turns a verify command / repo `./script` into the loop's pass/fail signal |
+| `core/context_composer.py` | Builds each step: north star + constraints + learned memory + feature board |
+| `core/feature_list.py` · `core/feature_driver.py` | `--features` plan: load/persist feature_list.json, advance one verified item at a time |
 | `core/subprocess_env.py` | Spawns children on the host network stack (strips inherited proxy) |
 
 ---
