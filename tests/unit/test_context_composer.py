@@ -71,6 +71,16 @@ class TestContextComposer:
         assert "事实编号 29" in out
         assert "事实编号 0" not in out
 
+    def test_feature_board_injected(self, tmp_path):
+        _write(
+            tmp_path,
+            "feature_list.json",
+            '{"features": [{"id": "f2", "title": "会话列表", "status": "pending"}]}',
+        )
+        out = ContextComposer(str(tmp_path))("g", None, 0)
+        assert "功能清单" in out
+        assert "会话列表" in out
+
     def test_missing_files_are_skipped(self, tmp_path):
         compose = ContextComposer(str(tmp_path))
         out = compose("只有目标", None, 0)

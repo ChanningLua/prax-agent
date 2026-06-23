@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .feature_list import FeatureList
 from .memory_store import MemoryStore
 
 _ASSUME_INTERRUPTION = (
@@ -68,6 +69,10 @@ class ContextComposer:
         if progress:
             parts.append(f"# 当前进度\n{progress}")
 
+        board = self._feature_board()
+        if board:
+            parts.append(f"# 功能清单（feature_list.json）\n{board}")
+
         parts.append(f"# 本轮目标\n{goal}")
 
         if feedback:
@@ -89,6 +94,15 @@ class ContextComposer:
         # so a malformed/locked store never breaks an unattended run.
         try:
             text = MemoryStore(self._cwd).format_for_prompt(max_facts=self._max_memory_facts)
+        except Exception:
+            return None
+        return text.strip() or None
+
+    def _feature_board(self) -> str | None:
+        # The multi-feature plan (§8.1-2). Best-effort; injected so the agent
+        # sees the board + which item is next even while the loop is goal-driven.
+        try:
+            text = FeatureList(self._cwd).format_for_prompt()
         except Exception:
             return None
         return text.strip() or None
