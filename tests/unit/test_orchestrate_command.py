@@ -151,6 +151,57 @@ class TestTerminalNotify:
         assert "bad_verifier" in notifier.calls[0][0]
 
 
+class TestFeatureMode:
+    def _write_features(self, tmp_path, features):
+        import json
+        d = tmp_path / ".prax"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "feature_list.json").write_text(
+            json.dumps({"features": features}, ensure_ascii=False), encoding="utf-8"
+        )
+
+    def test_all_features_done(self, tmp_path):
+        self._write_features(tmp_path, [
+            {"id": "f1", "title": "登录", "acceptance": "pytest -q", "priority": 1, "status": "pending"},
+            {"id": "f2", "title": "列表", "acceptance": "pytest -q", "priority": 2, "status": "pending"},
+        ])
+        ex = _FakeExec()
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "fm1"],
+            executor=ex, verifier=lambda: VerifyResult(passed=True),
+        )
+        assert outcome.stop_reason == "all_features_done"
+        assert outcome.verified is True
+        assert outcome.iterations == 2          # both features completed
+        from prax.core.feature_list import FeatureList
+        assert FeatureList(str(tmp_path)).next_pending() is None  # both persisted done
+
+    def test_stops_on_blocked_feature(self, tmp_path):
+        self._write_features(tmp_path, [
+            {"id": "f1", "title": "登录", "acceptance": "pytest -q", "priority": 1, "status": "pending"},
+            {"id": "f2", "title": "列表", "acceptance": "pytest -q", "priority": 2, "status": "pending"},
+        ])
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "fm2", "--max-iterations", "1"],
+            executor=_FakeExec(), verifier=lambda: VerifyResult(passed=False, output="nope"),
+        )
+        assert outcome.stop_reason == "feature_blocked:f1"
+        assert outcome.verified is False
+        from prax.core.feature_list import FeatureList
+        assert FeatureList(str(tmp_path)).next_pending().id == "f1"  # nothing marked done
+
+    def test_no_feature_list(self, tmp_path):
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "fm3"], executor=_FakeExec(),
+        )
+        assert outcome.stop_reason == "no_features"
+        assert outcome.verified is False
+
+    def test_no_goal_without_features_errors(self, tmp_path):
+        outcome = handle_orchestrate(str(tmp_path), ["--run-id", "fm4"], executor=_FakeExec())
+        assert outcome.stop_reason == "no_goal"
+
+
 class TestMemoryWriteBack:
     def test_verified_run_records_completion_fact(self, tmp_path):
         # closes the loop: a verified outcome persists a fact the read side injects

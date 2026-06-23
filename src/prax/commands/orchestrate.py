@@ -16,6 +16,8 @@ from ..core.claude_step_executor import ClaudeStepExecutor
 from ..core.command_verifier import CommandVerifier
 from ..core.config_files import load_approval_config
 from ..core.context_composer import ContextComposer
+from ..core.feature_driver import run_features
+from ..core.feature_list import FeatureList
 from ..core.memory_store import MemoryStore
 from ..core.orchestrator_loop import OrchestrationOutcome, OrchestratorLoop
 from ..core.run_journal import RunJournal
@@ -96,6 +98,67 @@ def _record_completion(cwd: str, goal: str, verify: str | None, outcome: Orchest
         pass
 
 
+def _run_feature_mode(
+    cwd, ns, run_id, executor, injected_verifier, approval_gate, notifier
+) -> OrchestrationOutcome:
+    """Drive feature_list.json: advance each highest-priority unfinished feature
+    (verifier = its acceptance), mark done on verified, then the next. Returns an
+    OrchestrationOutcome *summary* so the CLI print + return type are unchanged."""
+    feature_list = FeatureList(cwd)
+    if not feature_list.load():
+        print("[prax] orchestrate --features: .prax/feature_list.json 为空或缺失", file=sys.stderr)
+        return OrchestrationOutcome(stop_reason="no_features", iterations=0, verified=False)
+
+    def run_feature(feature):
+        # Verifier: an injected one (tests) wins; else build from the feature's
+        # acceptance. A bad/absent acceptance → no verifier → the feature can't be
+        # auto-marked done (it'll report completed_no_verify and block the run).
+        verifier = injected_verifier
+        if verifier is None and feature.acceptance:
+            try:
+                verifier = CommandVerifier(feature.acceptance, cwd=cwd)
+            except ValueError as exc:
+                print(f"[prax] feature {feature.id}: 无效验收 {feature.acceptance!r}: {exc}", file=sys.stderr)
+        feat_goal = f"实现功能 {feature.id}：{feature.title}"
+        if feature.acceptance:
+            feat_goal += f"（验收：{feature.acceptance}）"
+        feat_loop = OrchestratorLoop(
+            journal=RunJournal(cwd, f"{run_id}-{feature.id}"),
+            executor=executor,
+            verifier=verifier,
+            max_iterations=ns.max_iterations,
+            stuck_after=ns.stuck_after,
+            compose=ContextComposer(cwd),
+            approval_gate=approval_gate,
+        )
+        return feat_loop.run(feat_goal)
+
+    def on_feature(feature, outcome):
+        print(
+            f"[prax] feature {feature.id} {feature.title}: "
+            f"{outcome.stop_reason} (verified={outcome.verified})",
+            file=sys.stderr,
+        )
+        if outcome.verified:
+            _record_completion(cwd, f"功能 {feature.id} {feature.title}", feature.acceptance, outcome)
+
+    report = run_features(feature_list, run_feature, max_features=ns.max_features, on_feature=on_feature)
+    done = len(report.completed)
+
+    if report.all_done:
+        return OrchestrationOutcome(stop_reason="all_features_done", iterations=done, verified=True)
+
+    # Not all done → a human likely needs to look. The synthesized stop_reason
+    # isn't in _ATTENTION_STOPS, so ping directly.
+    reason = f"feature_blocked:{report.blocked_id}" if report.blocked_id else report.stop_reason
+    if notifier is not None:
+        notifier(
+            f"prax 7x24 features 需要你看一眼：{reason}",
+            f"已完成 {done} 个功能；卡在 {report.blocked_id or report.stop_reason}。run={run_id}",
+        )
+    return OrchestrationOutcome(stop_reason=reason, iterations=done, verified=False)
+
+
 def handle_orchestrate(
     cwd, args, *, executor=None, verifier=None, approval_gate=None, notifier=None
 ) -> OrchestrationOutcome:
@@ -109,8 +172,18 @@ def handle_orchestrate(
     ``--notify <channel>`` (a notify.yaml channel; absent → no terminal ping).
     """
     parser = argparse.ArgumentParser(prog="prax orchestrate", add_help=False)
-    parser.add_argument("goal", nargs="+")
+    parser.add_argument("goal", nargs="*")
     parser.add_argument("--verify", default=None, help="verify command, e.g. 'pytest -q'")
+    parser.add_argument(
+        "--features",
+        action="store_true",
+        help="drive .prax/feature_list.json: advance the highest-priority unfinished "
+        "feature (verifier = its acceptance), mark done when verified, then the next",
+    )
+    parser.add_argument(
+        "--max-features", type=int, default=None,
+        help="cap how many features to advance this window (feature mode)",
+    )
     parser.add_argument(
         "--notify",
         default=None,
@@ -140,6 +213,29 @@ def handle_orchestrate(
 
     if executor is None:
         executor = ClaudeStepExecutor(cwd, model=ns.model)
+
+    # Production-approval gate (shared by single-goal + feature modes): built from
+    # the approval: config block; absent → None → allow-all. approval_id = run_id
+    # so a resumed run re-checks the SAME approval (park-and-continue).
+    if approval_gate is None:
+        appcfg = load_approval_config(cwd)
+        if appcfg:
+            approval_gate = build_relay_gate(
+                relay_url=appcfg["relay_url"],
+                admin_token=appcfg["admin_token"],
+                approval_id=run_id,
+                deny_patterns=appcfg["deny_patterns"],
+                notify=_make_notifier(cwd, appcfg["notify_channel"]),
+            )
+
+    # ── Feature mode: drive feature_list.json one item at a time ──
+    if ns.features:
+        return _run_feature_mode(cwd, ns, run_id, executor, verifier, approval_gate, notifier)
+
+    if not goal:
+        print("[prax] orchestrate: 需要一个目标（或加 --features 驱动 feature_list）", file=sys.stderr)
+        return OrchestrationOutcome(stop_reason="no_goal", iterations=0, verified=False)
+
     if verifier is None and ns.verify:
         try:
             verifier = CommandVerifier(ns.verify, cwd=cwd)
@@ -167,21 +263,6 @@ def handle_orchestrate(
             "--verify 'pytest -q' or an acceptance script).",
             file=sys.stderr,
         )
-
-    # Production-approval gate: built from the ``approval:`` config block when an
-    # operator has opted in (relay_url + admin_token). Absent → None → no gating
-    # (fully allow-all). approval_id = run_id so a resumed run re-checks the SAME
-    # approval rather than parking a new one each window (park-and-continue).
-    if approval_gate is None:
-        appcfg = load_approval_config(cwd)
-        if appcfg:
-            approval_gate = build_relay_gate(
-                relay_url=appcfg["relay_url"],
-                admin_token=appcfg["admin_token"],
-                approval_id=run_id,
-                deny_patterns=appcfg["deny_patterns"],
-                notify=_make_notifier(cwd, appcfg["notify_channel"]),
-            )
 
     loop = OrchestratorLoop(
         journal=journal,
