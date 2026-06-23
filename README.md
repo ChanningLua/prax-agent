@@ -38,7 +38,7 @@ Missing one? Install:
 |---|---|
 | **macOS** | `brew install node python@3.12` (install [Homebrew](https://brew.sh) first if needed) |
 | **Linux** | `sudo apt install nodejs python3 python3-pip` (Debian/Ubuntu) or `sudo dnf install nodejs python3` (Fedora) |
-| **Windows** | Use [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux commands. Native Windows is not supported yet (on the 0.5.x roadmap). |
+| **Windows** | Use [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux commands. Native Windows is not supported yet (on the roadmap). |
 
 ### Step 2 · Install Prax
 
@@ -55,10 +55,10 @@ prax --version
 **Should print**:
 
 ```
-prax 0.5.0
+prax 1.0.0
 ```
 
-(0.5.0 or higher is fine.)
+(1.0.0 or higher is fine.)
 
 **See `command not found`?**
 - macOS with Homebrew Node: run `export PATH=/opt/homebrew/bin:$PATH` then add it to `~/.zshrc`
@@ -192,7 +192,7 @@ Now reopen your project in Claude Code. You'll see new `/prax-status`, `/prax-do
 
 To undo: `prax uninstall --target claude`.
 
-> **Note**: `prax install` only ships a Claude Code integration today. Any LLM you configure via Step 3 still works as Prax's backend regardless of IDE choice. A skill-export path for additional IDE/CLI hosts is on the 0.5.x roadmap.
+> **Note**: `prax install` only ships a Claude Code integration today. Any LLM you configure via Step 3 still works as Prax's backend regardless of IDE choice. A skill-export path for additional IDE/CLI hosts is on the roadmap.
 
 ### One-liner for experienced users
 
@@ -399,6 +399,36 @@ prax cron install
 
 See [docs/recipes/ai-news-daily.md](./docs/recipes/ai-news-daily.md) for the full AI-news-automation recipe.
 
+### Unattended goal loops — `prax orchestrate` (new in 1.0)
+
+`prax orchestrate` is the 7×24 outer loop: give it a goal **and a verifier**, and it
+drives a black-box executor (`claude -p`) through compose → execute → verify →
+self-heal until the verifier passes, the iteration budget runs out, or it gets
+stuck — then stops with a clear, distinguishable reason. Pair it with `cron`/`notify`
+for hands-off overnight work.
+
+```bash
+prax orchestrate "migrate the config loader to pydantic v2" \
+  --verify "pytest -q" \        # the authoritative done-signal (no verifier → ONE unchecked step)
+  --max-iterations 6 \          # self-heal budget; each failure is fed back into the next turn
+  --stuck-after 3 \             # stop early if the same failure repeats (stop_reason stuck_no_progress)
+  --notify ops                  # ping a notify.yaml channel when a window ends needing a human
+```
+
+- **Verifier** is an allowlisted test runner (`pytest`, `npm test`, `cargo test`, …) **or**
+  a repo-local script: `--verify "./scripts/verify.sh"` (relative, inside the repo, executable —
+  for e2e / build / curl-probe checks the runners can't express).
+- **Terminal states**: `verified` · `max_iterations` · `stuck_no_progress` ·
+  `executor_error` (a `claude -p` crash is journalled + retried with backoff, never a naked
+  traceback) · `awaiting_approval` / `approval_rejected` (production-affecting goals gate
+  through the approval relay before any work is dispatched).
+- **Resumable** — each run journals to `.prax/runs/<id>/`; a window stopped by quota or crash
+  resumes from the journal with `--run-id <id>`.
+- **Networking** — spawned children inherit the **host network stack** (e.g. a system VPN /
+  clash TUN) by default: an inherited `HTTP(S)_PROXY` is stripped so children reach whatever
+  your own terminal reaches. Set `PRAX_KEEP_PROXY=1` to keep it (headless servers where the
+  proxy is the only egress).
+
 ### Bundled Skills
 
 Skills live under `skills/` (bundled) or `.prax/skills/` (project-local) and inject prompt guidance when their triggers match. Content / writing helpers:
@@ -554,6 +584,9 @@ Key modules:
 | `core/llm_client.py` | Provider registry, multi-model routing |
 | `agents/` | Ralph (planner), Sisyphus (executor), Team (parallel) |
 | `workflows/` | Task decomposition and orchestration |
+| `commands/orchestrate.py` · `core/orchestrator_loop.py` | `prax orchestrate` 7×24 goal loop — verifier-driven self-heal, stuck detection, crash survival, approval gate |
+| `core/command_verifier.py` | Turns a verify command / repo `./script` into the loop's pass/fail signal |
+| `core/subprocess_env.py` | Spawns children on the host network stack (strips inherited proxy) |
 
 ---
 
