@@ -106,7 +106,6 @@ def handle_orchestrate(
     )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--model", default=None)
-    parser.add_argument("--reinject-every", type=int, default=3)
     ns = parser.parse_args(args)
 
     goal = " ".join(ns.goal)
@@ -170,7 +169,7 @@ def handle_orchestrate(
         verifier=verifier,
         max_iterations=ns.max_iterations,
         stuck_after=ns.stuck_after,
-        compose=ContextComposer(cwd, reinject_every=ns.reinject_every),
+        compose=ContextComposer(cwd),
         approval_gate=approval_gate,
     )
     outcome = loop.run(goal)

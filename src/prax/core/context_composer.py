@@ -2,18 +2,20 @@
 
 Borrowed from the long-running-agent research:
 - Inject a persistent **north star** + **constraints** so the original goal and
-  hard limits survive context rollover / compaction.
-- **Re-inject prohibition constraints on a cadence.** "NEVER do X" (omission)
-  constraints decay fastest over a long run — empirically from ~73% compliance
-  down to ~20% (arXiv:2604.20911) — because a one-time mention erodes as context
-  grows. So we restate ``constraints.md`` every ``reinject_every`` iterations
-  (and always on iteration 0), keeping the policy near the top of attention.
+  hard limits survive context rollover.
+- **Inject prohibition constraints on EVERY step.** The executor is
+  fresh-context-per-task — each ``claude -p`` step is a new context with no
+  memory of prior turns (claude_cli_executor does not ``--resume``), so a
+  prohibition omitted this step is simply *absent* from that fresh context, not
+  merely faded. (Omission constraints — "NEVER do X" — are also the fastest to
+  decay even within one long context: ~73%→~20% compliance, arXiv:2604.20911.)
+  So ``constraints.md`` is restated unconditionally, exactly like the north star.
 - **ASSUME INTERRUPTION** header (Anthropic memory tool): tell the agent its
   context may reset and that only on-disk state counts.
 
 All files live under ``.prax/`` and are optional, read fresh each step:
   ``north_star.md``  — immutable charter (always injected)
-  ``constraints.md`` — prohibitions, re-injected on the cadence
+  ``constraints.md`` — prohibitions (always injected — see above)
   ``progress.md``    — rolling progress notes (injected when present)
 
 Instances are callable with the OrchestratorLoop ``Composer`` signature
@@ -32,9 +34,8 @@ _ASSUME_INTERRUPTION = (
 class ContextComposer:
     """Compose a step instruction from durable ``.prax/`` context files."""
 
-    def __init__(self, cwd: str, *, reinject_every: int = 3) -> None:
+    def __init__(self, cwd: str) -> None:
         self._dir = Path(cwd) / ".prax"
-        self._reinject_every = reinject_every
 
     def __call__(self, goal: str, feedback: str | None, iteration: int) -> str:
         parts: list[str] = [_ASSUME_INTERRUPTION]
@@ -43,8 +44,10 @@ class ContextComposer:
         if north:
             parts.append(f"# 北极星（不可偏离）\n{north}")
 
+        # Always injected: each step is a fresh claude -p context (no --resume),
+        # so a prohibition skipped this step is absent, not just faded.
         constraints = self._read("constraints.md")
-        if constraints and self._should_reinject(iteration):
+        if constraints:
             parts.append(f"# 硬约束（务必遵守）\n{constraints}")
 
         progress = self._read("progress.md")
@@ -66,9 +69,3 @@ class ContextComposer:
             return None
         text = path.read_text(encoding="utf-8").strip()
         return text or None
-
-    def _should_reinject(self, iteration: int) -> bool:
-        # always on the first iteration; then every k iterations (omission decay)
-        if self._reinject_every <= 0:
-            return iteration == 0
-        return iteration % self._reinject_every == 0

@@ -23,17 +23,17 @@ class TestContextComposer:
 
     def test_constraints_injected_on_first_iteration(self, tmp_path):
         _write(tmp_path, "constraints.md", "NEVER 直接改生产数据库")
-        compose = ContextComposer(str(tmp_path), reinject_every=3)
+        compose = ContextComposer(str(tmp_path))
         assert "NEVER 直接改生产数据库" in compose("目标", None, 0)
 
-    def test_constraints_reinjected_on_cadence(self, tmp_path):
+    def test_constraints_injected_every_iteration(self, tmp_path):
         _write(tmp_path, "constraints.md", "NEVER 删除测试")
-        compose = ContextComposer(str(tmp_path), reinject_every=3)
-        # omission-decay defense: restate prohibitions every k iterations
-        assert "NEVER 删除测试" in compose("g", None, 0)   # 0 % 3 == 0
-        assert "NEVER 删除测试" not in compose("g", None, 1)
-        assert "NEVER 删除测试" not in compose("g", None, 2)
-        assert "NEVER 删除测试" in compose("g", None, 3)   # re-injected
+        compose = ContextComposer(str(tmp_path))
+        # fresh-context-per-task: each step is a new claude -p context (no
+        # --resume), so the prohibition must be present on EVERY iteration —
+        # skipping it on a cadence would leave those fresh contexts unconstrained.
+        for i in range(5):
+            assert "NEVER 删除测试" in compose("g", None, i)
 
     def test_feedback_appended_only_when_present(self, tmp_path):
         compose = ContextComposer(str(tmp_path))
