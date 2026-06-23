@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from prax.core.context_composer import ContextComposer
+from prax.core.memory_store import MemoryStore
 from prax.core.orchestrator_loop import OrchestratorLoop, StepResult, VerifyResult
 from prax.core.run_journal import RunJournal
 
@@ -44,6 +45,31 @@ class TestContextComposer:
         _write(tmp_path, "progress.md", "已完成：登录；待办：列表页")
         compose = ContextComposer(str(tmp_path))
         assert "待办：列表页" in compose("g", None, 0)
+
+    def test_memory_facts_injected(self, tmp_path):
+        # prax's learned memory reaches each orchestrate step (designed reuse).
+        MemoryStore(str(tmp_path)).add_fact(
+            "该项目用 httpx 而非 requests", category="knowledge", confidence=0.9
+        )
+        compose = ContextComposer(str(tmp_path))
+        assert "httpx" in compose("g", None, 0)
+
+    def test_no_memory_no_section(self, tmp_path):
+        compose = ContextComposer(str(tmp_path))
+        out = compose("g", None, 0)
+        assert "记忆" not in out  # empty store → no memory section, still composes
+        assert "g" in out
+
+    def test_memory_cap_is_respected(self, tmp_path):
+        store = MemoryStore(str(tmp_path))
+        for i in range(30):
+            store.add_fact(f"事实编号 {i}", confidence=0.5 + i * 0.01)
+        compose = ContextComposer(str(tmp_path), max_memory_facts=5)
+        out = compose("g", None, 0)
+        # only the 5 highest-confidence facts (25..29) are injected
+        assert out.count("事实编号") == 5
+        assert "事实编号 29" in out
+        assert "事实编号 0" not in out
 
     def test_missing_files_are_skipped(self, tmp_path):
         compose = ContextComposer(str(tmp_path))

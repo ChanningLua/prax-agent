@@ -12,6 +12,10 @@ Borrowed from the long-running-agent research:
   So ``constraints.md`` is restated unconditionally, exactly like the north star.
 - **ASSUME INTERRUPTION** header (Anthropic memory tool): tell the agent its
   context may reset and that only on-disk state counts.
+- **Inject learned project memory** — a confidence-ranked, capped slice of
+  MemoryStore (NOT the whole store — §8.3 context-rot guard), best-effort so a
+  memory failure never breaks the loop. This is how prax's accumulated
+  facts/decisions reach the 7×24 loop.
 
 All files live under ``.prax/`` and are optional, read fresh each step:
   ``north_star.md``  — immutable charter (always injected)
@@ -25,6 +29,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .memory_store import MemoryStore
+
 _ASSUME_INTERRUPTION = (
     "[运行须知] 你的上下文可能随时被重置；进度只有写进 .prax/ 文件才算数。"
     "动手前先读下面的状态，不要假设你记得之前发生过什么。"
@@ -34,8 +40,10 @@ _ASSUME_INTERRUPTION = (
 class ContextComposer:
     """Compose a step instruction from durable ``.prax/`` context files."""
 
-    def __init__(self, cwd: str) -> None:
+    def __init__(self, cwd: str, *, max_memory_facts: int = 20) -> None:
+        self._cwd = cwd
         self._dir = Path(cwd) / ".prax"
+        self._max_memory_facts = max_memory_facts
 
     def __call__(self, goal: str, feedback: str | None, iteration: int) -> str:
         parts: list[str] = [_ASSUME_INTERRUPTION]
@@ -49,6 +57,12 @@ class ContextComposer:
         constraints = self._read("constraints.md")
         if constraints:
             parts.append(f"# 硬约束（务必遵守）\n{constraints}")
+
+        # Confidence-ranked, capped slice of learned project memory (NOT the
+        # whole store — §8.3 context-rot guard). Best-effort: never break the loop.
+        memory = self._memory_facts()
+        if memory:
+            parts.append(f"# 记忆（按置信度选取的项目经验）\n{memory}")
 
         progress = self._read("progress.md")
         if progress:
@@ -69,3 +83,12 @@ class ContextComposer:
             return None
         text = path.read_text(encoding="utf-8").strip()
         return text or None
+
+    def _memory_facts(self) -> str | None:
+        # Reuse MemoryStore.format_for_prompt (confidence-sorted + capped). Guarded
+        # so a malformed/locked store never breaks an unattended run.
+        try:
+            text = MemoryStore(self._cwd).format_for_prompt(max_facts=self._max_memory_facts)
+        except Exception:
+            return None
+        return text.strip() or None
