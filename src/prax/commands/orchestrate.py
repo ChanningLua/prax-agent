@@ -8,6 +8,7 @@ directly from the CLI, or driven by a cron job with ``run_mode: orchestrate``
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 import uuid
 
@@ -98,6 +99,30 @@ def _record_completion(cwd: str, goal: str, verify: str | None, outcome: Orchest
         pass
 
 
+def _commit_feature(cwd: str, feature) -> bool:
+    """Commit a verified feature's working-tree changes on the CURRENT branch.
+
+    Honors the operator decision "agent may commit on the branch, NEVER push":
+    this ONLY runs `git add -A` + `git commit` in ``cwd`` — never push/branch/
+    pointer ops. Skips cleanly if there's nothing staged. Best-effort: a git
+    failure is swallowed so it never breaks an unattended run. Returns True if a
+    commit was created. ``--no-verify`` so a slow/blocking pre-commit hook can't
+    hang the window. (.prax/ is gitignored, so run-state is never committed.)"""
+    try:
+        subprocess.run(["git", "add", "-A"], cwd=cwd, check=True, capture_output=True)
+        if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=cwd).returncode == 0:
+            return False  # nothing to commit
+        msg = f"feat(prax): {feature.id} {feature.title[:72]}"
+        subprocess.run(
+            ["git", "commit", "--no-verify", "-m", msg],
+            cwd=cwd, check=True, capture_output=True,
+        )
+        return True
+    except Exception as exc:  # never let a git hiccup break the run
+        print(f"[prax] feature {feature.id}: commit skipped ({exc})", file=sys.stderr)
+        return False
+
+
 def _run_feature_mode(
     cwd, ns, run_id, executor, injected_verifier, approval_gate, notifier
 ) -> OrchestrationOutcome:
@@ -141,6 +166,8 @@ def _run_feature_mode(
         )
         if outcome.verified:
             _record_completion(cwd, f"功能 {feature.id} {feature.title}", feature.acceptance, outcome)
+            if ns.commit and _commit_feature(cwd, feature):
+                print(f"[prax] feature {feature.id}: committed on current branch (not pushed)", file=sys.stderr)
 
     report = run_features(feature_list, run_feature, max_features=ns.max_features, on_feature=on_feature)
     done = len(report.completed)
@@ -183,6 +210,11 @@ def handle_orchestrate(
     parser.add_argument(
         "--max-features", type=int, default=None,
         help="cap how many features to advance this window (feature mode)",
+    )
+    parser.add_argument(
+        "--commit", action="store_true",
+        help="feature mode: git-commit each VERIFIED feature on the current branch "
+        "(never pushes). Off by default (human commits after review).",
     )
     parser.add_argument(
         "--notify",

@@ -232,6 +232,39 @@ class TestMemoryWriteBack:
         assert "已验证达成目标" not in mem
 
 
+class TestCommitPerFeature:
+    def _git_repo(self, tmp_path):
+        import subprocess
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_path, check=True)
+
+    def test_commits_verified_feature_on_branch(self, tmp_path):
+        import subprocess
+        from prax.commands.orchestrate import _commit_feature
+        from prax.core.feature_list import Feature
+
+        self._git_repo(tmp_path)
+        (tmp_path / "a.txt").write_text("changed by the agent")
+        assert _commit_feature(str(tmp_path), Feature(id="f1", title="do thing")) is True
+        log = subprocess.run(
+            ["git", "log", "--oneline"], cwd=tmp_path, capture_output=True, text=True
+        ).stdout
+        assert "f1 do thing" in log  # committed with the feature-scoped message
+
+    def test_skips_when_nothing_to_commit(self, tmp_path):
+        import subprocess
+        from prax.commands.orchestrate import _commit_feature
+        from prax.core.feature_list import Feature
+
+        self._git_repo(tmp_path)
+        (tmp_path / "a.txt").write_text("x")
+        subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True)
+        # no new working-tree change → nothing to commit
+        assert _commit_feature(str(tmp_path), Feature(id="f1", title="x")) is False
+
+
 class TestCronOrchestrateWiring:
     def test_run_mode_defaults_to_prompt(self):
         job = CronJob(name="j", schedule="* * * * *", prompt="hi")
