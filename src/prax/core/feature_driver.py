@@ -60,12 +60,15 @@ def run_features(
     started = 0
 
     while True:
-        if max_features is not None and started >= max_features:
-            return FeatureRunReport("max_features", completed, results)
-
         feature = feature_list.next_pending()
         if feature is None:
+            # Nothing left to do → done, REGARDLESS of the per-window cap. (Check
+            # this before the cap so finishing the last feature exactly as the cap
+            # is hit reports all_features_done, not a misleading max_features.)
             return FeatureRunReport("all_features_done", completed, results)
+        if max_features is not None and started >= max_features:
+            # cap hit AND there is still pending work being deferred to next window
+            return FeatureRunReport("max_features", completed, results)
 
         started += 1
         outcome = run_feature(feature)

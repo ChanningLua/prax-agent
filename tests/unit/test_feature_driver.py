@@ -78,6 +78,16 @@ class TestFeatureDriver:
         assert report.completed == ["f1"]
         assert fl.next_pending().id == "f2"              # f2 left for next window
 
+    def test_single_feature_with_cap_is_all_done_not_max(self, tmp_path):
+        # regression: the ONLY feature finishing exactly as max_features is hit
+        # must report all_features_done (verified), NOT a misleading max_features.
+        _write(tmp_path, [{"id": "f1", "priority": 1, "status": "pending"}])
+        fl = FeatureList(str(tmp_path))
+        report = run_features(fl, lambda f: _verified(), max_features=1)
+        assert report.stop_reason == "all_features_done"
+        assert report.completed == ["f1"]
+        assert fl.next_pending() is None
+
     def test_empty_list_is_all_done(self, tmp_path):
         _write(tmp_path, [])
         report = run_features(FeatureList(str(tmp_path)), lambda f: _verified())
