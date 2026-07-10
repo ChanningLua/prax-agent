@@ -22,6 +22,7 @@ from ..core.feature_list import FeatureList
 from ..core.memory_store import MemoryStore
 from ..core.orchestrator_loop import OrchestrationOutcome, OrchestratorLoop
 from ..core.run_journal import RunJournal
+from ..core.three_step_router import STEP_AUTONOMOUS, Routing, WorkSignal, route, verify_strength_of
 
 
 def _make_notifier(cwd, channel):
@@ -123,6 +124,18 @@ def _commit_feature(cwd: str, feature) -> bool:
         return False
 
 
+def _route_feature(feature) -> Routing:
+    """三步走 routing for a feature: verify strength from its acceptance, complexity
+    from the plan's declared call (unknown breadth before it runs → default
+    ``moderate`` so an undeclared feature is NEVER silently 自主循环)."""
+    return route(
+        WorkSignal(
+            verify_strength=verify_strength_of(feature.acceptance),
+            declared_complexity=feature.complexity or "moderate",
+        )
+    )
+
+
 def _run_feature_mode(
     cwd, ns, run_id, executor, injected_verifier, approval_gate, notifier
 ) -> OrchestrationOutcome:
@@ -166,8 +179,21 @@ def _run_feature_mode(
         )
         if outcome.verified:
             _record_completion(cwd, f"功能 {feature.id} {feature.title}", feature.acceptance, outcome)
-            if ns.commit and _commit_feature(cwd, feature):
-                print(f"[prax] feature {feature.id}: committed on current branch (not pushed)", file=sys.stderr)
+            # 三步走 gate: unattended auto-commit is an AUTONOMOUS-only privilege.
+            # HUMAN_CHECK / SUMMARIZE_VERIFY features are verified + marked done but
+            # left in the working tree for a human to review the diff and commit.
+            routing = _route_feature(feature)
+            print(f"[prax] feature {feature.id}: {routing.summary()}", file=sys.stderr)
+            if ns.commit:
+                if routing.step == STEP_AUTONOMOUS:
+                    if _commit_feature(cwd, feature):
+                        print(f"[prax] feature {feature.id}: committed on current branch (not pushed)", file=sys.stderr)
+                else:
+                    print(
+                        f"[prax] feature {feature.id}: {routing.step} → 不自动 commit，"
+                        f"留待人 check（diff 在工作区）",
+                        file=sys.stderr,
+                    )
 
     report = run_features(feature_list, run_feature, max_features=ns.max_features, on_feature=on_feature)
     done = len(report.completed)

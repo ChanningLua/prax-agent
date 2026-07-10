@@ -265,6 +265,74 @@ class TestCommitPerFeature:
         assert _commit_feature(str(tmp_path), Feature(id="f1", title="x")) is False
 
 
+class _WritingExec:
+    """Fake executor that makes a working-tree change each step (so there's
+    something for the commit gate to commit)."""
+
+    def __init__(self, cwd) -> None:
+        self.cwd = cwd
+        self.n = 0
+
+    def run(self, instruction, *, session_id=None):
+        self.n += 1
+        (self.cwd / f"out{self.n}.txt").write_text("changed by the agent")
+        return StepResult(text="ran", session_id="s")
+
+
+class TestThreeStepCommitGating:
+    """--commit is an 自主循环-only privilege: HUMAN_CHECK features are verified +
+    marked done but left uncommitted for a human to review."""
+
+    def _git_repo(self, tmp_path):
+        import subprocess
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_path, check=True)
+
+    def _write_features(self, tmp_path, features):
+        import json
+        d = tmp_path / ".prax"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "feature_list.json").write_text(
+            json.dumps({"features": features}, ensure_ascii=False), encoding="utf-8"
+        )
+
+    def _log(self, tmp_path):
+        import subprocess
+        return subprocess.run(
+            ["git", "log", "--oneline"], cwd=tmp_path, capture_output=True, text=True
+        ).stdout
+
+    def test_autonomous_feature_is_committed(self, tmp_path):
+        # simple (declared) + behavioral acceptance → 自主循环 → auto-commit
+        self._git_repo(tmp_path)
+        self._write_features(tmp_path, [
+            {"id": "f1", "title": "小改", "acceptance": "node verify-features.mjs",
+             "complexity": "simple", "priority": 1, "status": "pending"},
+        ])
+        handle_orchestrate(
+            str(tmp_path), ["--features", "--commit", "--run-id", "ts1"],
+            executor=_WritingExec(tmp_path), verifier=lambda: VerifyResult(passed=True),
+        )
+        assert "f1 小改" in self._log(tmp_path)
+
+    def test_human_check_feature_is_not_committed(self, tmp_path):
+        # tests-grade acceptance + undeclared complexity → HUMAN_CHECK → NO auto-commit
+        self._git_repo(tmp_path)
+        self._write_features(tmp_path, [
+            {"id": "f1", "title": "普通活", "acceptance": "pytest -q",
+             "priority": 1, "status": "pending"},
+        ])
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--commit", "--run-id", "ts2"],
+            executor=_WritingExec(tmp_path), verifier=lambda: VerifyResult(passed=True),
+        )
+        assert outcome.verified is True          # work got done + verified
+        assert "f1" not in self._log(tmp_path)   # but it was NOT auto-committed
+        from prax.core.feature_list import FeatureList
+        assert FeatureList(str(tmp_path)).next_pending() is None  # still marked done
+
+
 class TestCronOrchestrateWiring:
     def test_run_mode_defaults_to_prompt(self):
         job = CronJob(name="j", schedule="* * * * *", prompt="hi")

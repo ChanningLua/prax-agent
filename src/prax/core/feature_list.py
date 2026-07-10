@@ -34,6 +34,10 @@ class Feature:
     acceptance: str = ""
     priority: int = 100
     status: str = "pending"
+    # Optional curator complexity call (simple|moderate|complex) for the 三步走
+    # router — change breadth is unknown before the feature runs, so the plan
+    # declares it. Absent → the router defaults conservatively (never 自主循环).
+    complexity: str = ""
 
     @property
     def done(self) -> bool:
@@ -65,6 +69,7 @@ class FeatureList:
                     acceptance=str(item.get("acceptance", "")),
                     priority=prio if isinstance(prio, int) else 100,
                     status=str(item.get("status", "pending")),
+                    complexity=str(item.get("complexity", "")),
                 )
             )
         return out
