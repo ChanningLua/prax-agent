@@ -8,7 +8,7 @@ from __future__ import annotations
 from prax.commands.cron import _argv_for_job
 from prax.commands.orchestrate import handle_orchestrate
 from prax.core.cron_store import CronJob
-from prax.core.orchestrator_loop import StepResult, VerifyResult
+from prax.core.orchestrator_loop import VERIFY_HARNESS_ERROR, StepResult, VerifyResult
 
 
 class _FakeExec:
@@ -150,6 +150,22 @@ class TestTerminalNotify:
         assert len(notifier.calls) == 1
         assert "bad_verifier" in notifier.calls[0][0]
 
+    def test_pings_on_harness_error(self, tmp_path):
+        notifier = _FakeNotifier()
+        outcome = handle_orchestrate(
+            str(tmp_path),
+            ["g", "--run-id", "n4"],
+            executor=_FakeExec(),
+            verifier=lambda: VerifyResult(
+                passed=False,
+                output="service unavailable",
+                status=VERIFY_HARNESS_ERROR,
+            ),
+            notifier=notifier,
+        )
+        assert outcome.stop_reason == "harness_error"
+        assert "harness_error" in notifier.calls[0][0]
+
 
 class TestFeatureMode:
     def _write_features(self, tmp_path, features):
@@ -162,8 +178,8 @@ class TestFeatureMode:
 
     def test_all_features_done(self, tmp_path):
         self._write_features(tmp_path, [
-            {"id": "f1", "title": "登录", "acceptance": "pytest -q", "priority": 1, "status": "pending"},
-            {"id": "f2", "title": "列表", "acceptance": "pytest -q", "priority": 2, "status": "pending"},
+            {"id": "f1", "title": "登录", "acceptance": "pytest -q", "risk_category": "mechanical", "priority": 1, "status": "pending"},
+            {"id": "f2", "title": "列表", "acceptance": "pytest -q", "risk_category": "mechanical", "priority": 2, "status": "pending"},
         ])
         ex = _FakeExec()
         outcome = handle_orchestrate(
@@ -178,8 +194,8 @@ class TestFeatureMode:
 
     def test_stops_on_blocked_feature(self, tmp_path):
         self._write_features(tmp_path, [
-            {"id": "f1", "title": "登录", "acceptance": "pytest -q", "priority": 1, "status": "pending"},
-            {"id": "f2", "title": "列表", "acceptance": "pytest -q", "priority": 2, "status": "pending"},
+            {"id": "f1", "title": "登录", "acceptance": "pytest -q", "risk_category": "mechanical", "priority": 1, "status": "pending"},
+            {"id": "f2", "title": "列表", "acceptance": "pytest -q", "risk_category": "mechanical", "priority": 2, "status": "pending"},
         ])
         outcome = handle_orchestrate(
             str(tmp_path), ["--features", "--run-id", "fm2", "--max-iterations", "1"],
@@ -200,6 +216,134 @@ class TestFeatureMode:
     def test_no_goal_without_features_errors(self, tmp_path):
         outcome = handle_orchestrate(str(tmp_path), ["--run-id", "fm4"], executor=_FakeExec())
         assert outcome.stop_reason == "no_goal"
+
+    def test_redline_feature_without_relay_fails_closed_before_executor(self, tmp_path):
+        self._write_features(tmp_path, [
+            {
+                "id": "f1",
+                "title": "调整价格",
+                "acceptance": "node verify-features.mjs",
+                "complexity": "simple",
+                "risk_category": "money",
+                "priority": 1,
+                "status": "pending",
+            },
+        ])
+        ex = _FakeExec()
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "risk1"],
+            executor=ex, verifier=lambda: VerifyResult(passed=True),
+        )
+        assert outcome.stop_reason == "feature_blocked:f1"
+        assert outcome.verified is False
+        assert ex.calls == []
+        from prax.core.feature_list import FeatureList
+        assert FeatureList(str(tmp_path)).next_pending().id == "f1"
+
+    def test_redline_feature_forces_relay_then_runs_after_approval(self, tmp_path):
+        self._write_features(tmp_path, [
+            {
+                "id": "f1",
+                "title": "调整价格",
+                "acceptance": "node verify-features.mjs",
+                "complexity": "simple",
+                "risk_category": "money",
+                "priority": 1,
+                "status": "pending",
+            },
+        ])
+        seen = {}
+
+        def gate(goal, *, required=False, approval_id_override=None):
+            seen.update(
+                goal=goal,
+                required=required,
+                approval_id_override=approval_id_override,
+            )
+            return "approved"
+
+        ex = _FakeExec()
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "risk2"],
+            executor=ex,
+            verifier=lambda: VerifyResult(passed=True),
+            approval_gate=gate,
+        )
+        assert outcome.stop_reason == "all_features_done"
+        assert len(ex.calls) == 1
+        assert seen["required"] is True
+        assert seen["approval_id_override"] == "risk2-f1"
+        assert "风险=money" in seen["goal"]
+
+    def test_redline_feature_parks_then_resumes_after_approval(self, tmp_path):
+        self._write_features(tmp_path, [
+            {
+                "id": "f1",
+                "title": "调整价格",
+                "acceptance": "pytest -q",
+                "risk_category": "money",
+                "priority": 1,
+                "status": "pending",
+            },
+        ])
+        ex1 = _FakeExec()
+        first = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "risk3"],
+            executor=ex1,
+            verifier=lambda: VerifyResult(passed=True),
+            approval_gate=lambda goal, *, required=False, approval_id_override=None: "pending",
+        )
+        assert first.stop_reason == "feature_blocked:f1"
+        assert ex1.calls == []
+
+        ex2 = _FakeExec()
+        second = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "risk3"],
+            executor=ex2,
+            verifier=lambda: VerifyResult(passed=True),
+            approval_gate=lambda goal, *, required=False, approval_id_override=None: "approved",
+        )
+        assert second.stop_reason == "all_features_done"
+        assert len(ex2.calls) == 1
+
+    def test_missing_risk_category_fails_closed(self, tmp_path):
+        self._write_features(tmp_path, [
+            {"id": "f1", "title": "未分类任务", "acceptance": "pytest -q"},
+        ])
+        ex = _FakeExec()
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "risk4"],
+            executor=ex, verifier=lambda: VerifyResult(passed=True),
+        )
+        assert outcome.stop_reason == "feature_blocked:f1"
+        assert ex.calls == []
+
+    def test_redline_features_use_distinct_stable_approval_ids(self, tmp_path):
+        self._write_features(tmp_path, [
+            {
+                "id": "f1", "title": "调整价格", "acceptance": "pytest -q",
+                "risk_category": "money", "priority": 1, "status": "pending",
+            },
+            {
+                "id": "f2", "title": "调整范围", "acceptance": "pytest -q",
+                "risk_category": "scope", "priority": 2, "status": "pending",
+            },
+        ])
+        seen_ids = []
+
+        def gate(goal, *, required=False, approval_id_override=None):
+            assert required is True
+            seen_ids.append(approval_id_override)
+            return "approved"
+
+        outcome = handle_orchestrate(
+            str(tmp_path), ["--features", "--run-id", "risk5"],
+            executor=_FakeExec(),
+            verifier=lambda: VerifyResult(passed=True),
+            approval_gate=gate,
+        )
+        assert outcome.stop_reason == "all_features_done"
+        assert seen_ids == ["risk5-f1", "risk5-f2"]
 
 
 class TestMemoryWriteBack:
@@ -308,7 +452,8 @@ class TestThreeStepCommitGating:
         self._git_repo(tmp_path)
         self._write_features(tmp_path, [
             {"id": "f1", "title": "小改", "acceptance": "node verify-features.mjs",
-             "complexity": "simple", "priority": 1, "status": "pending"},
+             "complexity": "simple", "risk_category": "mechanical",
+             "priority": 1, "status": "pending"},
         ])
         handle_orchestrate(
             str(tmp_path), ["--features", "--commit", "--run-id", "ts1"],
@@ -321,7 +466,7 @@ class TestThreeStepCommitGating:
         self._git_repo(tmp_path)
         self._write_features(tmp_path, [
             {"id": "f1", "title": "普通活", "acceptance": "pytest -q",
-             "priority": 1, "status": "pending"},
+             "risk_category": "mechanical", "priority": 1, "status": "pending"},
         ])
         outcome = handle_orchestrate(
             str(tmp_path), ["--features", "--commit", "--run-id", "ts2"],

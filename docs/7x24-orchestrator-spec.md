@@ -118,6 +118,34 @@
 
 ---
 
+## §8 Autism 实测后的 P0 加固（已落地）
+
+Autism 真后端验证暴露了两个会直接破坏无人值守可信度的问题：任务会绕过决策刹车，且验证环境故障会被误判成功能失败。P0 采用复用式修复，不新增子系统：
+
+### 8.1 风险类别是一等输入，先于复杂度与验收强度
+
+`feature_list.json` 每项必须显式声明 `risk_category`：
+
+- `none` / `mechanical`：继续走原三步路由（复杂度 × 验收强度）。
+- `money` / `compliance` / `scope` / `revenue` / `production`：执行前强制进入 approval relay。
+- 缺失值记为 `unspecified`；未知非空值同样 fail-closed，防止漏填或拼写错误静默扩大自治。
+
+路由器的红线判定通过 `approval_policy.build_relay_gate(..., required=True)` 复用已有 relay。未配置 relay 时返回 `approval_unconfigured`，executor 不运行；relay 返回 pending 时本窗口 park，后续使用同一 run-id 在批准后续跑。Feature 模式的审批 ID 固定为 `<run-id>-<feature-id>`，因此恢复时复用同一条审批，而一个 feature 的批准不会误放行后续 feature。
+
+### 8.2 验证器三态契约
+
+`VerifyResult.status` 固定为：
+
+| 状态 | 含义 | 编排动作 |
+|---|---|---|
+| `PASS` | 行为/测试通过 | 标记 verified |
+| `FEATURE-FAIL` | 功能或代码未满足验收 | 把证据反馈给编码 agent，自愈重试 |
+| `HARNESS-ERROR` | 验证器、命令或环境不可用 | 停窗并通知；不反馈给编码 agent，不消耗跨窗口迭代预算 |
+
+命令验证器把 timeout、执行器 126/127、进程信号、OS/Subprocess 错误，以及脚本显式输出的 `HARNESS-ERROR` 标记归为环境故障。其他普通非零退出仍是 `FEATURE-FAIL`，避免用模糊关键词猜测产品好坏。
+
+---
+
 ## 附录 A — docs-harness signal ↔ 结构化升级队列（仅当 docs-quality pattern 到 L2 才启用）
 
 保留原 B 分析的可执行结论，供后续取用：

@@ -22,6 +22,12 @@ from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
 
+VERIFY_PASS = "PASS"
+VERIFY_FEATURE_FAIL = "FEATURE-FAIL"
+VERIFY_HARNESS_ERROR = "HARNESS-ERROR"
+_VERIFY_STATUSES = frozenset({VERIFY_PASS, VERIFY_FEATURE_FAIL, VERIFY_HARNESS_ERROR})
+
+
 @dataclass
 class StepResult:
     """What one executor invocation returns."""
@@ -33,10 +39,25 @@ class StepResult:
 
 @dataclass
 class VerifyResult:
-    """Outcome of one verification check."""
+    """Outcome of one verification check with an explicit three-state verdict.
+
+    ``passed`` remains for backward compatibility with existing custom
+    verifiers. When ``status`` is omitted it is derived as PASS/FEATURE-FAIL.
+    HARNESS-ERROR is explicit: it means the acceptance environment or verifier
+    failed, not that the product behavior is wrong.
+    """
 
     passed: bool
     output: str = ""
+    status: str = ""
+
+    def __post_init__(self) -> None:
+        status = (self.status or (VERIFY_PASS if self.passed else VERIFY_FEATURE_FAIL)).upper()
+        if status not in _VERIFY_STATUSES:
+            raise ValueError(f"Unknown verification status: {self.status!r}")
+        if self.passed != (status == VERIFY_PASS):
+            raise ValueError(f"passed={self.passed} conflicts with verification status {status}")
+        self.status = status
 
 
 @dataclass
@@ -45,7 +66,8 @@ class OrchestrationOutcome:
 
     stop_reason: str  # verified | max_iterations | completed_no_verify
     #                   | awaiting_approval | approval_rejected | executor_error
-    #                   | stuck_no_progress
+    #                   | stuck_no_progress | harness_error
+    #                   | approval_unconfigured
     iterations: int
     verified: bool
 
@@ -62,7 +84,14 @@ Verifier = Callable[[], VerifyResult]
 # "approved" | "pending" | "rejected" (any other value is treated as pending,
 # fail-safe). Non-prod goals return "approved" immediately; prod-affecting goals
 # go through the remote approval relay (see core.approval_policy).
-ApprovalGate = Callable[[str], str]
+class ApprovalGate(Protocol):
+    def __call__(
+        self,
+        goal: str,
+        *,
+        required: bool = False,
+        approval_id_override: str | None = None,
+    ) -> str: ...
 
 
 def _default_compose(goal: str, feedback: str | None, iteration: int) -> str:
@@ -102,6 +131,8 @@ class OrchestratorLoop:
         compose: Composer | None = None,
         session_id: str | None = None,
         approval_gate: ApprovalGate | None = None,
+        approval_required: bool = False,
+        approval_id_override: str | None = None,
         error_limit: int = 3,
         stuck_after: int = 3,
         sleep: Callable[[float], None] = time.sleep,
@@ -113,6 +144,8 @@ class OrchestratorLoop:
         self._compose = compose or _default_compose
         self._session_id = session_id
         self._approval_gate = approval_gate
+        self._approval_required = approval_required
+        self._approval_id_override = approval_id_override
         # D3: how many *consecutive* executor crashes to tolerate (with backoff)
         # before stopping the window with "executor_error". ``sleep`` is injected
         # so tests don't actually wait out the backoff.
@@ -135,6 +168,16 @@ class OrchestratorLoop:
         # ── Resume: continue the iteration count + feedback from the journal ─
         events = self._journal.events()
         iteration = sum(1 for e in events if e.get("step") == "step")
+        # A HARNESS-ERROR is an environment/verifier failure, not a coding-loop
+        # attempt. Do not let repeated infrastructure outages exhaust the
+        # feature's max-iteration budget across resume windows.
+        iteration -= sum(
+            1
+            for e in events
+            if e.get("step") == "verify"
+            and (e.get("output") or {}).get("status") == VERIFY_HARNESS_ERROR
+        )
+        iteration = max(0, iteration)
         feedback = self._last_feedback(events)
 
         # ── Approval gate (run-level) ────────────────────────────────────────
@@ -143,9 +186,46 @@ class OrchestratorLoop:
         # Park-and-continue: "pending" stops THIS window cleanly (journalled) and
         # a later resume re-checks the gate — the run never blocks inline waiting
         # for a human. Fail-safe: anything other than "approved"/"rejected" parks.
+        if self._approval_required and self._approval_gate is None:
+            # Explicit decision red line with no relay configured: fail closed.
+            # Running anyway would turn a missing control-plane config into a
+            # silent autonomy escalation.
+            self._journal.record(
+                "approval",
+                output={"decision": "unconfigured", "required": True},
+                iteration=iteration,
+            )
+            return self._finish("approval_unconfigured", iteration, False)
+
         if self._approval_gate is not None:
-            decision = self._approval_gate(goal)
-            self._journal.record("approval", output={"decision": decision}, iteration=iteration)
+            try:
+                gate_kwargs: dict[str, Any] = {}
+                if self._approval_required:
+                    gate_kwargs["required"] = True
+                if self._approval_id_override:
+                    gate_kwargs["approval_id_override"] = self._approval_id_override
+                decision = self._approval_gate(goal, **gate_kwargs)
+            except TypeError as exc:
+                # A legacy/injected gate that cannot honor the explicit
+                # ``required`` contract must not accidentally approve red-line
+                # work. Park it as an unconfigured control plane.
+                if not self._approval_required:
+                    raise
+                self._journal.record(
+                    "approval",
+                    output={"decision": "unconfigured", "required": True, "error": repr(exc)},
+                    iteration=iteration,
+                )
+                return self._finish("approval_unconfigured", iteration, False)
+            self._journal.record(
+                "approval",
+                output={
+                    "decision": decision,
+                    "required": self._approval_required,
+                    "approval_id": self._approval_id_override,
+                },
+                iteration=iteration,
+            )
             if decision == "rejected":
                 return self._finish("approval_rejected", iteration, False)
             if decision != "approved":
@@ -202,13 +282,22 @@ class OrchestratorLoop:
             verdict = self._verifier()
             self._journal.record(
                 "verify",
-                output={"passed": verdict.passed, "output": verdict.output},
+                output={
+                    "passed": verdict.passed,
+                    "status": verdict.status,
+                    "output": verdict.output,
+                },
                 iteration=iteration,
             )
             iteration += 1
 
             if verdict.passed:
                 return self._finish("verified", iteration, True)
+            if verdict.status == VERIFY_HARNESS_ERROR:
+                # Environment/verifier failures are not product failures. Do
+                # not feed them to the coding agent or burn the retry budget;
+                # park this window so the harness can be repaired, then resume.
+                return self._finish("harness_error", iteration, False)
             feedback = verdict.output
 
             # Stuck detection (§8.1-7): if the verifier keeps failing with the
@@ -248,5 +337,11 @@ class OrchestratorLoop:
         for e in events:
             if e.get("step") == "verify":
                 out = e.get("output") or {}
-                feedback = None if out.get("passed") else out.get("output")
+                status = out.get("status")
+                if out.get("passed") or status == VERIFY_HARNESS_ERROR:
+                    feedback = None
+                else:
+                    # Old journals have no status; their false result retains
+                    # the historical FEATURE-FAIL/self-heal behavior.
+                    feedback = out.get("output")
         return feedback

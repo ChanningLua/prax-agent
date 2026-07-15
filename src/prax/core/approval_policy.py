@@ -42,20 +42,32 @@ def build_relay_gate(
     deny_patterns=None,
     notify: Callable[[str, str], None] | None = None,
     check: Callable[..., str] = remote_check_or_request,
-) -> Callable[[str], str]:
+) -> Callable[..., str]:
     """Build the ApprovalGate the loop consults.
 
     Non-prod goals → ``"approved"`` immediately (no human in the loop). Prod
     goals → the remote relay via ``check`` (park-and-continue: first call parks
-    + notifies, later calls poll). ``check`` is injectable so this unit-tests
-    without HTTP. ``approval_id`` should be stable per run (the run id) so a
-    resumed run re-checks the SAME approval rather than parking a new one.
+    + notifies, later calls poll). Callers may pass ``required=True`` to force a
+    relay decision for an explicit category brake (money/compliance/scope/etc.)
+    even when the human-readable goal matches no deny pattern.
+
+    ``check`` is injectable so this unit-tests without HTTP. ``approval_id``
+    should be stable per run (the run id) so a resumed run re-checks the SAME
+    approval rather than parking a new one. Feature drivers may pass an
+    ``approval_id_override`` so every feature gets its own stable decision;
+    approval of one red-line feature must never authorize a later sibling.
     """
     patterns = DEFAULT_DENY_PATTERNS if deny_patterns is None else deny_patterns
 
-    def gate(goal: str) -> str:
-        if not needs_approval(goal, patterns):
+    def gate(
+        goal: str,
+        *,
+        required: bool = False,
+        approval_id_override: str | None = None,
+    ) -> str:
+        if not required and not needs_approval(goal, patterns):
             return "approved"
-        return check(relay_url, admin_token, approval_id, goal, notify=notify)
+        effective_id = approval_id_override or approval_id
+        return check(relay_url, admin_token, effective_id, goal, notify=notify)
 
     return gate

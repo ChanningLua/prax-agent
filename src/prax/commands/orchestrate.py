@@ -61,7 +61,15 @@ def _make_notifier(cwd, channel):
 # already sends its own pending notification) and "completed_no_verify" (the
 # intentional no-verifier / monitoring case, already warned at config time).
 _ATTENTION_STOPS = frozenset(
-    {"stuck_no_progress", "executor_error", "max_iterations", "approval_rejected", "bad_verifier"}
+    {
+        "stuck_no_progress",
+        "executor_error",
+        "harness_error",
+        "max_iterations",
+        "approval_rejected",
+        "approval_unconfigured",
+        "bad_verifier",
+    }
 )
 
 
@@ -125,13 +133,17 @@ def _commit_feature(cwd: str, feature) -> bool:
 
 
 def _route_feature(feature) -> Routing:
-    """三步走 routing for a feature: verify strength from its acceptance, complexity
-    from the plan's declared call (unknown breadth before it runs → default
-    ``moderate`` so an undeclared feature is NEVER silently 自主循环)."""
+    """三步走 routing for a feature.
+
+    Decision risk is evaluated first, then verify strength + declared
+    complexity. Unknown breadth defaults to ``moderate`` so an undeclared
+    feature is NEVER silently autonomous; unknown non-empty risk fails closed.
+    """
     return route(
         WorkSignal(
             verify_strength=verify_strength_of(feature.acceptance),
             declared_complexity=feature.complexity or "moderate",
+            risk_category=feature.risk_category,
         )
     )
 
@@ -148,6 +160,7 @@ def _run_feature_mode(
         return OrchestrationOutcome(stop_reason="no_features", iterations=0, verified=False)
 
     def run_feature(feature):
+        routing = _route_feature(feature)
         # Verifier: an injected one (tests) wins; else build from the feature's
         # acceptance. A bad/absent acceptance → no verifier → the feature can't be
         # auto-marked done (it'll report completed_no_verify and block the run).
@@ -160,6 +173,10 @@ def _run_feature_mode(
         feat_goal = f"实现功能 {feature.id}：{feature.title}"
         if feature.acceptance:
             feat_goal += f"（验收：{feature.acceptance}）"
+        if routing.requires_approval:
+            # The explicit risk category travels with the relay request so the
+            # human sees WHY this work parked, rather than a generic title only.
+            feat_goal += f"\n[决策刹车] {routing.summary()}"
         feat_loop = OrchestratorLoop(
             journal=RunJournal(cwd, f"{run_id}-{feature.id}"),
             executor=executor,
@@ -168,6 +185,10 @@ def _run_feature_mode(
             stuck_after=ns.stuck_after,
             compose=ContextComposer(cwd),
             approval_gate=approval_gate,
+            approval_required=routing.requires_approval,
+            approval_id_override=(
+                f"{run_id}-{feature.id}" if routing.requires_approval else None
+            ),
         )
         return feat_loop.run(feat_goal)
 

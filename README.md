@@ -418,10 +418,15 @@ prax orchestrate "migrate the config loader to pydantic v2" \
 - **Verifier** is an allowlisted test runner (`pytest`, `npm test`, `cargo test`, …) **or**
   a repo-local script: `--verify "./scripts/verify.sh"` (relative, inside the repo, executable —
   for e2e / build / curl-probe checks the runners can't express).
-- **Terminal states**: `verified` · `max_iterations` · `stuck_no_progress` ·
+- **Verifier verdicts**: `PASS` · `FEATURE-FAIL` · `HARNESS-ERROR`. Ordinary non-zero
+  exits are feature failures and feed the self-heal loop; a timeout, exec failure, or
+  explicit `HARNESS-ERROR` marker parks the window without blaming the feature or
+  consuming its cross-window retry budget.
+- **Terminal states**: `verified` · `max_iterations` · `stuck_no_progress` · `harness_error` ·
   `executor_error` (a `claude -p` crash is journalled + retried with backoff, never a naked
   traceback) · `awaiting_approval` / `approval_rejected` (production-affecting goals gate
-  through the approval relay before any work is dispatched).
+  through the approval relay before any work is dispatched) · `approval_unconfigured`
+  (an explicit red-line feature was fail-closed because no relay is configured).
 - **Resumable** — each run journals to `.prax/runs/<id>/`; a window stopped by quota or crash
   resumes from the journal with `--run-id <id>`.
 - **Networking** — spawned children inherit the **host network stack** (e.g. a system VPN /
@@ -430,8 +435,8 @@ prax orchestrate "migrate the config loader to pydantic v2" \
   proxy is the only egress).
 
 **Feature mode (`--features`)** — for a multi-feature plan, drop a
-`.prax/feature_list.json` (each item carries its own acceptance, used as that
-feature's verifier) and run `prax orchestrate --features` (no goal needed). The
+`.prax/feature_list.json` (each item carries its own acceptance and an explicit
+`risk_category`) and run `prax orchestrate --features` (no goal needed). The
 loop advances the highest-priority unfinished feature, marks it `done` **only**
 when verified, then moves to the next — stopping at the first feature it can't
 verify (rather than thrashing the rest). Done status persists, so a crashed /
@@ -442,10 +447,19 @@ many advance per window.
 
 ```json
 {"features": [
-  {"id": "f1", "title": "login page",  "acceptance": "pytest tests/test_login.py", "priority": 1, "status": "pending"},
-  {"id": "f2", "title": "session list", "acceptance": "npm test",                   "priority": 2, "status": "pending"}
+  {"id": "f1", "title": "login page", "acceptance": "pytest tests/test_login.py",
+   "risk_category": "mechanical", "priority": 1, "status": "pending"},
+  {"id": "f2", "title": "change pricing", "acceptance": "npm test",
+   "risk_category": "money", "priority": 2, "status": "pending"}
 ]}
 ```
+
+`risk_category` is mandatory for execution. `none` / `mechanical` may proceed under
+the normal complexity + verifier routing. `money`, `compliance`, `scope`, `revenue`,
+`production`, and any unknown non-empty value force the approval relay before the
+executor runs. A missing value becomes `unspecified` and fails closed. Each gated
+feature uses the stable approval ID `<run-id>-<feature-id>`, so approval of one
+feature cannot authorize another and a resumed feature polls its original decision.
 
 ```bash
 prax orchestrate --features --max-features 3 --notify ops
@@ -607,7 +621,7 @@ Key modules:
 | `agents/` | Ralph (planner), Sisyphus (executor), Team (parallel) |
 | `workflows/` | Task decomposition and orchestration |
 | `commands/orchestrate.py` · `core/orchestrator_loop.py` | `prax orchestrate` 7×24 goal loop — verifier-driven self-heal, stuck detection, crash survival, approval gate |
-| `core/command_verifier.py` | Turns a verify command / repo `./script` into the loop's pass/fail signal |
+| `core/command_verifier.py` | Turns a verify command / repo `./script` into PASS / FEATURE-FAIL / HARNESS-ERROR |
 | `core/context_composer.py` | Builds each step: north star + constraints + learned memory + feature board |
 | `core/feature_list.py` · `core/feature_driver.py` | `--features` plan: load/persist feature_list.json, advance one verified item at a time |
 | `core/subprocess_env.py` | Spawns children on the host network stack (strips inherited proxy) |

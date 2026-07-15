@@ -10,8 +10,14 @@ import subprocess
 
 import pytest
 
-from prax.core.command_verifier import CommandVerifier
-from prax.core.orchestrator_loop import OrchestratorLoop, StepResult
+from prax.core.command_verifier import CommandVerifier, classify_verify_status
+from prax.core.orchestrator_loop import (
+    VERIFY_FEATURE_FAIL,
+    VERIFY_HARNESS_ERROR,
+    VERIFY_PASS,
+    OrchestratorLoop,
+    StepResult,
+)
 from prax.core.run_journal import RunJournal
 
 
@@ -36,12 +42,14 @@ class TestCommandVerifier:
         v = CommandVerifier("pytest -q", cwd=str(tmp_path), runner=_runner(0, "5 passed"))
         result = v()
         assert result.passed is True
+        assert result.status == VERIFY_PASS
         assert "5 passed" in result.output
 
     def test_failing_command_maps_to_failed_with_exit_code(self, tmp_path):
         v = CommandVerifier("pytest -q", cwd=str(tmp_path), runner=_runner(1, "1 failed"))
         result = v()
         assert result.passed is False
+        assert result.status == VERIFY_FEATURE_FAIL
         assert "1 failed" in result.output
         assert "Exit code: 1" in result.output
 
@@ -52,7 +60,51 @@ class TestCommandVerifier:
         v = CommandVerifier("pytest -q", cwd=str(tmp_path), timeout=7, runner=_timeout_runner)
         result = v()
         assert result.passed is False
+        assert result.status == VERIFY_HARNESS_ERROR
         assert "timed out" in result.output
+
+    def test_explicit_harness_marker_is_not_a_feature_failure(self, tmp_path):
+        v = CommandVerifier(
+            "pytest -q",
+            cwd=str(tmp_path),
+            runner=_runner(1, "HARNESS-ERROR: backend is not reachable"),
+        )
+        result = v()
+        assert result.passed is False
+        assert result.status == VERIFY_HARNESS_ERROR
+
+    def test_exec_level_failure_is_harness_error(self, tmp_path):
+        assert classify_verify_status(127, "command not found") == VERIFY_HARNESS_ERROR
+        assert classify_verify_status(-9, "killed") == VERIFY_HARNESS_ERROR
+
+    def test_plain_language_harness_error_is_not_an_explicit_marker(self):
+        assert classify_verify_status(
+            1, "assertion: harness error label should be visible"
+        ) == VERIFY_FEATURE_FAIL
+        assert classify_verify_status(
+            1, "assert expected 'HARNESS-ERROR' in rendered documentation"
+        ) == VERIFY_FEATURE_FAIL
+
+    def test_explicit_marker_overrides_zero_exit(self):
+        assert classify_verify_status(0, "HARNESS_ERROR: bootstrap incomplete") == (
+            VERIFY_HARNESS_ERROR
+        )
+
+    def test_marker_before_long_output_is_classified_before_truncation(self, tmp_path):
+        v = CommandVerifier(
+            "pytest -q",
+            cwd=str(tmp_path),
+            runner=_runner(1, "HARNESS-ERROR: bootstrap failed\n" + "x" * 5000),
+        )
+        assert v().status == VERIFY_HARNESS_ERROR
+
+    def test_os_error_from_runner_is_harness_error(self, tmp_path):
+        def _missing(argv, cwd, timeout):
+            raise FileNotFoundError("pytest")
+
+        result = CommandVerifier("pytest -q", cwd=str(tmp_path), runner=_missing)()
+        assert result.status == VERIFY_HARNESS_ERROR
+        assert "harness failed" in result.output
 
     def test_satisfies_loop_verifier_contract(self, tmp_path):
         # fail once then pass — must drive OrchestratorLoop's self-heal path

@@ -15,6 +15,8 @@ from prax.core.three_step_router import (
     VERIFY_NONE,
     VERIFY_TESTS,
     WorkSignal,
+    normalize_risk_category,
+    risk_requires_approval,
     route,
     verify_strength_of,
 )
@@ -115,3 +117,48 @@ class TestDeclaredComplexity:
     def test_invalid_declaration_falls_back_to_derived(self):
         s = WorkSignal(files_touched=1, declared_complexity="whatever")
         assert s.complexity_level == "SIMPLE"
+
+
+class TestDecisionRiskBrake:
+    def test_redline_overrides_simple_behavioral_autonomy(self):
+        r = route(
+            WorkSignal(
+                verify_strength=VERIFY_BEHAVIORAL,
+                files_touched=1,
+                declared_complexity="simple",
+                risk_category="compliance",
+            )
+        )
+        assert r.step == STEP_SUMMARIZE_VERIFY
+        assert r.requires_approval is True
+        assert r.risk_category == "compliance"
+        assert "风险=compliance" in r.summary()
+
+    def test_mechanical_work_can_still_be_autonomous(self):
+        r = route(
+            WorkSignal(
+                verify_strength=VERIFY_BEHAVIORAL,
+                files_touched=1,
+                risk_category="mechanical",
+            )
+        )
+        assert r.step == STEP_AUTONOMOUS
+        assert r.requires_approval is False
+
+    def test_unknown_nonempty_category_fails_closed(self):
+        r = route(
+            WorkSignal(
+                verify_strength=VERIFY_BEHAVIORAL,
+                files_touched=1,
+                risk_category="new-risk-typo",
+            )
+        )
+        assert r.step == STEP_SUMMARIZE_VERIFY
+        assert r.requires_approval is True
+
+    def test_aliases_normalize_and_only_safe_allowlist_skips_brake(self):
+        assert normalize_risk_category("定价") == "money"
+        assert normalize_risk_category("scope_change") == "scope"
+        assert risk_requires_approval("money") is True
+        assert risk_requires_approval("none") is False
+        assert risk_requires_approval("") is False

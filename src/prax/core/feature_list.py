@@ -13,11 +13,13 @@ Schema — ``.prax/feature_list.json``::
 
     {"features": [
        {"id": "f1", "title": "登录页", "acceptance": "pytest tests/test_login.py",
-        "priority": 1, "status": "pending"}
+        "priority": 1, "status": "pending", "risk_category": "mechanical"}
     ]}
 
 ``status`` ∈ {"pending", "in_progress", "done"}; lower ``priority`` = higher
-priority. All fields but ``id`` are optional. A missing / malformed file yields
+priority. ``risk_category`` must be explicitly curated for execution; a missing
+value loads as ``unspecified`` and therefore hits the fail-closed decision
+brake. Other fields but ``id`` are optional. A missing / malformed file yields
 an empty list (best-effort — never raises into the loop).
 """
 from __future__ import annotations
@@ -38,6 +40,10 @@ class Feature:
     # router — change breadth is unknown before the feature runs, so the plan
     # declares it. Absent → the router defaults conservatively (never 自主循环).
     complexity: str = ""
+    # Explicit decision-risk category consumed by three_step_router. Safe
+    # values are none/mechanical; money/compliance/scope/revenue/production (or
+    # an unknown non-empty value) force a human approval before execution.
+    risk_category: str = "unspecified"
 
     @property
     def done(self) -> bool:
@@ -70,6 +76,7 @@ class FeatureList:
                     priority=prio if isinstance(prio, int) else 100,
                     status=str(item.get("status", "pending")),
                     complexity=str(item.get("complexity", "")),
+                    risk_category=str(item.get("risk_category", "unspecified")),
                 )
             )
         return out
@@ -113,5 +120,8 @@ class FeatureList:
             box = "[x]" if f.done else "[ ]"
             mark = "  ← 本轮推进" if nxt and f.id == nxt.id else ""
             acc = f"（验收：{f.acceptance}）" if f.acceptance and not f.done else ""
-            lines.append(f"- {box} {f.id} {f.title}{acc}{mark}")
+            risk = ""
+            if f.risk_category.strip().lower() not in ("", "none"):
+                risk = f"（风险：{f.risk_category}）"
+            lines.append(f"- {box} {f.id} {f.title}{risk}{acc}{mark}")
         return "\n".join(lines)

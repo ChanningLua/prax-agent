@@ -224,9 +224,11 @@ def load_approval_config(cwd: str | None = None) -> dict | None:
     overrides user). Returns ``{relay_url, admin_token, deny_patterns?,
     notify_channel?}`` or ``None`` when ``relay_url``/``admin_token`` are absent.
 
-    ``None`` means NO production gating — the orchestrator runs fully
-    allow-all (no human in the loop). Gating only switches on when an operator
-    opts in by configuring a relay (see core.approval_policy / remote_approval_client).
+    ``None`` means no text-pattern production gating. Explicit red-line
+    ``risk_category`` features still fail closed as ``approval_unconfigured``;
+    they never silently run just because the relay is missing. Other work runs
+    allow-all until an operator configures a relay (see core.approval_policy /
+    remote_approval_client).
     """
     merged: dict = {}
     paths = [Path.home() / ".prax" / "config.yaml"]

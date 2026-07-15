@@ -2,9 +2,9 @@
 
 Encodes the "三步走" trust gradient of the 三循环×三步走 method: the 外部循环
 (recurring triage) discovers work; this router decides HOW MUCH to let the
-开发者循环 run on it, keyed on OBJECTIVE signals (verification strength + change
-breadth) — never a subjective "feels simple" (that's how everything becomes
-"simple" and verification gets skipped).
+开发者循环 run on it, keyed on OBJECTIVE signals (decision risk + verification
+strength + change breadth) — never a subjective "feels simple" (that's how
+everything becomes "simple" and verification gets skipped).
 
 Three steps (ascending autonomy):
   复杂项目·总结验证 (SUMMARIZE_VERIFY) — agent works, produces a summary, a human
@@ -24,6 +24,12 @@ Why these two axes (evidence):
   • verification tax / DORA: speed without an automatic acceptance gate just
     moves the bottleneck from writing to reviewing → no verifier ⇒ human deep-
     verify (summarize), and autonomy demands the STRONGEST verifier.
+
+Decision-risk brake (evaluated BEFORE those two axes):
+  Money / compliance / scope / revenue / production decisions always require a
+  human decision before execution. ``mechanical`` and ``none`` are the only
+  auto-runnable categories; an unknown non-empty category fails closed so a
+  typo can never silently remove the brake.
 """
 from __future__ import annotations
 
@@ -47,6 +53,62 @@ _VERIFY_NAMES: dict[int, str] = {
 _BEHAVIORAL_HINTS = ("puppeteer", "playwright", "cypress", "e2e", "verify-features", "curl ", ".mjs")
 _TEST_HINTS = ("pytest", "jest", "vitest", "unittest", " test", "test ", "go test", "cargo test")
 _BUILD_HINTS = ("build", "compile", "tsc", "cargo build", "go build")
+
+# Decision-risk categories. The aliases are only normalization for stable state
+# and readable logs; safety is defined by the allowlist in
+# ``risk_requires_approval`` (unknown non-empty values fail closed).
+RISK_NONE = "none"
+RISK_MECHANICAL = "mechanical"
+
+_RISK_ALIASES = {
+    "no-risk": RISK_NONE,
+    "no_risk": RISK_NONE,
+    "safe": RISK_NONE,
+    "mechanic": RISK_MECHANICAL,
+    "money": "money",
+    "finance": "money",
+    "financial": "money",
+    "pricing": "money",
+    "price": "money",
+    "价格": "money",
+    "定价": "money",
+    "compliance": "compliance",
+    "legal": "compliance",
+    "privacy": "compliance",
+    "合规": "compliance",
+    "法务": "compliance",
+    "隐私": "compliance",
+    "scope": "scope",
+    "scope-change": "scope",
+    "范围": "scope",
+    "范围变更": "scope",
+    "revenue": "revenue",
+    "monetization": "revenue",
+    "营收": "revenue",
+    "商业化": "revenue",
+    "production": "production",
+    "prod": "production",
+    "生产": "production",
+    "线上": "production",
+}
+
+
+def normalize_risk_category(value: str) -> str:
+    """Return a stable risk category for routing, state, and relay prompts."""
+    raw = (value or "").strip().lower().replace("_", "-")
+    if not raw:
+        return RISK_NONE
+    return _RISK_ALIASES.get(raw, raw)
+
+
+def risk_requires_approval(value: str) -> bool:
+    """Whether ``value`` must hit the human decision brake.
+
+    This is intentionally an allowlist, not a denylist: only an explicit
+    no-risk/mechanical declaration may run without the category brake. Unknown
+    non-empty categories park for a human instead of silently widening autonomy.
+    """
+    return normalize_risk_category(value) not in {RISK_NONE, RISK_MECHANICAL}
 
 
 def verify_strength_of(command: str) -> int:
@@ -90,6 +152,10 @@ class WorkSignal:
     # breadth is unknown BEFORE a task runs, so a plan (feature_list) can declare
     # it; when set it wins over the derived score. Absent → derive from breadth.
     declared_complexity: str = ""
+    # Decision type is a first-class safety axis. Examples: money, compliance,
+    # scope, revenue, production. ``none`` / ``mechanical`` are safe; any other
+    # non-empty value is fail-closed and requires a human approval before work.
+    risk_category: str = RISK_NONE
 
     @property
     def complexity(self) -> int:
@@ -131,11 +197,14 @@ class Routing:
     reason: str
     complexity_level: str
     verify_name: str
+    risk_category: str = RISK_NONE
+    requires_approval: bool = False
 
     def summary(self) -> str:
         return (
             f"三步走 → {self.step}"
-            f"（复杂度={self.complexity_level}, 验收={self.verify_name}）：{self.reason}"
+            f"（风险={self.risk_category}, 复杂度={self.complexity_level}, "
+            f"验收={self.verify_name}）：{self.reason}"
         )
 
 
@@ -146,26 +215,60 @@ def route(signal: WorkSignal) -> Routing:
     step only when every safety condition holds."""
     lvl = signal.complexity_level
     vname = _VERIFY_NAMES[signal.verify_strength]
+    risk = normalize_risk_category(signal.risk_category)
+
+    # Rule 0 — deterministic decision brake. Red-line categories are not a
+    # softer "review later" signal: they park at the approval relay BEFORE the
+    # executor runs. Unknown non-empty categories fail closed here as well.
+    if risk_requires_approval(risk):
+        return Routing(
+            STEP_SUMMARIZE_VERIFY,
+            f"风险类别 {risk} 命中决策红线 → 执行前必须人工批准",
+            lvl,
+            vname,
+            risk_category=risk,
+            requires_approval=True,
+        )
 
     # Rule 1 — no automated acceptance: the agent CANNOT self-verify, so a human
     # must. Summarize for deep human verification regardless of size.
     if signal.verify_strength == VERIFY_NONE:
         return Routing(
-            STEP_SUMMARIZE_VERIFY, "无自动验收，agent 无法自证 → 人必须深度验证", lvl, vname
+            STEP_SUMMARIZE_VERIFY,
+            "无自动验收，agent 无法自证 → 人必须深度验证",
+            lvl,
+            vname,
+            risk_category=risk,
         )
 
     # Rule 2 — complex work: even with a verifier, ~45% success on real multi-
     # file/cross-language work → never unattended; agent summarizes, human verifies.
     if lvl == "COMPLEX":
         return Routing(
-            STEP_SUMMARIZE_VERIFY, "复杂项目（多文件/跨仓/跨语言/需设计）→ 总结验证", lvl, vname
+            STEP_SUMMARIZE_VERIFY,
+            "复杂项目（多文件/跨仓/跨语言/需设计）→ 总结验证",
+            lvl,
+            vname,
+            risk_category=risk,
         )
 
     # Rule 3 — autonomy: only simple work WITH a behavioral verifier strong
     # enough to BE the gate. The only path to no-human-in-loop.
     if lvl == "SIMPLE" and signal.verify_strength >= VERIFY_BEHAVIORAL:
-        return Routing(STEP_AUTONOMOUS, "简单 + 行为级验收（够强当门）→ 自主循环", lvl, vname)
+        return Routing(
+            STEP_AUTONOMOUS,
+            "简单 + 行为级验收（够强当门）→ 自主循环",
+            lvl,
+            vname,
+            risk_category=risk,
+        )
 
     # Rule 4 — everything else (moderate complexity, or verifier only build/
     # tests): agent works, human spot-checks the result (PR review).
-    return Routing(STEP_HUMAN_CHECK, "有验收但未达自主门槛 → 人 check 结果（PR 抽查）", lvl, vname)
+    return Routing(
+        STEP_HUMAN_CHECK,
+        "有验收但未达自主门槛 → 人 check 结果（PR 抽查）",
+        lvl,
+        vname,
+        risk_category=risk,
+    )

@@ -75,10 +75,41 @@ class TestBuildRelayGate:
             got["notify"] = notify
             return "pending"
 
-        sentinel = lambda t, b: None
+        def sentinel(title, body):
+            return None
+
         gate = build_relay_gate(
             relay_url="u", admin_token="t", approval_id="r",
             notify=sentinel, check=fake_check,
         )
         gate("部署到生产")
         assert got["notify"] is sentinel
+
+    def test_explicit_category_brake_forces_nonprod_goal_to_relay(self):
+        seen = []
+        gate = build_relay_gate(
+            relay_url="u", admin_token="t", approval_id="risk-1",
+            check=lambda *a, **k: seen.append(a) or "pending",
+        )
+        assert gate("实现功能 f1", required=True) == "pending"
+        assert seen[0][2] == "risk-1"
+
+    def test_required_false_keeps_normal_autoapprove_behavior(self):
+        calls = []
+        gate = build_relay_gate(
+            relay_url="u", admin_token="t", approval_id="r",
+            check=lambda *a, **k: calls.append(a) or "pending",
+        )
+        assert gate("普通任务", required=False) == "approved"
+        assert calls == []
+
+    def test_feature_can_override_approval_id(self):
+        seen = []
+        gate = build_relay_gate(
+            relay_url="u", admin_token="t", approval_id="run-1",
+            check=lambda *a, **k: seen.append(a) or "pending",
+        )
+        assert gate(
+            "调整价格", required=True, approval_id_override="run-1-f7"
+        ) == "pending"
+        assert seen[0][2] == "run-1-f7"

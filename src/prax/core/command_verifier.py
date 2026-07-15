@@ -3,8 +3,9 @@
 OrchestratorLoop takes a sync ``verifier() -> VerifyResult``. This adapter runs
 a repository-local verification command (``pytest -q``, ``npm test``, ...),
 reusing prax's existing allowlist (:func:`parse_verify_command`) so the verifier
-can never run arbitrary shell, and maps the exit code to a VerifyResult:
-**non-zero exit == failure** (borrowed from Aider's "exit code is the signal").
+can never run arbitrary shell, and maps the result to a three-state verdict:
+PASS / FEATURE-FAIL / HARNESS-ERROR. A timeout, missing executable, signal, or
+explicit ``HARNESS-ERROR`` marker is infrastructure trouble, not a product bug.
 
 The subprocess runner is injectable so the mapping logic is unit-testable
 without spawning a real (nested) test process.
@@ -12,6 +13,7 @@ without spawning a real (nested) test process.
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -20,7 +22,12 @@ from pathlib import Path
 from typing import Callable
 
 from ..tools.verify_command import parse_verify_command
-from .orchestrator_loop import VerifyResult
+from .orchestrator_loop import (
+    VERIFY_FEATURE_FAIL,
+    VERIFY_HARNESS_ERROR,
+    VERIFY_PASS,
+    VerifyResult,
+)
 from .subprocess_env import child_env
 
 # (argv, cwd, timeout) -> (returncode, combined_output)
@@ -32,6 +39,32 @@ _MAX_OUTPUT_CHARS = 4000
 # verifier always runs via execve (no shell), so these could only be a mistake
 # or an injection attempt.
 _SHELL_TOKENS = {"&&", "||", ";", "|", ">", ">>", "<", "`"}
+
+_HARNESS_ERROR_MARKER = re.compile(
+    r"^\s*HARNESS(?:-|_)ERROR(?:\s*:|\s*$)",
+    flags=re.IGNORECASE | re.MULTILINE,
+)
+
+
+def classify_verify_status(returncode: int, output: str) -> str:
+    """Map a process result to the verifier's deterministic three-state contract.
+
+    Feature checks normally use exit 1 (or another ordinary non-zero code).
+    Harness scripts can mark an environment/setup failure explicitly in output;
+    exec-level failures (126/127 or a terminating signal) are always harness
+    errors. Keeping the marker explicit avoids broad string heuristics that
+    would recreate the false-positive/false-negative problem this contract is
+    meant to solve.
+    """
+    # The marker is a line-level protocol, not a broad substring heuristic:
+    # failing assertions may legitimately mention the literal marker text.
+    if _HARNESS_ERROR_MARKER.search(output or ""):
+        return VERIFY_HARNESS_ERROR
+    if returncode == 0:
+        return VERIFY_PASS
+    if returncode < 0 or returncode in (126, 127):
+        return VERIFY_HARNESS_ERROR
+    return VERIFY_FEATURE_FAIL
 
 
 def resolve_repo_script(command: str, cwd: str) -> list[str]:
@@ -131,12 +164,27 @@ class CommandVerifier:
             return VerifyResult(
                 passed=False,
                 output=f"verification timed out after {self._timeout}s",
+                status=VERIFY_HARNESS_ERROR,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return VerifyResult(
+                passed=False,
+                output=f"verification harness failed: {exc}",
+                status=VERIFY_HARNESS_ERROR,
             )
 
+        # Classify the complete process output before bounding what is retained
+        # in the journal. Otherwise an explicit marker near the beginning of a
+        # long log would disappear and be misreported as a product failure.
         output = output or "(no output)"
+        status = classify_verify_status(returncode, output)
         if len(output) > _MAX_OUTPUT_CHARS:
             output = output[-_MAX_OUTPUT_CHARS:]
 
-        if returncode != 0:
-            return VerifyResult(passed=False, output=f"{output}\nExit code: {returncode}")
-        return VerifyResult(passed=True, output=output)
+        if status != VERIFY_PASS:
+            return VerifyResult(
+                passed=False,
+                output=f"{output}\nExit code: {returncode}",
+                status=status,
+            )
+        return VerifyResult(passed=True, output=output, status=VERIFY_PASS)

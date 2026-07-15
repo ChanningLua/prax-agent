@@ -65,3 +65,15 @@ class TestFeatureList:
     def test_items_without_id_are_skipped(self, tmp_path):
         _write(tmp_path, {"features": [{"title": "no id"}, {"id": "ok"}]})
         assert [f.id for f in FeatureList(str(tmp_path)).load()] == ["ok"]
+
+    def test_risk_category_roundtrips_into_feature_and_prompt(self, tmp_path):
+        _write(tmp_path, {"features": [
+            {"id": "f1", "title": "改价格", "risk_category": "money"},
+        ]})
+        fl = FeatureList(str(tmp_path))
+        assert fl.load()[0].risk_category == "money"
+        assert "风险：money" in fl.format_for_prompt()
+
+    def test_missing_risk_category_is_unspecified_and_will_fail_closed(self, tmp_path):
+        _write(tmp_path, {"features": [{"id": "f1"}]})
+        assert FeatureList(str(tmp_path)).load()[0].risk_category == "unspecified"
