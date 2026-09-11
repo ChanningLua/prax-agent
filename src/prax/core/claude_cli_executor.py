@@ -34,7 +34,7 @@ class ClaudeCliExecutor:
         *,
         session_id: str | None = None,
         model: str | None = None,
-        permission_mode: str = "bypassPermissions",
+        permission_mode: str = "dontAsk",
         cwd: str | None = None,
         on_text: Callable[[str], None] | None = None,
     ) -> ExecutionResult:
@@ -67,6 +67,11 @@ class ClaudeCliExecutor:
 
         assert proc.stdin is not None
         assert proc.stdout is not None
+        assert proc.stderr is not None
+
+        # Drain stderr concurrently: a full stderr pipe must not block stdout
+        # or masquerade as a hung model. Keep only a bounded diagnostic tail.
+        stderr_task = asyncio.create_task(self._stderr_tail(proc.stderr))
 
         proc.stdin.write(prompt.encode())
         await proc.stdin.drain()
@@ -78,14 +83,17 @@ class ClaudeCliExecutor:
         result_cost: float | None = None
         tool_calls: list[dict[str, Any]] = []
         seen_tool_call_ids: set[str] = set()
+        protocol_error: str | None = None
 
         async for raw_line in self._iter_stdout_lines(proc.stdout):
-            line = raw_line.decode().strip()
+            line = raw_line.decode(errors="replace").strip()
             if not line:
                 continue
             try:
                 event = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
                 continue
 
             etype = event.get("type", "")
@@ -124,6 +132,8 @@ class ClaudeCliExecutor:
 
             elif etype == "result":
                 # final result event
+                if event.get("is_error") or str(event.get("subtype", "")).startswith("error"):
+                    protocol_error = str(event.get("errors") or event.get("result") or event.get("subtype"))
                 result_text = event.get("result", "")
                 if result_text and not collected_text:
                     collected_text.append(result_text)
@@ -134,7 +144,15 @@ class ClaudeCliExecutor:
             elif etype == "system" and event.get("subtype") == "init":
                 result_session_id = event.get("session_id", result_session_id)
 
-        await proc.wait()
+            elif etype == "error":
+                protocol_error = str(event.get("error") or event.get("message") or event)
+
+        code = await proc.wait()
+        stderr = (await stderr_task).decode(errors="replace").strip()
+        if code:
+            raise RuntimeError(f"claude exited {code}: {(stderr or protocol_error or 'no subprocess output')[-4000:]}")
+        if protocol_error:
+            raise RuntimeError(f"claude reported an error: {protocol_error[-4000:]}")
 
         return ExecutionResult(
             text="".join(collected_text),
@@ -143,6 +161,13 @@ class ClaudeCliExecutor:
             tool_calls=tool_calls,
             cost_usd=result_cost,
         )
+
+    @staticmethod
+    async def _stderr_tail(stderr: Any) -> bytes:
+        tail = b""
+        while chunk := await stderr.read(65536):
+            tail = (tail + chunk)[-4000:]
+        return tail
 
     async def _iter_stdout_lines(self, stdout: Any) -> Any:
         """Yield newline-delimited stdout records without StreamReader line limits."""

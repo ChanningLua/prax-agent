@@ -10,6 +10,15 @@ from .settings import backup_settings, build_managed_settings, load_settings, me
 from .state import ClaudeInstallState, SCHEMA_VERSION, append_history, default_target_root, now_iso, save_install_state
 
 
+def _remove_legacy_assets(root: Path) -> None:
+    """Remove Prax-owned paths superseded by renamed product surfaces."""
+    legacy_skill = root / "skills" / "prax-7x24"
+    if legacy_skill.exists():
+        import shutil
+
+        shutil.rmtree(legacy_skill)
+
+
 def install_claude_integration(
     *,
     target_root: str | None = None,
@@ -29,6 +38,8 @@ def install_claude_integration(
         existing_state = load_install_state(root)
 
     resolved_assets = resolve_claude_assets(profile=profile)
+    if not dry_run:
+        _remove_legacy_assets(root)
     for asset in resolved_assets:
         if dry_run:
             continue

@@ -1,6 +1,9 @@
-# 7×24 Orchestrator — 按 loop-engineering 方案落地
+# Prax Shift v2 — 历史设计记录
 
-> **方案来源**：直接采用 `loop-engineering` 开源项目的既定方案，不自造框架。prax 的角色 = 他们 primitives-matrix 里的"**无 `loop-init` 支持的 CLI 宿主**"（同 Aider / Cursor / Windsurf 行）：照他们文档的**手工迁移配方**——复制他们的 `SKILL.md` + 状态/预算/日志产物，把调度映射到 prax 自己的 `cron`/`orchestrate`。
+> 此文件保留原始路线讨论，不是当前操作说明；其中命令、能力状态和
+> 待办判断可能已被后续实现替代。当前契约见 [Shift 规范](../prax-shift-spec.md)。
+
+> **方案来源**：直接采用 `loop-engineering` 开源项目的既定方案，不自造框架。prax 的角色 = 他们 primitives-matrix 里的"**无 `loop-init` 支持的 CLI 宿主**"（同 Aider / Cursor / Windsurf 行）：照他们文档的**手工迁移配方**——复制他们的 `SKILL.md` + 状态/预算/日志产物，把调度映射到 Prax 自己的 `cron`/`shift`。
 
 | 元信息 | 值 |
 |---|---|
@@ -24,7 +27,7 @@
 6. **读输出、提交 state**——你仍是工程师（`QUICKSTART.md:97-101`）。
 7. **毕业**：周一 → L1(~40+)；周二 → 加 verifier、worktree 里试一个 assisted fix(L2)；上 L3 前 → budget+run-log 填好、LOOP.md human gates、有证明过的运行（`QUICKSTART.md:105-109`）。
 
-**关键区分（`primitives-matrix.md:8,83-85`）**：**Loop** 发现"持续性工作"（recurring triage）；**Goal**（run-until-done / `/goal`）完成"有界任务"。—— prax 现有的 `orchestrate --verify` 是 **Goal**，不是 Loop。这解释了 v1 为什么"效果差"：**我们只有 Goal 层，没有 Loop 层（triage + STATE 纪律 + report-only 爬坡）**。
+**关键区分（`primitives-matrix.md:8,83-85`）**：**Loop** 发现"持续性工作"（recurring triage）；**Goal**（run-until-done / `/goal`）完成"有界任务"。—— Prax Shift 的 `shift --verify` 是 **Goal**，不是 Loop。这解释了 v1 为什么"效果差"：**我们只有 Goal 层，没有 Loop 层（triage + STATE 纪律 + report-only 爬坡）**。
 
 ---
 
@@ -34,8 +37,9 @@
 
 | 原语（他们） | 他们的做法 | prax 承载 | 状态 |
 |---|---|---|---|
-| **Scheduling** | cron/systemd/Action 定时跑一次性 session | `cron`(run_mode:orchestrate) `cron.py:98` | ✅ |
-| **Run-until-done (Goal)** | `/goal` + verifier 判停 | `orchestrate --verify`（loop-until-verified） | ✅ 已有 |
+| **Scheduling** | cron/systemd/Action 定时跑一次性 session | `cron`（对外 `run_mode:shift`，内部兼容 `orchestrate`） | ✅ |
+| **Run-until-done (Goal)** | `/goal` + verifier 判停 | `shift --verify`（loop-until-verified） | ✅ 已有 |
+| **Agent host** | 宿主只是可替换 worker | `--agent-host claude/codex/auto` | ✅ Claude + Codex |
 | **Loop (recurring triage)** | `loop-triage` skill → `STATE.md`，不改码 | —— | 🔨 **核心缺口** |
 | **Worktrees** | 每个 implementer 一个 `git worktree` | 编排路径无 isolation | 🔨（L2 才需要） |
 | **Skills** | `SKILL.md` 作为只读上下文 | **docs-harness `insight`/`read`** ✅ + 他们的 `templates/SKILL.md.*` 📋 | ✅/📋 |
@@ -52,12 +56,12 @@
 
 ### L1 — Report-only（week 1–2）
 - **做**：选首个低风险 pattern（§7 待定）；scaffold §4 产物；prax `cron` 定时跑 `loop-triage` → 写 `STATE.md`；**绝不改码/不 auto-merge**。
-- **prax 工作量**：把 `loop-triage` skill 接进 `orchestrate` 的 compose（`ContextComposer` 已有注入点）；`orchestrate` 无 verifier 时本就"跑一步即停"，**这正好是 report-only 语义**（不是 bug，是 L1）。
+- **prax 工作量**：把 `loop-triage` skill 接进 `shift` 的 compose（`ContextComposer` 已有注入点）；`shift` 无 verifier 时本就"跑一步即停"，**这正好是 report-only 语义**（不是 bug，是 L1）。
 - **毕业**：`loop-audit ~40+`；High Priority 噪声 <20%（`l1-to-l2-graduation.md:31`）。
 
 ### L2 — Assisted（week 3+）
 - **做**：加 `minimal-fix` + `loop-verifier`（**独立 reviewer session**，抄 `templates/SKILL.md.verifier`）；worktree 隔离；**attempt cap ≤3 → escalate**；只小赢。
-- **prax 工作量**：`orchestrate --verify` 已提供 loop-until-verified + stuck 检测（= attempt cap 雏形）；把 verifier 从"命令"扩到"reviewer sub-agent"（复用 `.prax/agents`）。
+- **prax 工作量**：`shift --verify` 已提供 loop-until-verified + stuck 检测（= attempt cap 雏形）；把 verifier 从"命令"扩到"reviewer sub-agent"（复用 `.prax/agents`）。
 - **毕业**：verifier+worktree 在**手动**修上验证过；denylist + 测试命令入 `AGENTS.md`；`loop-audit ≥58`（`l1-to-l2-graduation.md:30-33`）。
 
 ### L3 — Unattended
@@ -88,7 +92,8 @@
 
 ## §5 docs-harness 的定位（收敛）
 
-- docs-harness = **Skills 原语的实现**：`insight`/`read` 在每步给 `claude -p` 注入权威文档（偿还 intent debt）——这是它在本方案里的**主职**。
+- docs-harness = **Skills 原语的实现**：`insight`/`read` 在每步给所选
+  Claude/Codex worker 注入权威文档（偿还 intent debt）——这是它在本方案里的**主职**。
 - 它的 `schedule-document-quality-maintenance` = 未来 fleet 里的**一条 pattern**（自带 `validate` 当 verifier、signals 当队列，风险低，适合当 L1 首发候选之一）。
 - 它的 `signal 流 ↔ 升级队列`字段级对接（原 B 分析）= **只有当 docs-quality pattern 毕业到 L2** 才需要的细节 → 降级到**附录 A**，不进主线。
 
@@ -102,8 +107,34 @@
 | 2 scaffold | 手工 `cp` §4 的 `templates/*` 到目标仓库（prax 无 `loop-init --tool prax`，走手工迁移配方 `primitives-matrix.md:99-103`） |
 | 3 cost | `npx @cobusgreyling/loop-cost --pattern <id> --level L1`（他们的工具，直接用） |
 | 4 audit | `npx @cobusgreyling/loop-audit . --suggest`（打分、看差距） |
-| 5 run report-only | `prax cron add`（run_mode:orchestrate）定时跑："Run loop-triage. Read STATE.md. Update High Priority/Watch/Noise. **Do not edit code.**" |
+| 5 run report-only | `prax cron add`（run_mode:shift）定时跑："Run loop-triage. Read STATE.md. Update High Priority/Watch/Noise. **Do not edit code.**" |
 | 6 read/commit | 人读 `STATE.md`，提交 scaffold + 首轮更新 |
+
+---
+
+## §6.1 Claude / Codex 宿主契约
+
+Prax 拥有外层 loop、RunJournal、ContextComposer、验收三态、审批与停止条件；
+Claude/Codex 只实现同一个 step executor 协议：
+
+| 宿主 | 非交互协议 | 默认权限 | 持久状态 |
+|---|---|---|---|
+| Claude | `claude -p --output-format stream-json` | 既有 Claude 策略 | Prax journal，不依赖长会话 |
+| Codex | `codex exec --json --sandbox workspace-write` | `workspace-write`，永不自动 `--yolo` | Prax journal；默认每 step 新上下文 |
+
+```bash
+prax shift "<goal>" --agent-host codex --verify "pytest -q"
+
+prax cron add \
+  --name nightly-goal \
+  --schedule "0 1 * * *" \
+  --run-mode shift \
+  --agent-host codex \
+  --prompt "<bounded goal>"
+```
+
+`auto` 为兼容旧行为优先 Claude，再回退 Codex；长期调度应显式固定宿主。
+Codex 个人插件只提供发现和操作契约，安装插件不会自动安装系统调度器。
 
 ---
 
@@ -156,6 +187,6 @@ Autism 真后端验证暴露了两个会直接破坏无人值守可信度的问�
 ## 附录 B — C 抄清单（映射到 §3 各级，随 pattern 毕业逐步落）
 
 - **maker/checker（→L2）**：抄 `SKILL.md.verifier` verdict 三态 + 默认 REJECT + 自跑测试；prax 复用 `.prax/agents/code-reviewer`、`approval_gate` 三态。
-- **控制面（→L3）**：抄 `loop-budget.md`(caps/80%→report-only/100%→退) + `loop-run-log.md`(8 字段) + `loop-pause-all`；prax 复用 `claude_step_executor` 的 per-step `cost_usd`（已采未累计）+ `governance` budget 语义。
+- **控制面（→L3）**：抄 `loop-budget.md`(caps/80%→report-only/100%→退) + `loop-run-log.md`(8 字段) + `loop-pause-all`；Claude 可复用 per-step
+  `cost_usd`，Codex 当前记录 token usage，统一接入 `governance` budget 语义。
 - **机队/multi-loop（→后置）**：抄 `multi-loop.md` 优先级表 + `acting_on` 撞车检测 + 每 pattern 一状态文件。
-</content>

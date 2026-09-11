@@ -2,7 +2,7 @@
 
 # Prax
 
-**Self-improving agent runtime that learns from experience and drives LLM agents through test-verify-fix loops**
+**Keep coding agents working inside a truthful, bounded, and verifiable engineering environment**
 
 <br>
 
@@ -18,6 +18,10 @@
 ---
 
 ## Quick Start
+
+For repository engineering with frozen task contracts, bounded workers, and
+independent acceptance, use the [repository harness](docs/repository-harness.md).
+Project policy stays in the repository; the Prax runtime remains reusable.
 
 **Goal**: install Prax, configure an AI key, run your first task — in under 5 minutes. No programming background required.
 
@@ -172,7 +176,7 @@ Pick a role-matched walkthrough to see a real-world pipeline end-to-end:
 
 All five tutorials start with sample data — no external API or real PR needed to follow along.
 
-### Way 2 · Inside Claude Code IDE
+### Way 2 · Inside Claude Code
 
 If you use [Claude Code](https://claude.com/claude-code) and want Prax's skills, commands, and verification hooks available inside the IDE:
 
@@ -188,11 +192,39 @@ Verify:
 prax doctor --target claude
 ```
 
-Now reopen your project in Claude Code. You'll see new `/prax-status`, `/prax-doctor`, `/prax-plan`, `/prax-verify` slash commands, the `prax-planner` agent, and Prax's rules automatically applied.
+Now reopen your project in Claude Code. You'll see `/prax-shift` alongside
+`/prax-status`, `/prax-doctor`, `/prax-plan`, and `/prax-verify`, plus the
+`prax-planner` agent and Prax's automatically applied rules.
 
 To undo: `prax uninstall --target claude`.
 
-> **Note**: `prax install` only ships a Claude Code integration today. Any LLM you configure via Step 3 still works as Prax's backend regardless of IDE choice. A skill-export path for additional IDE/CLI hosts is on the roadmap.
+### Way 3 · Inside Codex
+
+For a project-scoped repository skill (not a user-global plugin):
+
+```bash
+prax install --target codex --local
+prax doctor --target codex
+```
+
+This manages only `.codex/skills/prax-shift` and `.prax/codex-install.json`.
+It does not write `.agents/skills`, user plugin configuration, or marketplaces.
+Inside a repository, doctor checks the project instance, content version and
+isolated native discovery; a healthy old global plugin cannot hide missing
+local assets. See [project installation and diagnosis](docs/codex-project-install.md).
+
+For an explicitly requested user-global personal plugin:
+
+```bash
+prax install --target codex
+prax doctor --target codex --global
+```
+
+Start a new Codex task after installation. Invoke `prax-shift` from the slash
+menu or type `$prax-shift`. It can accept a bounded handoff, report evidence,
+continue a run, or create a recurring schedule when explicitly requested.
+
+To undo: `prax uninstall --target codex`.
 
 ### One-liner for experienced users
 
@@ -211,7 +243,19 @@ prax prompt "run pytest -q, fix the failure, and stop when tests pass"
 
 ## Why Prax
 
-**Prax isn't just another LLM wrapper — it's a production-grade agent runtime built for real repository work.**
+**Prax is not another model-specific agent wrapper—it is the Environment Runtime between coding agents and real repositories.**
+
+### Core principle: humans decide at the boundaries; agents keep working in between
+
+Prax combines **HITL (Human in the Loop)** and **AFK (Away From Keyboard)** as an adaptive autonomy model. Humans define intent, boundaries, and acceptance criteria; agents keep executing and verifying inside a controlled environment. When risk, ambiguity, insufficient evidence, or an unhealthy environment appears, the run parks for human judgment and later resumes from durable state.
+
+> **Prax = Environment Runtime + Adaptive Autonomy Controller + Evidence Plane**
+
+**Where agents work · When humans decide · How outcomes are proved.**
+
+> **Reliable Autonomy = Truthful State × Bounded Action × Verifiable Outcome**
+
+The model reasons and acts. Prax keeps state truthful, actions bounded, feedback reliable, runs resumable, and outcomes evidence-backed. Its operating principle is simple: **HITL at decisions, AFK in execution**. Read the full [Prax Core Principles](./docs/CORE-PRINCIPLES.md).
 
 <p align="center">
   <img src="./docs/assets/capabilities.svg" alt="Agent Capabilities" width="800">
@@ -399,21 +443,53 @@ prax cron install
 
 See [docs/recipes/ai-news-daily.md](./docs/recipes/ai-news-daily.md) for the full AI-news-automation recipe.
 
-### Unattended goal loops — `prax orchestrate` (new in 1.0)
+### Prax Shift — hand off the work, not the control
 
-`prax orchestrate` is the 7×24 outer loop: give it a goal **and a verifier**, and it
-drives a black-box executor (`claude -p`) through compose → execute → verify →
-self-heal until the verifier passes, the iteration budget runs out, or it gets
-stuck — then stops with a clear, distinguishable reason. Pair it with `cron`/`notify`
-for hands-off overnight work.
+Prax Shift is one Prax operating mode, not the whole product. Its recommended
+task path shares the repository harness: frozen intent → preflight acceptance
+→ bounded worker → independent verification → evidence or human handoff.
+Prepare `.prax/task.json` with the goal, scope, verifier and total budget;
+`.prax/harness.json` freezes `worker: codex` or `claude`. The bundled skill can
+prepare these files from a bounded handoff.
+
+The commands below are for `code-check` coding work. For tests without repairs,
+use [one-shot verification](docs/verification-tasks.md): delegate to the project's
+existing test entry once, require current authorization and structured evidence,
+and stop without a coding worker, retry, resume, or recurring schedule.
 
 ```bash
-prax orchestrate "migrate the config loader to pydantic v2" \
-  --verify "pytest -q" \        # the authoritative done-signal (no verifier → ONE unchecked step)
-  --max-iterations 6 \          # self-heal budget; each failure is fed back into the next turn
-  --stuck-after 3 \             # stop early if the same failure repeats (stop_reason stuck_no_progress)
-  --notify ops                  # ping a notify.yaml channel when a window ends needing a human
+prax shift plan --task .prax/task.json
+prax shift run --task .prax/task.json
+prax shift status --run-id <task-id>
+prax shift pause --run-id <task-id>
+prax shift resume --run-id <task-id>
 ```
+
+Only when recurring execution is explicitly wanted, schedule the same task:
+
+```bash
+prax cron add \
+  --name nightly-config-migration \
+  --schedule "0 1 * * *" \
+  --run-mode shift \
+  --task .prax/task.json
+prax cron install
+```
+
+Scheduled resumes cannot unpause or replenish a task's budget. Only a matching
+`PASS` with `verified=true` and exit 0 counts as success. Identity drift rejects
+reuse, repository locks prevent overlapping cooperating tasks, and a process
+supervisor bounds the worker's wall time. Codex defaults to `workspace-write`;
+Claude uses `dontAsk`, which denies unapproved operations but is not an OS sandbox.
+
+See the [closed-loop guide](docs/recipes/shift-closed-loop.md) and
+[runtime contract](docs/repository-harness.md). Installation does not activate
+a daemon or prove live Claude/Codex execution.
+
+**Compatibility mode:** `prax shift "goal" --verify ...` and `--features` remain
+available, with the legacy behavior below. They do **not** inherit all task-mode
+identity, repository-lock, or wall-supervisor guarantees. Legacy prompt-only
+Shift cron jobs must migrate to `--task`; ordinary prompt cron jobs are unchanged.
 
 - **Verifier** is an allowlisted test runner (`pytest`, `npm test`, `cargo test`, …) **or**
   a repo-local script: `--verify "./scripts/verify.sh"` (relative, inside the repo, executable —
@@ -423,7 +499,7 @@ prax orchestrate "migrate the config loader to pydantic v2" \
   explicit `HARNESS-ERROR` marker parks the window without blaming the feature or
   consuming its cross-window retry budget.
 - **Terminal states**: `verified` · `max_iterations` · `stuck_no_progress` · `harness_error` ·
-  `executor_error` (a `claude -p` crash is journalled + retried with backoff, never a naked
+  `executor_error` (a Claude/Codex worker crash is journalled + retried with backoff, never a naked
   traceback) · `awaiting_approval` / `approval_rejected` (production-affecting goals gate
   through the approval relay before any work is dispatched) · `approval_unconfigured`
   (an explicit red-line feature was fail-closed because no relay is configured).
@@ -436,7 +512,7 @@ prax orchestrate "migrate the config loader to pydantic v2" \
 
 **Feature mode (`--features`)** — for a multi-feature plan, drop a
 `.prax/feature_list.json` (each item carries its own acceptance and an explicit
-`risk_category`) and run `prax orchestrate --features` (no goal needed). The
+`risk_category`) and run `prax shift --features` (no goal needed). The
 loop advances the highest-priority unfinished feature, marks it `done` **only**
 when verified, then moves to the next — stopping at the first feature it can't
 verify (rather than thrashing the rest). Done status persists, so a crashed /
@@ -462,7 +538,7 @@ feature uses the stable approval ID `<run-id>-<feature-id>`, so approval of one
 feature cannot authorize another and a resumed feature polls its original decision.
 
 ```bash
-prax orchestrate --features --max-features 3 --notify ops
+prax shift --features --max-features 3 --notify ops
 ```
 
 ### Bundled Skills
@@ -519,15 +595,15 @@ Benchmark methodology: 10 repeated rounds on real repository-fix tasks with sess
 
 ## Integration Paths
 
-Prax offers two runtime paths — choose the right tool for the job:
+Prax separates its control plane from the model-specific worker:
 
-| Feature | Native Runtime | Claude Code Integration |
-|---------|---------------|------------------------|
-| Execution | CLI commands | Claude Code IDE |
-| Interaction | Command-line REPL | IDE conversation interface |
-| Context Management | Local JSON/SQLite | Claude Code sessions |
-| Tool Integration | 25+ built-in tools | Claude Code tools + Prax extensions |
-| Use Cases | Automation, CI/CD | Interactive development, code review |
+| Feature | Native Runtime | Claude Code | Codex |
+|---------|----------------|-------------|-------|
+| Execution | CLI commands | Claude Code | Codex |
+| Interaction | Command-line REPL | Conversation | Conversation |
+| Shift worker | Direct API | `claude -p` | `codex exec --json` |
+| Tool Integration | 25+ built-in tools | Claude tools + Prax extensions | Codex tools + `prax-shift` skill |
+| Use Cases | Automation, CI/CD | Interactive development, code review | Interactive work, bounded unattended runs |
 
 ### Claude Code Integration Advantages
 
@@ -541,7 +617,8 @@ Prax offers two runtime paths — choose the right tool for the job:
   <img src="./docs/assets/integration-paths.svg" alt="Integration Paths" width="800">
 </p>
 
-> Installation lives under [Way 2 · Inside Claude Code IDE](#way-2--inside-claude-code-ide) above (`prax install --profile full`, then `prax doctor --target claude`).
+> Install Claude assets with `prax install --target claude`, or the Codex plugin
+> with `prax install --target codex`.
 
 ---
 
@@ -620,7 +697,8 @@ Key modules:
 | `core/llm_client.py` | Provider registry, multi-model routing |
 | `agents/` | Ralph (planner), Sisyphus (executor), Team (parallel) |
 | `workflows/` | Task decomposition and orchestration |
-| `commands/orchestrate.py` · `core/orchestrator_loop.py` | `prax orchestrate` 7×24 goal loop — verifier-driven self-heal, stuck detection, crash survival, approval gate |
+| `commands/orchestrate.py` · `core/orchestrator_loop.py` | Prax Shift engine (`prax shift`; `prax orchestrate` compatibility alias) — verifier-driven self-heal, stuck detection, crash survival, approval gate |
+| `core/agent_host.py` · `core/{claude,codex}_step_executor.py` | Replaceable Claude/Codex worker adapters; the loop and evidence contract stay model-independent |
 | `core/command_verifier.py` | Turns a verify command / repo `./script` into PASS / FEATURE-FAIL / HARNESS-ERROR |
 | `core/context_composer.py` | Builds each step: north star + constraints + learned memory + feature board |
 | `core/feature_list.py` · `core/feature_driver.py` | `--features` plan: load/persist feature_list.json, advance one verified item at a time |

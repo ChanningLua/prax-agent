@@ -1,9 +1,11 @@
-"""Unit tests for prax/commands/orchestrate.py + cron orchestrate wiring.
+"""Unit tests for the Prax Shift engine and cron wiring.
 
 The executor/verifier are injected so the command's assembly + run is verified
 without a real `claude -p`.
 """
 from __future__ import annotations
+
+import pytest
 
 from prax.commands.cron import _argv_for_job
 from prax.commands.orchestrate import handle_orchestrate
@@ -484,19 +486,35 @@ class TestCronOrchestrateWiring:
         assert job.run_mode == "prompt"
         assert _argv_for_job(job, prefix=["prax"])[:2] == ["prax", "prompt"]
 
-    def test_orchestrate_run_mode_emits_orchestrate_verb(self):
-        job = CronJob(name="j", schedule="* * * * *", prompt="盯梢一遍", run_mode="orchestrate")
+    def test_orchestrate_storage_mode_emits_shift_verb(self):
+        job = CronJob(name="j", schedule="* * * * *", task_path=".prax/task.json", run_mode="orchestrate")
         argv = _argv_for_job(job, prefix=["prax"])
-        assert argv[:2] == ["prax", "orchestrate"]
-        assert "盯梢一遍" in argv
+        assert argv == ["prax", "shift", "run", "--task", ".prax/task.json", "--resume-existing"]
 
-    def test_orchestrate_run_mode_omits_session_id(self):
+    def test_orchestrate_run_mode_rejects_session_override(self):
         job = CronJob(
-            name="j", schedule="* * * * *", prompt="x",
+            name="j", schedule="* * * * *", task_path=".prax/task.json",
             session_id="abc", run_mode="orchestrate",
         )
-        assert "--session-id" not in _argv_for_job(job, prefix=["prax"])
+        with pytest.raises(ValueError, match="not cron overrides"):
+            _argv_for_job(job, prefix=["prax"])
 
     def test_run_mode_roundtrips_through_dict(self):
-        job = CronJob(name="j", schedule="* * * * *", prompt="x", run_mode="orchestrate")
+        job = CronJob(name="j", schedule="* * * * *", task_path=".prax/task.json", run_mode="orchestrate")
         assert CronJob.from_dict(job.to_dict()).run_mode == "orchestrate"
+
+    def test_orchestrate_run_mode_rejects_agent_host_override(self):
+        job = CronJob(
+            name="j",
+            schedule="* * * * *",
+            task_path=".prax/task.json",
+            run_mode="orchestrate",
+            agent_host="codex",
+        )
+        with pytest.raises(ValueError, match="not cron overrides"):
+            _argv_for_job(job, prefix=["prax"])
+
+    def test_dispatch_cannot_bypass_legacy_migration_check(self):
+        job = CronJob(name="j", schedule="* * * * *", prompt="x", run_mode="orchestrate")
+        with pytest.raises(ValueError, match="require --task"):
+            _argv_for_job(job, prefix=["prax"])

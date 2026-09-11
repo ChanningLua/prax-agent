@@ -33,7 +33,7 @@ class ClaudeStepExecutor:
         cwd: str,
         *,
         model: str | None = None,
-        permission_mode: str = "bypassPermissions",
+        permission_mode: str = "dontAsk",
         cli: Any | None = None,
     ) -> None:
         self._cwd = cwd
@@ -45,7 +45,8 @@ class ClaudeStepExecutor:
         result = asyncio.run(
             self._cli.run(
                 instruction,
-                session_id=session_id,
+                # Continuity is in Prax evidence, not a reused CLI session ID.
+                session_id=None,
                 model=self._model,
                 permission_mode=self._permission_mode,
                 cwd=self._cwd,

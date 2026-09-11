@@ -1,11 +1,46 @@
 """Unit tests for prax.core.claude_cli_executor — subprocess-based Claude CLI execution."""
 
-import asyncio
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from prax.core.claude_cli_executor import ClaudeCliExecutor, ExecutionResult, is_available
+import pytest
+
+from prax.core.claude_cli_executor import ClaudeCliExecutor, is_available
+
+
+def _process():
+    process = MagicMock()
+    process.stdin = MagicMock()
+    process.stdin.drain = AsyncMock()
+    process.stderr.read = AsyncMock(return_value=b"")
+    process.wait = AsyncMock(return_value=0)
+    return process
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("event", [
+    {"type": "result", "is_error": True, "result": "permission denied"},
+    {"type": "result", "subtype": "error_during_execution", "errors": ["permission denied"]},
+    {"type": "error", "message": "permission denied"},
+])
+async def test_protocol_error_is_not_success_even_with_zero_exit(event):
+    process = _process()
+    process.stdout = _async_lines([json.dumps(event)])
+    with patch("asyncio.create_subprocess_exec", return_value=process):
+        with pytest.raises(RuntimeError, match="permission denied"):
+            await ClaudeCliExecutor().run("work")
+
+
+@pytest.mark.asyncio
+async def test_nonzero_exit_raises_and_stderr_is_drained():
+    process = _process()
+    process.wait.return_value = 7
+    process.stdout = _async_lines([])
+    process.stderr.read.side_effect = [b"x" * 100000, b"authentication required", b""]
+    with patch("asyncio.create_subprocess_exec", return_value=process):
+        with pytest.raises(RuntimeError, match="authentication required"):
+            await ClaudeCliExecutor().run("work")
+    assert process.stderr.read.await_count == 3
 
 
 def test_is_available_returns_true_when_claude_binary_exists():
@@ -25,13 +60,11 @@ async def test_run_basic_text_response():
     """run returns ExecutionResult with text from assistant event."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": "Hello"}]}}),
         json.dumps({"type": "result", "result": "", "usage": {"input_tokens": 10, "output_tokens": 5}}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test prompt")
@@ -46,8 +79,7 @@ async def test_run_captures_total_cost_usd():
     """run surfaces the result event's top-level total_cost_usd as cost_usd."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({
             "type": "result",
@@ -56,7 +88,6 @@ async def test_run_captures_total_cost_usd():
             "usage": {"input_tokens": 3391, "output_tokens": 6},
         }),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test prompt")
@@ -70,12 +101,10 @@ async def test_run_with_session_id():
     """run includes --session-id flag when valid UUID provided."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({"type": "result", "result": "done", "session_id": "12345678-1234-1234-1234-123456789abc"}),
     ])
-    mock_proc.wait = AsyncMock()
 
     captured_cmd = None
 
@@ -97,10 +126,8 @@ async def test_run_skips_invalid_session_id():
     """run skips --session-id flag when session_id is not a valid UUID."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([json.dumps({"type": "result", "result": "done"})])
-    mock_proc.wait = AsyncMock()
 
     captured_cmd = None
 
@@ -120,10 +147,8 @@ async def test_run_with_model():
     """run includes --model flag when model starts with 'claude-'."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([json.dumps({"type": "result", "result": "done"})])
-    mock_proc.wait = AsyncMock()
 
     captured_cmd = None
 
@@ -144,10 +169,8 @@ async def test_run_skips_non_claude_model():
     """run skips --model flag when model does not start with 'claude-'."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([json.dumps({"type": "result", "result": "done"})])
-    mock_proc.wait = AsyncMock()
 
     captured_cmd = None
 
@@ -167,10 +190,8 @@ async def test_run_with_permission_mode():
     """run includes --permission-mode flag with specified value."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([json.dumps({"type": "result", "result": "done"})])
-    mock_proc.wait = AsyncMock()
 
     captured_cmd = None
 
@@ -191,10 +212,8 @@ async def test_run_with_cwd():
     """run passes cwd to subprocess."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([json.dumps({"type": "result", "result": "done"})])
-    mock_proc.wait = AsyncMock()
 
     captured_kwargs = None
 
@@ -214,10 +233,8 @@ async def test_run_removes_claudecode_env_var():
     """run removes CLAUDECODE from environment."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([json.dumps({"type": "result", "result": "done"})])
-    mock_proc.wait = AsyncMock()
 
     captured_kwargs = None
 
@@ -238,14 +255,12 @@ async def test_run_calls_on_text_callback():
     """run calls on_text callback for each text chunk."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({"type": "text", "text": "chunk1"}),
         json.dumps({"type": "text", "text": "chunk2"}),
         json.dumps({"type": "result", "result": ""}),
     ])
-    mock_proc.wait = AsyncMock()
 
     on_text = MagicMock()
 
@@ -263,8 +278,7 @@ async def test_run_collects_tool_calls():
     """run collects tool_use blocks into tool_calls list."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({
             "type": "assistant",
@@ -277,7 +291,6 @@ async def test_run_collects_tool_calls():
         }),
         json.dumps({"type": "result", "result": ""}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test")
@@ -294,8 +307,7 @@ async def test_run_deduplicates_tool_calls():
     """run deduplicates tool_use blocks with same ID."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({
             "type": "assistant",
@@ -315,7 +327,6 @@ async def test_run_deduplicates_tool_calls():
         }),
         json.dumps({"type": "result", "result": ""}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test")
@@ -328,8 +339,7 @@ async def test_run_handles_tool_use_without_id():
     """run generates synthetic ID for tool_use blocks without id field."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({
             "type": "assistant",
@@ -341,7 +351,6 @@ async def test_run_handles_tool_use_without_id():
         }),
         json.dumps({"type": "result", "result": ""}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test")
@@ -355,13 +364,11 @@ async def test_run_extracts_session_id_from_system_init():
     """run extracts session_id from system init event."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({"type": "system", "subtype": "init", "session_id": "new-session-123"}),
         json.dumps({"type": "result", "result": "done"}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test")
@@ -374,15 +381,13 @@ async def test_run_skips_invalid_json_lines():
     """run silently skips lines that are not valid JSON."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         "not json",
         json.dumps({"type": "text", "text": "valid"}),
         "also not json",
         json.dumps({"type": "result", "result": ""}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test")
@@ -395,12 +400,10 @@ async def test_run_uses_result_text_when_no_collected_text():
     """run uses result.result field when no text was collected from events."""
     executor = ClaudeCliExecutor()
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _async_lines([
         json.dumps({"type": "result", "result": "fallback text"}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test")
@@ -415,13 +418,11 @@ async def test_run_handles_very_long_json_line_from_stdout():
 
     long_text = "x" * 200000
 
-    mock_proc = MagicMock()
-    mock_proc.stdin = AsyncMock()
+    mock_proc = _process()
     mock_proc.stdout = _chunked_stdout([
         json.dumps({"type": "text", "text": long_text}),
         json.dumps({"type": "result", "result": ""}),
     ])
-    mock_proc.wait = AsyncMock()
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
         result = await executor.run("test")

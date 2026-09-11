@@ -22,12 +22,17 @@ def test_claude_install_lifecycle(tmp_path):
     target_root = tmp_path / ".claude"
     settings_path(target_root).parent.mkdir(parents=True, exist_ok=True)
     settings_path(target_root).write_text(json.dumps({"permissions": {"allow": ["Read"]}}, indent=2), encoding="utf-8")
+    legacy_skill = target_root / "skills" / "prax-7x24"
+    legacy_skill.mkdir(parents=True)
+    (legacy_skill / "SKILL.md").write_text("legacy", encoding="utf-8")
 
     install = install_claude_integration(target_root=str(target_root), profile="developer")
     assert install["target"] == "claude"
     assert install["assets_installed"] > 0
     assert install["profile"] == "developer"
     assert install_state_path(target_root).exists()
+    assert not legacy_skill.exists()
+    assert (target_root / "skills" / "prax-shift" / "SKILL.md").exists()
 
     state = load_install_state(target_root)
     assert state is not None
@@ -118,6 +123,9 @@ def test_openprax_cli_parser_supports_claude_lifecycle():
 
     dry_run_args = parser.parse_args(["list-installed", "--target", "claude", "--json"])
     assert dry_run_args.command == "list-installed"
+
+    codex_args = parser.parse_args(["install", "--target", "codex", "--json"])
+    assert codex_args.target == "codex"
     assert dry_run_args.target == "claude"
 
     history_args = parser.parse_args(["history", "--target", "claude", "--json"])

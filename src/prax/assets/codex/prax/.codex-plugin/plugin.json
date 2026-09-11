@@ -1,0 +1,38 @@
+{
+  "name": "prax",
+  "version": "1.0.0",
+  "description": "Evidence-driven adaptive autonomy runtime for Codex",
+  "author": {
+    "name": "Prax Contributors",
+    "email": "543370794@qq.com",
+    "url": "https://github.com/ChanningLua/prax-agent"
+  },
+  "homepage": "https://github.com/ChanningLua/prax-agent",
+  "repository": "https://github.com/ChanningLua/prax-agent",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "coding-agent",
+    "orchestration",
+    "verification",
+    "shift"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Prax",
+    "shortDescription": "Hand work off without handing over control",
+    "longDescription": "Prax Shift lets Codex keep engineering work moving inside durable state, verification, approval boundaries, and evidence-backed handoffs.",
+    "developerName": "Prax Contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Automation"
+    ],
+    "defaultPrompt": [
+      "Use Prax Shift to run this coding goal until its verifier passes.",
+      "Set up a report-only daily Prax Shift with Codex.",
+      "Inspect the latest Prax Shift and explain its evidence."
+    ]
+  }
+}

@@ -925,6 +925,18 @@ async def _run(
 
 
 def main() -> None:
+    # Contract-backed Shift actions bypass legacy global argument parsing.
+    if len(sys.argv) >= 3 and sys.argv[1] == "shift" and sys.argv[2] in {
+        "plan", "run", "resume", "status", "pause", "--task", "--help", "-h",
+    }:
+        from .commands.shift import main as shift_main
+        raise SystemExit(shift_main(sys.argv[2:]))
+    # Repository harness owns its argument schema and exit-code contract.
+    # Dispatch before legacy global parsing can consume verifier/task flags.
+    if len(sys.argv) >= 2 and sys.argv[1] == "harness":
+        from .repository_harness import main as harness_main
+        raise SystemExit(harness_main(sys.argv[2:]))
+
     # Early exit for version/help commands to avoid triggering Claude CLI bridge
     if len(sys.argv) >= 2 and sys.argv[1] in ("--version", "version", "-v"):
         from prax import __version__
@@ -934,6 +946,8 @@ def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] in ("--help", "help", "-h"):
         print("Usage: prax [command] [options]")
         print("       prax prompt \"read login.py and refactor auth\"")
+        print("       prax shift \"fix the bug\" --verify \"pytest -q\"")
+        print("       prax harness plan|run --task .prax/task.json")
         print("       prax repl --session-id session_xxxxx")
         print("       prax status --session-id session_xxxxx")
         print("       prax cron list | add | remove | run | install | uninstall")
@@ -945,6 +959,8 @@ def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: prax [command] [options]")
         print("       prax prompt \"read login.py and refactor auth\"")
+        print("       prax shift \"fix the bug\" --verify \"pytest -q\"")
+        print("       prax harness plan|run --task .prax/task.json")
         print("       prax repl --session-id session_xxxxx")
         print("       prax status --session-id session_xxxxx")
         print("       prax cron list | add | remove | run | install | uninstall")
@@ -974,7 +990,9 @@ def main() -> None:
         launch_tui(cwd=cwd)
         return
 
-    # Delegate to cli.py for Claude Code integration subcommands
+    # Delegate to cli.py for coding-agent integration and scheduler subcommands.
+    # `_parse_global_args` owns a few flags used by the top-level runtime, so
+    # restore the ones that also belong to delegated argparse commands.
     CLI_SUBCOMMANDS = {
         "install", "doctor", "list-installed", "show-state", "history",
         "list-archives", "list-backups", "repair", "export-plugin",
@@ -984,7 +1002,13 @@ def main() -> None:
     if positional and positional[0] in CLI_SUBCOMMANDS:
         from . import cli as cli_module
         # Reconstruct argv for cli.py's argparse
-        sys.argv = ["prax"] + positional
+        delegated = list(positional)
+        if positional[0] in {"cron", "debug-claude"}:
+            if options["model_override"]:
+                delegated += ["--model", options["model_override"]]
+            if options["session_id"]:
+                delegated += ["--session-id", options["session_id"]]
+        sys.argv = ["prax"] + delegated
         cli_module.main()
         return
 
@@ -1027,14 +1051,19 @@ def main() -> None:
         )
         return
 
-    if positional and positional[0] == "orchestrate":
+    if positional and positional[0] in {"shift", "orchestrate"}:
         from .commands.orchestrate import handle_orchestrate
-        outcome = handle_orchestrate(cwd, positional[1:])
+        orchestrate_args = list(positional[1:])
+        if options["model_override"]:
+            orchestrate_args += ["--model", options["model_override"]]
+        outcome = handle_orchestrate(cwd, orchestrate_args)
         print(
-            f"\033[90m[prax] orchestrate stop_reason={outcome.stop_reason} "
+            f"\033[90m[prax] shift stop_reason={outcome.stop_reason} "
             f"iterations={outcome.iterations} verified={outcome.verified}\033[0m",
             flush=True,
         )
+        if not outcome.verified:
+            raise SystemExit(1 if outcome.stop_reason in {"max_iterations", "stuck_no_progress"} else 2)
         return
 
     if positional and positional[0] == "prompt":

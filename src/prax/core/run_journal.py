@@ -1,4 +1,4 @@
-"""Run journal — append-only event log for crash-surviving 7x24 orchestration.
+"""Run journal — append-only evidence for crash-surviving Prax Shifts.
 
 Each orchestration run owns a directory ``.prax/runs/<run_id>/`` whose
 ``journal.jsonl`` holds one JSON event per line. On restart the orchestrator

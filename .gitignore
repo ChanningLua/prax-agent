@@ -46,6 +46,7 @@ htmlcov/
 
 # Project specific
 .prax/sessions/
+.prax/runs/
 .prax/memory.json
 .prax/todos.json
 .prax/tasks/
@@ -92,6 +93,8 @@ add.py
 planb-config/
 evaluation/
 plugin.json
+# Bundled Codex plugin manifest is source, not a local development artifact.
+!src/prax/assets/codex/prax/.codex-plugin/plugin.json
 verify_eval_suite.py
 verify_implementation.py
 

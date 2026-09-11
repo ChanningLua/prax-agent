@@ -40,6 +40,28 @@ def _scripted_verifier(results: list[VerifyResult]):
 
 
 class TestOrchestratorLoop:
+    def test_resume_refuses_different_goal(self, tmp_path):
+        journal = RunJournal(str(tmp_path), "identity")
+        worker = FakeExecutor()
+        first = OrchestratorLoop(journal=journal, executor=worker,
+                                 verifier=lambda: VerifyResult(passed=True)).run("original")
+        second = OrchestratorLoop(journal=journal, executor=worker,
+                                  verifier=lambda: VerifyResult(passed=True)).run("different")
+        assert first.verified
+        assert second.stop_reason == "intent_changed"
+        assert not second.verified
+        assert len(worker.instructions) == 1
+
+    def test_cached_success_requires_fresh_acceptance(self, tmp_path):
+        journal = RunJournal(str(tmp_path), "acceptance")
+        worker = FakeExecutor()
+        OrchestratorLoop(journal=journal, executor=worker, max_iterations=1,
+                         verifier=lambda: VerifyResult(passed=True)).run("goal")
+        result = OrchestratorLoop(journal=journal, executor=worker, max_iterations=1,
+                                  verifier=lambda: VerifyResult(passed=False)).run("goal")
+        assert not result.verified
+        assert len(worker.instructions) == 1  # budget was not renewed
+
     def test_passes_on_first_try(self, tmp_path):
         ex = FakeExecutor()
         loop = OrchestratorLoop(

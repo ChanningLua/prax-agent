@@ -836,6 +836,31 @@ class TestMain:
             call_kwargs[0] and call_kwargs[0][1] == "my-model"
         )
 
+    def test_main_shift_dispatches_to_shift_engine(self, monkeypatch, tmp_path, capsys):
+        from prax.core.orchestrator_loop import OrchestrationOutcome
+        from prax.main import main
+
+        monkeypatch.setattr(sys, "argv", ["prax", "shift", "fix login", "--run-id", "shift-1"])
+        monkeypatch.chdir(tmp_path)
+
+        with (
+            patch("prax.main.load_models_config", return_value=_fake_models_config()),
+            patch("prax.main.hydrate_runtime_env"),
+            patch("prax.commands.orchestrate.handle_orchestrate") as mock_shift,
+        ):
+            mock_shift.return_value = OrchestrationOutcome(
+                stop_reason="verified",
+                iterations=1,
+                verified=True,
+            )
+            main()
+
+        mock_shift.assert_called_once_with(
+            str(tmp_path),
+            ["fix login", "--run-id", "shift-1"],
+        )
+        assert "[prax] shift stop_reason=verified" in capsys.readouterr().out
+
     def test_main_empty_task_exits_1(self, monkeypatch, tmp_path):
         from prax.main import main
 

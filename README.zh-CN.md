@@ -2,7 +2,7 @@
 
 # Prax
 
-**驱动 LLM Agent 在真实代码库上执行 测试-验证-修复 循环的 CLI 工具**
+**让 Coding Agent 在真实、有界、可验证的工程环境中持续工作**
 
 <br>
 
@@ -18,6 +18,10 @@
 ---
 
 ## 快速开始
+
+仓库工程任务可使用 [通用 Repository Harness](docs/repository-harness.md)：
+固定任务契约、限制执行预算、独立验收并保留恢复证据。项目规则留在仓库
+适配器中，Prax 核心保持可复用、可独立开源。
 
 **目标**：装上 Prax，配好 AI key，跑通第一个任务 —— 5 分钟内。不需要编程背景。
 
@@ -172,7 +176,7 @@ prax cron add --name daily-news --schedule "0 17 * * *" --prompt "..."   # 定�
 
 所有 5 个教程都自带示例数据——**不需要真 API / 真 PR** 就能跟着跑。
 
-### 方式 2 · 集成到 Claude Code IDE
+### 方式 2 · 集成到 Claude Code
 
 用 [Claude Code](https://claude.com/claude-code)，想在 IDE 里用 Prax 的 skill / 命令 / 验证 hook：
 
@@ -188,11 +192,76 @@ prax install --profile full
 prax doctor --target claude
 ```
 
-然后重开 Claude Code。你会看到新的 `/prax-status`、`/prax-doctor`、`/prax-plan`、`/prax-verify` 斜杠命令、`prax-planner` 这个 agent，以及自动应用的 Prax 规则。
+然后重开 Claude Code。你会看到 `/prax-shift`，以及 `/prax-status`、`/prax-doctor`、`/prax-plan`、`/prax-verify` 等斜杠命令、`prax-planner` agent 和自动应用的 Prax 规则。
 
 撤销：`prax uninstall --target claude`。
 
-> **说明**：`prax install` 当前只发 Claude Code 集成。Step 3 配好的 LLM 对所有使用方式（独立 CLI / IDE 集成）都通用。其他 IDE / CLI 宿主的 skill 导出在 0.5.x 路线图上。
+### 方式 3 · 集成到 Codex
+
+业务仓项目级接入（Codex repo skill，非全局插件）：
+
+```bash
+prax install --target codex --local
+prax doctor --target codex
+```
+
+仅写当前项目 `.codex/skills/prax-shift` 与 `.prax/codex-install.json`，不写
+`.agents/skills` 或用户插件/配置。doctor 在仓库内默认核对项目实例的路径、
+内容版本和隔离原生发现，旧全局插件不能掩盖本地缺失。不启动 worker 或调度。
+详见 [项目级安装与诊断](docs/codex-project-install.md)。
+
+如果明确需要所有项目共享的用户级个人插件：
+
+```bash
+prax install --target codex
+prax doctor --target codex --global
+```
+
+安装后新开一个 Codex 任务，从斜杠菜单选择 `prax-shift`，或者输入
+`$prax-shift`。它可以接班一个有界目标、汇报证据、继续运行；只有你
+明确要求时才会创建常驻调度。
+
+撤销：`prax uninstall --target codex`。
+
+### Prax Shift：把工作交出去，不把控制权交出去
+
+Prax Shift 是 Prax 的持续自主工作模式。Prax 持有持久状态、验收、
+预算、审批边界和证据；Claude 或 Codex 只是可替换的编码 worker。
+人在决策点保持 HITL，Agent 在有界执行中可以 AFK。推荐使用任务契约模式：
+技能帮助整理 `.prax/task.json`（目标、范围、验收、总预算），
+`.prax/harness.json` 固定 `worker: codex` 或 `claude`。
+
+下列命令用于 `code-check` 编码任务。只测试、不修代码时，使用
+[一次性验证模式](docs/verification-tasks.md)：经本次明确授权后，复用仓库已有
+测试入口执行一次并校验结构化证据；不启动编码 worker，不重试、恢复或定时运行。
+
+```bash
+prax shift plan --task .prax/task.json
+prax shift run --task .prax/task.json
+prax shift status --run-id <任务ID>
+prax shift pause --run-id <任务ID>
+prax shift resume --run-id <任务ID>
+```
+
+要定时运行，必须显式创建 `shift` 类型的任务：
+
+```bash
+prax cron add \
+  --name nightly-config-migration \
+  --schedule "0 1 * * *" \
+  --run-mode shift \
+  --task .prax/task.json
+prax cron install
+```
+
+调度器续跑同一个契约，不重置预算、不自动解除暂停。只有独立验收
+`PASS` 且 `verified=true` 才算成功；工作区或验收发生漂移就拒绝复用旧结果。
+Codex 默认 `workspace-write`；Claude 默认 `dontAsk`，不是同一种隔离机制。
+旧的 `shift "目标" --verify ...` / `--features` 仍保留，但不具备新任务模式
+全部的身份、互斥和墙钟监督保证；旧 prompt 型 Shift cron 必须迁移到 `--task`。
+
+完整模板与操作边界见 [Shift 闭环实用指南](docs/recipes/shift-closed-loop.md)。
+安装技能不会自动启动常驻服务，实际模型接班及定时运行需另行验收。
 
 ### 老手一行命令
 
@@ -211,7 +280,19 @@ prax prompt "跑 pytest -q，修失败，跑通就停"
 
 ## 为什么选 Prax
 
-**Prax 不只是又一个 LLM 封装——它是为真实仓库工作打造的生产级 Agent 运行时。**
+**Prax 不是另一个绑定模型的 Agent 外壳——它是连接 Coding Agent 与真实代码库的 Environment Runtime。**
+
+### 核心理念：人在关键处决策，Agent 在其余时间持续工作
+
+Prax 将 **HITL（Human in the Loop）** 与 **AFK（Away From Keyboard）** 组合成一套自适应自治模型：人定义目标、边界与验收标准；Agent 在受控环境中持续执行和验证；遇到高风险、歧义、证据不足或环境故障时，系统停在决策点等待人类判断，随后从持久状态继续。
+
+> **Prax = Environment Runtime + Adaptive Autonomy Controller + Evidence Plane**
+
+**Agent 在哪里工作 · 人什么时候决策 · 结果如何被证明。**
+
+> **可信自治 = 真实状态 × 有界行动 × 可证结果**
+
+模型负责思考与执行；Prax 负责让状态真实、动作受控、反馈可信、过程可恢复、结果有证据。它遵循一个简单的运行原则：**HITL at decisions，AFK in execution**。详见 [Prax 核心理念](./docs/CORE-PRINCIPLES.md)。
 
 <p align="center">
   <img src="./docs/assets/capabilities.zh-CN.svg" alt="Agent Capabilities" width="800">
@@ -400,13 +481,13 @@ Prax 在仓库修复任务上达到 **10/10 成功率**，平均完成时间 **2
 
 Prax 提供两种运行路径——按需选择：
 
-| 特性 | 原生运行时 | Claude Code 集成 |
-|------|-----------|-----------------|
-| 执行方式 | CLI 命令 | Claude Code IDE |
-| 交互方式 | 命令行 REPL | IDE 对话界面 |
-| 上下文管理 | 本地 JSON/SQLite | Claude Code 会话 |
-| 工具集成 | 25+ 内置工具 | Claude Code 工具 + Prax 扩展 |
-| 适用场景 | 自动化、CI/CD | 交互式开发、代码审查 |
+| 特性 | 原生运行时 | Claude Code 集成 | Codex 集成 |
+|------|-----------|-----------------|------------|
+| 执行方式 | CLI 命令 | Claude Code | Codex |
+| 交互方式 | 命令行 REPL | 对话界面 | 对话界面 |
+| Shift worker | 直接 API | `claude -p` | `codex exec --json` |
+| 工具集成 | 25+ 内置工具 | Claude Code 工具 + Prax 扩展 | Codex 工具 + `prax-shift` skill |
+| 适用场景 | 自动化、CI/CD | 交互式开发、代码审查 | 交互式开发、受控无人值守 |
 
 ### Claude Code 集成优势
 

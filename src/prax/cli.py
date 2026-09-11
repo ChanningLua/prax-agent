@@ -28,6 +28,12 @@ from .integrations.claude_code import (
     show_claude_state,
     uninstall_claude_integration,
 )
+from .integrations.codex import (
+    doctor_codex_install,
+    install_codex_integration,
+    list_installed_codex_assets,
+    uninstall_codex_integration,
+)
 from .runtime import NativeRuntime
 
 
@@ -65,13 +71,16 @@ def build_parser() -> argparse.ArgumentParser:
     providers = subparsers.add_parser("providers", help="Show configured providers")
     _add_shared_json_flag(providers)
 
-    status = subparsers.add_parser("status", help="Show Prax runtime and Claude integration status")
+    status = subparsers.add_parser(
+        "status",
+        help="Show Prax runtime and coding-agent integration status",
+    )
     _add_shared_json_flag(status)
 
     for name, help_text in (
-        ("install", "Install Prax Claude Code assets"),
-        ("doctor", "Diagnose Prax Claude Code integration"),
-        ("list-installed", "List Prax-managed Claude Code assets"),
+        ("install", "Install Prax coding-agent assets"),
+        ("doctor", "Diagnose a Prax coding-agent integration"),
+        ("list-installed", "List Prax-managed coding-agent assets"),
         ("show-state", "Show current or archived Claude integration state"),
         ("history", "Show Claude integration lifecycle history"),
         ("list-archives", "List archived Claude integration states"),
@@ -80,12 +89,18 @@ def build_parser() -> argparse.ArgumentParser:
         ("export-plugin", "Export a publishable Claude plugin bundle"),
         ("export-marketplace", "Export a publishable Claude marketplace bundle"),
         ("restore", "Restore managed Claude settings or MCP backup"),
-        ("uninstall", "Remove Prax Claude Code assets"),
+        ("uninstall", "Remove Prax coding-agent assets"),
     ):
         sub = subparsers.add_parser(name, help=help_text)
         if name not in {"export-plugin", "export-marketplace"}:
             sub.add_argument("--target", default="claude")
             sub.add_argument("--root")
+        if name in {"install", "doctor"}:
+            scope = sub.add_mutually_exclusive_group()
+            scope.add_argument("--local", action="store_true",
+                               help="Codex only: install/diagnose the current project's repo skill")
+            scope.add_argument("--global", dest="global_scope", action="store_true",
+                               help="Codex only: explicitly select the user-level plugin")
         _add_shared_json_flag(sub)
         if name in {"install", "repair", "restore", "uninstall"}:
             sub.add_argument("--dry-run", action="store_true")
@@ -118,10 +133,22 @@ def build_parser() -> argparse.ArgumentParser:
     c_add.add_argument("--name", required=True)
     c_add.add_argument("--schedule", required=True,
                        help="5-field cron expression, e.g. '0 17 * * *'")
-    c_add.add_argument("--prompt", required=True,
+    c_add.add_argument("--prompt", default="",
                        help="Task prompt passed to `prax prompt` when the job fires")
     c_add.add_argument("--session-id")
+    c_add.add_argument("--task", help="workspace-relative task contract for Shift; owns goal, verifier, and budget")
     c_add.add_argument("--model")
+    c_add.add_argument(
+        "--run-mode",
+        choices=["prompt", "shift", "orchestrate"],
+        default="prompt",
+        help="use shift for a bounded, verifiable Prax Shift window",
+    )
+    c_add.add_argument(
+        "--agent-host",
+        choices=["auto", "claude", "codex"],
+        help="coding-agent worker for orchestrate jobs",
+    )
     c_add.add_argument("--notify-on", nargs="*", choices=["success", "failure"], default=[])
     c_add.add_argument("--notify-channel")
     _add_shared_json_flag(c_add)
@@ -185,9 +212,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _ensure_target_support(command: str, target: str) -> None:
+    if target not in {"claude", "codex"}:
+        raise ValueError("--target must be 'claude' or 'codex'")
+    codex_commands = {"install", "doctor", "list-installed", "repair", "uninstall"}
+    if target == "codex" and command not in codex_commands:
+        raise ValueError(
+            f"{command!r} is a Claude-only integration lifecycle command; "
+            "Codex supports install, doctor, list-installed, repair, and uninstall"
+        )
+
+
 def _ensure_claude_target(target: str) -> None:
+    """Backward-compatible guard retained for integration API consumers."""
     if target != "claude":
-        raise ValueError("Only --target claude is currently supported")
+        raise ValueError("Only --target claude is supported by this operation")
+
+
+def _codex_project_root(cwd: str) -> Path | None:
+    """Use the nearest repository/installation, never a sibling or global plugin."""
+    current = Path(cwd).resolve()
+    for root in (current, *current.parents):
+        if ((root / ".git").exists() or (root / ".prax/codex-install.json").exists()
+                or (root / ".codex/skills/prax-shift").exists()):
+            return root
+    return None
 
 
 def _status_payload(cwd: str) -> dict:
@@ -196,6 +245,20 @@ def _status_payload(cwd: str) -> dict:
     providers_result = run_command(ParsedCommand(name="providers", args=[]), ctx)
     claude_result = doctor_claude_install()
     claude_inventory = list_installed_claude_assets()
+    try:
+        codex_result = doctor_codex_install()
+        codex_inventory = list_installed_codex_assets()
+    except (RuntimeError, ValueError) as exc:
+        codex_result = {
+            "target": "codex",
+            "status": "unavailable",
+            "error": str(exc),
+        }
+        codex_inventory = {
+            "target": "codex",
+            "assets": [],
+            "error": str(exc),
+        }
     runtime_data = dict(status_result.data or {})
     runtime_data.setdefault("runtime_path", RUNTIME_NATIVE)
     runtime_data.setdefault("integration_mode", "native")
@@ -205,10 +268,13 @@ def _status_payload(cwd: str) -> dict:
         "providers": providers_result.data,
         "claude_integration": claude_result,
         "claude_inventory": claude_inventory,
+        "codex_integration": codex_result,
+        "codex_inventory": codex_inventory,
         "text": (
             f"runtime_path={runtime_data.get('runtime_path')} "
             f"integration_mode={runtime_data.get('integration_mode')} "
-            f"claude_status={claude_result.get('status')}"
+            f"claude_status={claude_result.get('status')} "
+            f"codex_status={codex_result.get('status')}"
         ),
     }
 
@@ -281,6 +347,16 @@ def main() -> None:
                         model=args.model,
                         notify_on=args.notify_on,
                         notify_channel=args.notify_channel,
+                        # ``orchestrate`` remains the durable storage value so
+                        # existing cron.yaml files stay compatible. ``shift`` is
+                        # the product-facing spelling.
+                        run_mode=(
+                            "orchestrate"
+                            if args.run_mode in {"shift", "orchestrate"}
+                            else args.run_mode
+                        ),
+                        agent_host=args.agent_host,
+                        task_path=args.task,
                     ),
                     as_json=args.json,
                 )
@@ -387,7 +463,69 @@ def main() -> None:
         )
         return
 
-    _ensure_claude_target(args.target)
+    try:
+        _ensure_target_support(args.command, args.target)
+        if args.target != "codex" and (getattr(args, "local", False)
+                                       or getattr(args, "global_scope", False)):
+            raise ValueError("--local/--global are supported only with --target codex")
+        if getattr(args, "local", False) and args.root:
+            raise ValueError("--local uses the current project; do not combine it with --root")
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+
+    if args.target == "codex":
+        if args.command == "install" and args.local:
+            root = _codex_project_root(cwd) or Path(cwd).resolve()
+            try:
+                result = install_codex_integration(local=True, project_root=str(root),
+                                                   dry_run=args.dry_run)
+            except (OSError, ValueError, RuntimeError) as exc:
+                result = {"target": "codex", "scope": "project", "status": "error",
+                          "project_root": str(root), "error": str(exc), "text": str(exc)}
+            _render(result, as_json=args.json)
+            if result.get("status") not in {"ok", "planned"}:
+                raise SystemExit(2)
+            return
+        if args.command in {"install", "repair"}:
+            _render(
+                install_codex_integration(
+                    target_root=args.root,
+                    dry_run=args.dry_run,
+                ),
+                as_json=args.json,
+            )
+            return
+        if args.command == "doctor":
+            root = None if args.global_scope or args.root else _codex_project_root(cwd)
+            if args.local:
+                root = root or Path(cwd).resolve()
+            try:
+                result = (doctor_codex_install(local=True, project_root=str(root)) if root else
+                          doctor_codex_install(target_root=args.root, local=False))
+            except (OSError, ValueError, RuntimeError) as exc:
+                result = {"target": "codex", "scope": "project" if root else "user",
+                          "status": "error", "error": str(exc), "text": str(exc)}
+            _render(result, as_json=args.json)
+            if root and result.get("status") != "ok":
+                raise SystemExit(2)
+            return
+        if args.command == "list-installed":
+            _render(
+                list_installed_codex_assets(target_root=args.root),
+                as_json=args.json,
+            )
+            return
+        if args.command == "uninstall":
+            _render(
+                uninstall_codex_integration(
+                    target_root=args.root,
+                    dry_run=args.dry_run,
+                ),
+                as_json=args.json,
+            )
+            return
+
     if args.command == "install":
         _render(
             install_claude_integration(

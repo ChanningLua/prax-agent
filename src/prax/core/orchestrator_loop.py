@@ -1,18 +1,20 @@
-"""Orchestrator loop — the 7x24 outer "brain" that drives a black-box executor.
+"""Prax Shift engine — the outer loop that drives a black-box executor.
 
 Each iteration: compose a step instruction (goal + last verification feedback)
--> hand the whole sub-task to an injected ``executor`` (e.g. a ``claude -p``
-adapter; tests use a FakeExecutor) -> run a ``verifier`` (prax runs the
+-> hand the whole sub-task to an injected ``executor`` (for example a Claude or
+Codex CLI adapter; tests use a FakeExecutor) -> run a ``verifier`` (prax runs the
 tests/acceptance check itself) -> if it fails, feed the failure back into the
 next instruction (self-heal); if it passes, stop. Bounded by ``max_iterations``.
 
 Everything is recorded to a :class:`~prax.core.run_journal.RunJournal` so a
 crashed / quota-stopped run can resume: a run whose journal already holds a
-verified outcome short-circuits without re-running the executor.
+verified outcome is rechecked by the current verifier before reuse. A journal
+cannot be rebound to a different goal; repository identity is guarded by the
+contract-backed Shift entry, not by this compatibility loop alone.
 
 The executor is behind a tiny interface on purpose — the loop never executes
-tools itself (that's the black-box agent's job), and the backend (subscription
-``claude -p`` vs an API key) stays swappable (see design R1 auth-agnostic hedge).
+tools itself (that's the black-box agent's job), and the host stays swappable
+without changing Prax's state, safety, or evidence contracts.
 """
 from __future__ import annotations
 
@@ -73,7 +75,7 @@ class OrchestrationOutcome:
 
 
 class Executor(Protocol):
-    """A black-box step executor (the claude -p adapter, or a FakeExecutor)."""
+    """A black-box step executor (Claude, Codex, or a test fake)."""
 
     def run(self, instruction: str, *, session_id: str | None = ...) -> StepResult: ...
 
@@ -156,14 +158,33 @@ class OrchestratorLoop:
         self._sleep = sleep
 
     def run(self, goal: str) -> OrchestrationOutcome:
-        # ── Resume: a journal that already verified short-circuits ──────────
+        # Bind even legacy journals to intent. Full repository/verifier identity
+        # is enforced by the contract-backed Shift/harness entry point.
+        intent = self._journal.result_for("intent")
+        if intent is not None and intent.get("goal") != goal:
+            return self._finish("intent_changed", 0, False)
+        if intent is None:
+            if any(e.get("step") in {"step", "verify"} for e in self._journal.events()):
+                return self._finish("unbound_legacy_evidence", 0, False)
+            self._journal.record("intent", output={"goal": goal})
+
+        # A cached completion is a claim, not fresh acceptance evidence.
         prior = self._journal.result_for("outcome")
         if isinstance(prior, dict) and prior.get("verified"):
-            return OrchestrationOutcome(
-                stop_reason=str(prior.get("stop_reason", "verified")),
-                iterations=int(prior.get("iterations", 0)),
-                verified=True,
-            )
+            iterations = int(prior.get("iterations", 0))
+            if self._verifier is None:
+                return self._finish("completed_no_verify", iterations, False)
+            verdict = self._verifier()
+            self._journal.record("resume_verify", output={"passed": verdict.passed,
+                                                         "status": verdict.status,
+                                                         "output": verdict.output})
+            if verdict.passed:
+                return self._finish("verified", iterations, True)
+            if verdict.status == VERIFY_HARNESS_ERROR:
+                return self._finish("harness_error", iterations, False)
+            self._journal.record("outcome", output={"verified": False,
+                                                      "stop_reason": "acceptance_invalidated",
+                                                      "iterations": iterations})
 
         # ── Resume: continue the iteration count + feedback from the journal ─
         events = self._journal.events()
@@ -179,6 +200,9 @@ class OrchestratorLoop:
         )
         iteration = max(0, iteration)
         feedback = self._last_feedback(events)
+        resumed = self._journal.result_for("resume_verify")
+        if resumed and not resumed.get("passed"):
+            feedback = resumed.get("output", feedback)
 
         # ── Approval gate (run-level) ────────────────────────────────────────
         # A production-affecting goal must be approved before we dispatch ANY
@@ -238,8 +262,8 @@ class OrchestratorLoop:
         while iteration < self._max_iterations:
             instruction = self._compose(goal, feedback, iteration)
 
-            # D3: a black-box `claude -p` step can fail hard (rate limit, network,
-            # not-logged-in → Python traceback). An unattended 7x24 window must
+            # D3: a black-box coding-agent step can fail hard (rate limit, network,
+            # not-logged-in → Python traceback). An unattended Shift window must
             # NOT crash on it: journal the error, back off, and retry it as the
             # next turn. After `error_limit` CONSECUTIVE failures, stop cleanly
             # with "executor_error" (a tooling problem, distinct from a code

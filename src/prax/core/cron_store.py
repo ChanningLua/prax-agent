@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -166,22 +166,46 @@ def is_due(expr: str, moment: datetime) -> bool:
 class CronJob:
     name: str
     schedule: str
-    prompt: str
+    prompt: str = ""
     session_id: str | None = None
     model: str | None = None
     notify_on: list[str] = field(default_factory=list)
     notify_channel: str | None = None
-    run_mode: str = "prompt"  # "prompt" (default) | "orchestrate" (7x24 outer loop)
+    # ``orchestrate`` is the backward-compatible storage value for Prax Shift.
+    run_mode: str = "prompt"  # "prompt" (default) | "orchestrate" (Prax Shift)
+    agent_host: str | None = None  # Prax Shift worker: auto | claude | codex
+    task_path: str | None = None  # contract-backed Shift; task.id is the durable identity
 
-    def validate(self) -> None:
+    @property
+    def requires_migration(self) -> bool:
+        """Legacy prompt-only Shift jobs are manageable, never executable."""
+        return self.run_mode == "orchestrate" and self.task_path is None
+
+    def validate(self, *, allow_legacy: bool = False) -> None:
         if not self.name:
             raise ValueError("cron job name must be non-empty")
         if not self.name.replace("-", "").replace("_", "").isalnum():
             raise ValueError(
                 f"cron job name {self.name!r} must be alphanumeric plus '-' or '_'"
             )
-        if not self.prompt:
+        if not self.prompt and not (self.run_mode == "orchestrate" and self.task_path):
             raise ValueError("cron job prompt must be non-empty")
+        if self.run_mode not in {"prompt", "orchestrate"}:
+            raise ValueError("run_mode must be 'prompt' or 'orchestrate'")
+        if self.agent_host not in {None, "auto", "claude", "codex"}:
+            raise ValueError("agent_host must be auto, claude, or codex")
+        if self.agent_host and self.run_mode != "orchestrate":
+            raise ValueError("agent_host is only valid when run_mode is 'orchestrate'")
+        if self.run_mode == "orchestrate" and not (allow_legacy and self.requires_migration):
+            if not isinstance(self.task_path, str) or not self.task_path.strip():
+                raise ValueError("Shift cron jobs require --task; migrate the goal and verifier into a task contract")
+            path = PurePosixPath(self.task_path)
+            if path.is_absolute() or ".." in path.parts or "\\" in self.task_path or "\0" in self.task_path:
+                raise ValueError("task_path must be a workspace-relative path without '..'")
+            if self.agent_host or self.model or self.session_id:
+                raise ValueError("Shift worker/model belong in .prax/harness.json, not cron overrides")
+        elif self.run_mode != "orchestrate" and self.task_path:
+            raise ValueError("task_path is only valid for Shift jobs")
         validate_schedule(self.schedule)
         for trigger in self.notify_on:
             if trigger not in ("success", "failure"):
@@ -205,24 +229,32 @@ class CronJob:
             data["notify_channel"] = self.notify_channel
         if self.run_mode and self.run_mode != "prompt":
             data["run_mode"] = self.run_mode
+        if self.agent_host:
+            data["agent_host"] = self.agent_host
+        if self.task_path:
+            data["task_path"] = self.task_path
         return data
 
     @classmethod
-    def from_dict(cls, raw: dict) -> "CronJob":
+    def from_dict(cls, raw: dict, *, allow_legacy: bool = False) -> "CronJob":
         try:
+            if "prompt" not in raw and not raw.get("task_path"):
+                raise KeyError("prompt")
             job = cls(
                 name=str(raw["name"]),
                 schedule=str(raw["schedule"]),
-                prompt=str(raw["prompt"]),
+                prompt=str(raw.get("prompt", "")),
                 session_id=raw.get("session_id"),
                 model=raw.get("model"),
                 notify_on=list(raw.get("notify_on", [])),
                 notify_channel=raw.get("notify_channel"),
                 run_mode=str(raw.get("run_mode", "prompt")),
+                agent_host=raw.get("agent_host"),
+                task_path=raw.get("task_path"),
             )
         except KeyError as e:
             raise ValueError(f"cron job missing required field {e.args[0]!r}") from e
-        job.validate()
+        job.validate(allow_legacy=allow_legacy)
         return job
 
 
@@ -246,7 +278,10 @@ class CronStore:
         raw_jobs = data.get("jobs", [])
         if not isinstance(raw_jobs, list):
             raise ValueError("cron.yaml 'jobs' must be a list")
-        return [CronJob.from_dict(j) for j in raw_jobs if isinstance(j, dict)]
+        # Existing prompt-only Shift jobs must remain inspectable/removable.
+        # Execution and new additions still use strict validation, and the
+        # dispatcher reports migration-required instead of running them.
+        return [CronJob.from_dict(j, allow_legacy=True) for j in raw_jobs if isinstance(j, dict)]
 
     def save(self, jobs: list[CronJob]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)

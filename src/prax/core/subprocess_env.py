@@ -1,7 +1,7 @@
 """Environment for prax-spawned child processes (claude -p, verifiers).
 
 prax runs on the host's main network stack. When a system VPN / clash TUN is
-active there (the documented 7x24 setup: a Mac behind the GFW with Clash Verge
+active there (for example, a Mac running Prax Shift behind the GFW with Clash Verge
 in TUN mode), the host's default route already reaches the whole internet —
 Anthropic *and* otherwise-blocked hosts like jitpack.
 

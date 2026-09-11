@@ -4,8 +4,8 @@ Borrowed from the long-running-agent research:
 - Inject a persistent **north star** + **constraints** so the original goal and
   hard limits survive context rollover.
 - **Inject prohibition constraints on EVERY step.** The executor is
-  fresh-context-per-task — each ``claude -p`` step is a new context with no
-  memory of prior turns (claude_cli_executor does not ``--resume``), so a
+  fresh-context-per-task — each Claude/Codex worker step is a new context with
+  no trusted memory of prior turns, so a
   prohibition omitted this step is simply *absent* from that fresh context, not
   merely faded. (Omission constraints — "NEVER do X" — are also the fastest to
   decay even within one long context: ~73%→~20% compliance, arXiv:2604.20911.)
@@ -15,7 +15,7 @@ Borrowed from the long-running-agent research:
 - **Inject learned project memory** — a confidence-ranked, capped slice of
   MemoryStore (NOT the whole store — §8.3 context-rot guard), best-effort so a
   memory failure never breaks the loop. This is how prax's accumulated
-  facts/decisions reach the 7×24 loop.
+  facts/decisions reach Prax Shift.
 
 All files live under ``.prax/`` and are optional, read fresh each step:
   ``north_star.md``  — immutable charter (always injected)

@@ -27,7 +27,7 @@ class FakeCli:
         *,
         session_id=None,
         model=None,
-        permission_mode="bypassPermissions",
+        permission_mode="dontAsk",
         cwd=None,
         on_text=None,
     ):
@@ -59,12 +59,20 @@ class TestClaudeStepExecutor:
         assert step.cost_usd == 0.02
         assert cli.calls[0]["prompt"] == "实现登录页"
         assert cli.calls[0]["cwd"] == str(tmp_path)
+        assert cli.calls[0]["permission_mode"] == "dontAsk"
 
     def test_passes_model_through(self, tmp_path):
         cli = FakeCli()
         ex = ClaudeStepExecutor(str(tmp_path), model="claude-sonnet-4-8", cli=cli)
         ex.run("x")
         assert cli.calls[0]["model"] == "claude-sonnet-4-8"
+
+    def test_each_step_uses_fresh_context(self, tmp_path):
+        cli = FakeCli(session_id="12345678-1234-1234-1234-123456789abc")
+        executor = ClaudeStepExecutor(str(tmp_path), cli=cli)
+        first = executor.run("first")
+        executor.run("next with acceptance feedback", session_id=first.session_id)
+        assert [call["session_id"] for call in cli.calls] == [None, None]
 
     def test_cost_none_when_not_provided(self, tmp_path):
         ex = ClaudeStepExecutor(str(tmp_path), cli=FakeCli(cost_usd=None))

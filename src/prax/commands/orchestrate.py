@@ -1,9 +1,10 @@
-"""``prax orchestrate <goal>`` — run the 7x24 outer loop once on a goal.
+"""``prax shift <goal>`` — hand one bounded work shift to Prax.
 
-Assembles the durable file memory (ContextComposer + RunJournal) + a verifier +
-the black-box ``claude -p`` executor into an OrchestratorLoop and runs it. Used
-directly from the CLI, or driven by a cron job with ``run_mode: orchestrate``
-(the 7x24 heartbeat — one bounded window per fire; it resumes from the journal).
+Assembles durable file memory (ContextComposer + RunJournal), a verifier, and a
+replaceable Claude/Codex black-box executor into an OrchestratorLoop.  It can be
+driven directly or by a cron job with ``run_mode: orchestrate`` (one bounded
+window per fire; durable continuity comes from the journal). ``prax
+orchestrate`` remains a compatibility alias.
 """
 from __future__ import annotations
 
@@ -12,8 +13,8 @@ import subprocess
 import sys
 import uuid
 
+from ..core.agent_host import SUPPORTED_AGENT_HOSTS, build_step_executor
 from ..core.approval_policy import build_relay_gate
-from ..core.claude_step_executor import ClaudeStepExecutor
 from ..core.command_verifier import CommandVerifier
 from ..core.config_files import load_approval_config
 from ..core.context_composer import ContextComposer
@@ -69,6 +70,7 @@ _ATTENTION_STOPS = frozenset(
         "approval_rejected",
         "approval_unconfigured",
         "bad_verifier",
+        "executor_unavailable",
     }
 )
 
@@ -81,11 +83,11 @@ def _notify_terminal(notifier, goal: str, run_id: str, outcome: OrchestrationOut
         return
     snippet = goal if len(goal) <= 60 else goal[:57] + "..."
     notifier(
-        f"prax 7x24 需要你看一眼：{outcome.stop_reason}",
+        f"Prax Shift 需要你接班：{outcome.stop_reason}",
         f"目标：{snippet}\n"
         f"run：{run_id}\n"
         f"结果：{outcome.stop_reason}（iterations={outcome.iterations}, verified={outcome.verified}）\n"
-        f"续跑：prax orchestrate <goal> --run-id {run_id}（journal 在 .prax/runs/{run_id}/）",
+        f"继续：prax shift <goal> --run-id {run_id}（journal 在 .prax/runs/{run_id}/）",
     )
 
 
@@ -156,7 +158,7 @@ def _run_feature_mode(
     OrchestrationOutcome *summary* so the CLI print + return type are unchanged."""
     feature_list = FeatureList(cwd)
     if not feature_list.load():
-        print("[prax] orchestrate --features: .prax/feature_list.json 为空或缺失", file=sys.stderr)
+        print("[prax] shift --features: .prax/feature_list.json 为空或缺失", file=sys.stderr)
         return OrchestrationOutcome(stop_reason="no_features", iterations=0, verified=False)
 
     def run_feature(feature):
@@ -227,7 +229,7 @@ def _run_feature_mode(
     reason = f"feature_blocked:{report.blocked_id}" if report.blocked_id else report.stop_reason
     if notifier is not None:
         notifier(
-            f"prax 7x24 features 需要你看一眼：{reason}",
+            f"Prax Shift features 需要你接班：{reason}",
             f"已完成 {done} 个功能；卡在 {report.blocked_id or report.stop_reason}。run={run_id}",
         )
     return OrchestrationOutcome(stop_reason=reason, iterations=done, verified=False)
@@ -236,7 +238,7 @@ def _run_feature_mode(
 def handle_orchestrate(
     cwd, args, *, executor=None, verifier=None, approval_gate=None, notifier=None
 ) -> OrchestrationOutcome:
-    """Parse ``orchestrate`` args, assemble the loop, run it, return the outcome.
+    """Parse Prax Shift args, assemble the loop, run it, return the outcome.
 
     ``executor`` / ``verifier`` / ``approval_gate`` / ``notifier`` are injectable
     so the assembly + run is testable without a real ``claude -p`` or a live
@@ -245,7 +247,7 @@ def handle_orchestrate(
     is built from the ``approval:`` config block, and the notifier is built from
     ``--notify <channel>`` (a notify.yaml channel; absent → no terminal ping).
     """
-    parser = argparse.ArgumentParser(prog="prax orchestrate", add_help=False)
+    parser = argparse.ArgumentParser(prog="prax shift")
     parser.add_argument("goal", nargs="*")
     parser.add_argument("--verify", default=None, help="verify command, e.g. 'pytest -q'")
     parser.add_argument(
@@ -278,6 +280,12 @@ def handle_orchestrate(
     )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--model", default=None)
+    parser.add_argument(
+        "--agent-host",
+        choices=SUPPORTED_AGENT_HOSTS,
+        default="auto",
+        help="coding-agent worker: auto prefers Claude when present, then Codex",
+    )
     ns = parser.parse_args(args)
 
     goal = " ".join(ns.goal)
@@ -291,7 +299,34 @@ def handle_orchestrate(
         notifier = _make_notifier(cwd, ns.notify)
 
     if executor is None:
-        executor = ClaudeStepExecutor(cwd, model=ns.model)
+        try:
+            resolved_host, executor = build_step_executor(
+                cwd,
+                agent_host=ns.agent_host,
+                model=ns.model,
+            )
+            journal.record(
+                "executor",
+                output={"agent_host": resolved_host, "model": ns.model},
+            )
+        except (RuntimeError, ValueError) as exc:
+            print(f"[prax] shift: {exc}", file=sys.stderr)
+            outcome = OrchestrationOutcome(
+                stop_reason="executor_unavailable",
+                iterations=0,
+                verified=False,
+            )
+            journal.record(
+                "outcome",
+                output={
+                    "stop_reason": outcome.stop_reason,
+                    "iterations": 0,
+                    "verified": False,
+                    "error": str(exc),
+                },
+            )
+            _notify_terminal(notifier, goal, run_id, outcome)
+            return outcome
 
     # Production-approval gate (shared by single-goal + feature modes): built from
     # the approval: config block; absent → None → allow-all. approval_id = run_id
@@ -312,7 +347,7 @@ def handle_orchestrate(
         return _run_feature_mode(cwd, ns, run_id, executor, verifier, approval_gate, notifier)
 
     if not goal:
-        print("[prax] orchestrate: 需要一个目标（或加 --features 驱动 feature_list）", file=sys.stderr)
+        print("[prax] shift: 需要一个目标（或加 --features 驱动 feature_list）", file=sys.stderr)
         return OrchestrationOutcome(stop_reason="no_goal", iterations=0, verified=False)
 
     if verifier is None and ns.verify:
@@ -321,7 +356,7 @@ def handle_orchestrate(
         except ValueError as exc:
             # Don't crash an (unattended) run on a bad --verify command (G2).
             print(
-                f"[prax] orchestrate: invalid --verify {ns.verify!r}: {exc}",
+                f"[prax] shift: invalid --verify {ns.verify!r}: {exc}",
                 file=sys.stderr,
             )
             outcome = OrchestrationOutcome(stop_reason="bad_verifier", iterations=0, verified=False)
@@ -336,7 +371,7 @@ def handle_orchestrate(
     # verifier (which would break legitimate no-verify monitoring goals).
     if verifier is None:
         print(
-            "[prax] orchestrate: no verifier — running UNCHECKED: one step, no "
+            "[prax] shift: no verifier — running UNCHECKED: one step, no "
             "self-heal, stops as 'completed_no_verify' (verified=False). For work "
             "that should loop-until-done, pass --verify '<cmd>' (e.g. "
             "--verify 'pytest -q' or an acceptance script).",

@@ -146,6 +146,78 @@ def test_add_rejects_bad_notify_on(store):
         store.add(_basic_job(notify_on=["always"]))
 
 
+def test_orchestrate_contract_round_trips(store):
+    store.add(
+        _basic_job(
+            run_mode="orchestrate",
+            task_path=".prax/task.json",
+        )
+    )
+    loaded = store.load()[0]
+    assert loaded.run_mode == "orchestrate"
+    assert loaded.task_path == ".prax/task.json"
+
+
+def test_shift_rejects_legacy_unverified_jobs(store):
+    with pytest.raises(ValueError, match="require --task"):
+        store.add(_basic_job(run_mode="orchestrate"))
+
+
+def test_saved_legacy_shift_remains_manageable_but_not_executable(store):
+    legacy = _basic_job(name="legacy", run_mode="orchestrate", agent_host="claude", model="claude-sonnet-4-8")
+    store.save([legacy, _basic_job(name="valid")])
+    loaded = store.load()
+    assert loaded[0].requires_migration
+    assert loaded[0].to_dict() == legacy.to_dict()
+    with pytest.raises(ValueError, match="require --task"):
+        loaded[0].validate()
+    store.add(_basic_job(name="new"))
+    store.remove("valid")
+    assert store.get("legacy").requires_migration
+    removed = store.remove("legacy")
+    assert removed.to_dict() == legacy.to_dict()
+    assert [job.name for job in store.load()] == ["new"]
+
+
+def test_from_dict_requires_explicit_management_mode_for_legacy_shift():
+    raw = _basic_job(run_mode="orchestrate").to_dict()
+    with pytest.raises(ValueError, match="require --task"):
+        CronJob.from_dict(raw)
+    assert CronJob.from_dict(raw, allow_legacy=True).requires_migration
+
+
+@pytest.mark.parametrize("task_path", ["", " ", 42, "../other/task.json"])
+def test_management_mode_does_not_allow_malformed_new_contracts(store, task_path):
+    store.save([_basic_job(run_mode="orchestrate", task_path=task_path)])
+    # Empty strings are omitted by the historical serializer and become legacy
+    # entries. A present malformed task field must still fail validation.
+    if task_path == "":
+        store.path.write_text("jobs:\n- name: bad\n  schedule: '* * * * *'\n  prompt: old\n  run_mode: orchestrate\n  task_path: ''\n")
+    with pytest.raises(ValueError):
+        store.load()
+
+
+@pytest.mark.parametrize("task_path", ["../other/task.json", "/tmp/task.json", 42])
+def test_shift_rejects_unsafe_task_path(store, task_path):
+    with pytest.raises(ValueError):
+        store.add(_basic_job(run_mode="orchestrate", task_path=task_path))
+
+
+def test_shift_cannot_override_frozen_worker(store):
+    with pytest.raises(ValueError, match="harness.json"):
+        store.add(_basic_job(run_mode="orchestrate", task_path=".prax/task.json", agent_host="claude"))
+
+
+def test_agent_host_requires_orchestrate_mode(store):
+    with pytest.raises(ValueError, match="only valid"):
+        store.add(_basic_job(agent_host="codex"))
+
+
+def test_rejects_unknown_agent_host(store):
+    with pytest.raises(ValueError, match="agent_host"):
+        store.add(_basic_job(run_mode="orchestrate", agent_host="other"))
+
+
 def test_from_dict_missing_field():
     with pytest.raises(ValueError, match="missing required field"):
         CronJob.from_dict({"name": "x", "schedule": "* * * * *"})  # no prompt
