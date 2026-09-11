@@ -1,0 +1,86 @@
+{
+  "selected_id": "ai-search-build-or-buy",
+  "selected_track": "demand",
+  "selection_reason": "selected best eligible demand candidate to close portfolio deficit 0.50",
+  "target_mix": {
+    "event": 0.3,
+    "demand": 0.5,
+    "evergreen": 0.2
+  },
+  "portfolio_counts": {
+    "event": 0,
+    "demand": 0,
+    "evergreen": 0
+  },
+  "track_deficits": {
+    "event": 0.3,
+    "demand": 0.5,
+    "evergreen": 0.2
+  },
+  "candidates": [
+    {
+      "id": "agent-security-controls",
+      "title": "Agent 安全事件后，内容自动化该收走哪些权限",
+      "track": "event",
+      "score": 84.7,
+      "demand_score": 85.0,
+      "attention_score": 100.0,
+      "editorial_utility_score": 88.0,
+      "penalty": 4.4,
+      "business_case_completeness": 1.0,
+      "business_bridge_completeness": 1.0,
+      "missing_business_bridge_fields": [],
+      "editorial_route": "longform",
+      "eligible": true,
+      "blockers": []
+    },
+    {
+      "id": "ai-search-build-or-buy",
+      "title": "AI 联网搜索应该自建、采购还是混合",
+      "track": "demand",
+      "score": 82.1,
+      "demand_score": 92.5,
+      "attention_score": 61.0,
+      "editorial_utility_score": 91.0,
+      "penalty": 3.6,
+      "business_case_completeness": 1.0,
+      "business_bridge_completeness": 1.0,
+      "missing_business_bridge_fields": [],
+      "editorial_route": "longform",
+      "eligible": true,
+      "blockers": []
+    },
+    {
+      "id": "graduate-training-ai-era",
+      "title": "AI 接管基础任务后，校招生培养路径怎么改",
+      "track": "demand",
+      "score": 77.3,
+      "demand_score": 84.5,
+      "attention_score": 62.0,
+      "editorial_utility_score": 86.0,
+      "penalty": 3.2,
+      "business_case_completeness": 1.0,
+      "business_bridge_completeness": 1.0,
+      "missing_business_bridge_fields": [],
+      "editorial_route": "longform",
+      "eligible": true,
+      "blockers": []
+    },
+    {
+      "id": "rag-evaluation-playbook",
+      "title": "企业 RAG 上线前到底该测什么",
+      "track": "evergreen",
+      "score": 71.3,
+      "demand_score": 77.0,
+      "attention_score": 49.0,
+      "editorial_utility_score": 87.0,
+      "penalty": 3.6,
+      "business_case_completeness": 1.0,
+      "business_bridge_completeness": 1.0,
+      "missing_business_bridge_fields": [],
+      "editorial_route": "longform",
+      "eligible": true,
+      "blockers": []
+    }
+  ]
+}

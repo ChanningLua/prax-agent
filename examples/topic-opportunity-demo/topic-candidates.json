@@ -1,0 +1,189 @@
+{
+  "observed_date": "2026-07-29",
+  "observed_at": null,
+  "observation_note": "文章发布时间约 47 分钟；互动数据是早期快照，只用于触发需求验证。",
+  "portfolio_counts": {
+    "event": 0,
+    "demand": 0,
+    "evergreen": 0
+  },
+  "target_mix": {
+    "event": 0.3,
+    "demand": 0.5,
+    "evergreen": 0.2
+  },
+  "candidates": [
+    {
+      "id": "ai-search-build-or-buy",
+      "title": "AI 联网搜索应该自建、采购还是混合",
+      "track": "demand",
+      "observed_engagement": {
+        "age_minutes": 47,
+        "views": 28,
+        "likes": 6,
+        "comments": 10,
+        "caveat": "小样本早期快照；尚未分析评论是否来自真实方案询问。"
+      },
+      "signals": {
+        "problem_frequency": 4.5,
+        "decision_urgency": 5,
+        "scenario_specificity": 5,
+        "evidence_strength": 3.5,
+        "audience_fit": 5,
+        "attention_velocity": 3.5,
+        "cross_source": 2.5,
+        "depth": 5,
+        "content_gap": 4.5,
+        "risk": 1,
+        "saturation": 3
+      },
+      "business_case": {
+        "actor": "正在为客户设计 AI 搜索的解决方案架构师或技术负责人",
+        "job_to_be_done": "交付一个答案新鲜、来源可查、成本可控的联网搜索能力",
+        "trigger": "客户项目进入技术调研和方案选择阶段",
+        "current_workaround": "逐个体验热门产品，再手工拼搜索 API、抓取、重排和 LLM",
+        "decision": "选择搜索 API、开源自建或混合架构，并确定引用和评测方案",
+        "cost_of_inaction": "延误交付，或上线后持续出现答案过期、无出处和成本失控",
+        "evidence": [
+          "作者明确提到正在给客户做 AI 联网搜索项目",
+          "发布约 47 分钟出现 10 条评论，需进一步分类评论意图",
+          "可继续验证搜索词、GitHub Issue 和同类项目的重复问题"
+        ]
+      },
+      "business_bridge": {
+        "source_signal": "截图中的作者自述正在为客户调研 AI 联网搜索方案；早期评论只作为继续验证的线索。",
+        "technical_delta": "联网检索把静态模型问答改成搜索、抓取、重排、生成和引用的实时链路，同时引入新鲜度、延迟、成本与来源可信度约束。",
+        "affected_workflow": "售前技术调研、方案架构、上线验收和后续质量回归。",
+        "business_decision": "搜索能力应采购 API、开源自建还是采用混合架构。",
+        "validation_method": "用固定查询集对三种架构测试覆盖率、新鲜度、引用正确性、延迟和单次成本。",
+        "success_metric": "达到客户约定的答案质量、可追溯性、时延和预算阈值。",
+        "no_fit_conditions": "知识范围固定、更新频率低且不需要外部实时信息时，不应为了热点强行加入联网搜索。"
+      }
+    },
+    {
+      "id": "graduate-training-ai-era",
+      "title": "AI 接管基础任务后，校招生培养路径怎么改",
+      "track": "demand",
+      "observed_engagement": {
+        "age_minutes": 47,
+        "views": 54,
+        "likes": 5,
+        "comments": 18,
+        "caveat": "评论率高但基数小；需要确认评论是方案讨论还是普通互动。"
+      },
+      "signals": {
+        "problem_frequency": 4.5,
+        "decision_urgency": 4,
+        "scenario_specificity": 4.5,
+        "evidence_strength": 3.5,
+        "audience_fit": 4.5,
+        "attention_velocity": 4,
+        "cross_source": 2,
+        "depth": 4.5,
+        "content_gap": 4.5,
+        "risk": 1,
+        "saturation": 2.5
+      },
+      "business_case": {
+        "actor": "需要培养校招生的研发经理、导师和 HRBP",
+        "job_to_be_done": "让新人借助 AI 完成真实工程交付，同时保留理解和验证能力",
+        "trigger": "编码、问答、测试生成和代码审查等基础任务正在被 AI 改写",
+        "current_workaround": "沿用旧培训流程，再追加一节 AI 工具课",
+        "decision": "重做能力模型、训练任务、导师检查点和转正验收标准",
+        "cost_of_inaction": "新人看似产出更快，却无法独立定位错误、解释方案或承担上线质量",
+        "evidence": [
+          "文章讨论对象是具体的校招生培养问题",
+          "发布约 47 分钟出现 18 条评论，需进一步分类评论意图",
+          "可继续验证招聘 JD、导师复盘和团队培训材料"
+        ]
+      },
+      "business_bridge": {
+        "source_signal": "AI 工具开始代替部分编码、问答、测试生成和代码审查任务，校招生培养问题出现早期讨论。",
+        "technical_delta": "基础任务生成成本下降后，能力瓶颈从亲手完成每一步转向任务拆解、结果验证、故障定位和责任承担。",
+        "affected_workflow": "新人入职训练、导师评审、真实项目放权和转正验收。",
+        "business_decision": "是否重做能力模型、训练任务、AI 使用边界和验收标准。",
+        "validation_method": "比较新旧培养路径下新人完成同类任务、发现缺陷、解释方案和独立恢复故障的表现。",
+        "success_metric": "缩短达到独立交付的时间，同时不增加逃逸缺陷和导师返工。",
+        "no_fit_conditions": "岗位很少使用 AI，或训练目标本身就是掌握不可替代的基础操作时，不宜跳过手工训练。"
+      }
+    },
+    {
+      "id": "agent-security-controls",
+      "title": "Agent 安全事件后，内容自动化该收走哪些权限",
+      "track": "event",
+      "signals": {
+        "problem_frequency": 4,
+        "decision_urgency": 4,
+        "scenario_specificity": 4,
+        "evidence_strength": 5,
+        "audience_fit": 5,
+        "attention_velocity": 5,
+        "cross_source": 5,
+        "depth": 5,
+        "content_gap": 3,
+        "risk": 1,
+        "saturation": 4
+      },
+      "business_case": {
+        "actor": "正在部署研究、写作或发布 Agent 的技术负责人",
+        "job_to_be_done": "划分浏览、执行、写作和发布权限",
+        "trigger": "近期安全事件暴露了 Agent 工具链的越界风险",
+        "current_workaround": "让一个 Agent 共用长会话和服务账号",
+        "decision": "是否拆身份、加确定性门禁并保留人工发布批准",
+        "cost_of_inaction": "来源污染、敏感信息泄露或错误内容直接发布",
+        "evidence": [
+          "多份第一方安全披露",
+          "NIST、OWASP 和平台安全文档"
+        ]
+      },
+      "business_bridge": {
+        "source_signal": "近期第一方安全披露显示，具备工具调用能力的 Agent 会扩大错误或越权操作的影响范围。",
+        "technical_delta": "模型输出接入浏览器、终端、文件和发布接口后，文本判断从低风险建议变成可执行动作。",
+        "affected_workflow": "热点发现、外部研究、代码复现、写稿、事实审校和发布审批。",
+        "business_decision": "是否拆分身份与权限、增加确定性门禁，并保留人工发布批准。",
+        "validation_method": "用威胁模型、权限矩阵和失败注入检查不可信内容能否跨越研究区触发高风险动作。",
+        "success_metric": "外部内容不能直接触发发布或读取敏感信息，关键动作都有独立批准和审计记录。",
+        "no_fit_conditions": "完全离线、无外部写权限且只产生一次性本地草稿的流程，可使用更轻量的控制。"
+      }
+    },
+    {
+      "id": "rag-evaluation-playbook",
+      "title": "企业 RAG 上线前到底该测什么",
+      "track": "evergreen",
+      "signals": {
+        "problem_frequency": 4,
+        "decision_urgency": 3,
+        "scenario_specificity": 4,
+        "evidence_strength": 4,
+        "audience_fit": 5,
+        "attention_velocity": 2,
+        "cross_source": 3,
+        "depth": 5,
+        "content_gap": 3.5,
+        "risk": 1,
+        "saturation": 3
+      },
+      "business_case": {
+        "actor": "准备把企业知识问答从试验推到生产的工程团队",
+        "job_to_be_done": "建立覆盖检索、生成、引用和失败场景的验收集",
+        "trigger": "演示效果不错，但缺少上线标准",
+        "current_workaround": "团队成员凭感觉提问并人工判断",
+        "decision": "选择指标、样本、阈值和回归频率",
+        "cost_of_inaction": "上线后无法解释质量波动，也无法判断版本是否退化",
+        "evidence": [
+          "长期存在的 RAG 评测问题",
+          "公开框架与团队实践案例"
+        ]
+      },
+      "business_bridge": {
+        "source_signal": "企业知识问答演示效果不错，但团队长期缺少一致的生产验收标准。",
+        "technical_delta": "RAG 质量由检索、上下文、生成和引用共同决定，模型观感无法替代分阶段评测。",
+        "affected_workflow": "上线验收、版本回归、故障定位和供应商或模型切换。",
+        "business_decision": "采用哪些指标、样本、阈值和回归频率作为上线门槛。",
+        "validation_method": "建立覆盖正常、边界和失败问题的固定数据集，分别测试检索命中、答案支持度、引用和端到端结果。",
+        "success_metric": "版本变化可被稳定检测，失败能定位到检索或生成环节，并满足业务约定阈值。",
+        "no_fit_conditions": "没有稳定知识范围、没有代表性问题或业务方尚未定义正确答案时，不应先设虚假的精确阈值。"
+      }
+    }
+  ]
+}

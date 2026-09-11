@@ -1,0 +1,16 @@
+Command:
+pytest -q tests/unit/test_content_quality.py tests/unit/test_skill_hotspot_article.py tests/unit/test_skill_ai_news_daily.py tests/unit/test_skill_knowledge_compile.py tests/unit/test_skill_browser_scrape.py
+
+Observed result:
+...............                                                          [100%]
+15 passed in 0.12s
+
+Covered negative cases:
+- A long article without sources, facts, or evidence cannot pass.
+- A pending claim still included in the article fails.
+- Duplicate URLs do not inflate the research-source count.
+- Source IDs appearing only below the references heading do not count as in-body citations.
+- A verified claim pointing to a missing source ID is unresolved.
+- A passed evidence run pointing to a missing artifact cannot pass the CLI gate.
+- Repeated formulaic transitions are surfaced as an editorial signal.
+- The CLI returns a non-zero exit code and writes a report when a hard gate fails.

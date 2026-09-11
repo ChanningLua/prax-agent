@@ -21,15 +21,17 @@ priority: 8
 
 **重要 — 不要递归 shell out**：你已经被这个 skill 触发了。**直接按下面的 Step 1-6 自己执行**，不要再 `python -m praxdaily run-now` / `prax prompt "..."` / `prax cron run` 之类把同样的事情又派出去 —— 那会无限递归 + 把 permission-mode 重置回默认。autocli / Bash 命令直接用 Bash 工具跑就行。
 
-## 前置条件（不满足就停）
+## 前置条件
 
 先验证：
 
-1. `autocli doctor` → 全绿（浏览器抓取依赖）
-2. `.prax/notify.yaml` 存在且包含目标通道（默认 `daily-digest`）——没配就明确告诉用户先配，不要继续抓
-3. 当前时间合理（不要对凌晨 3 点的时间跑"今日"简报，除非用户说明）
+1. `python3 -m prax.article_integrations probe`，确认至少一个输入可用；
+2. AutoCLI 可用时再运行 `autocli doctor`，用于登录态平台；
+3. `TRENDRADAR_OUTPUT` 可读取时，可直接归一化 TrendRadar 的 Markdown、JSON 或 SQLite 输出；
+4. `.prax/notify.yaml` 存在且包含目标通道；没配置时仍可生成本地简报，只跳过推送；
+5. 当前时间合理（不要对凌晨 3 点的时间跑"今日"简报，除非用户说明）。
 
-验证失败：返回一条简要说明即可停止，**不要继续**。
+AutoCLI 失败不再导致整条流水线停止；只有 TrendRadar、AutoCLI、已有 vault 和公开来源全部不可用时才停止。
 
 ## Pipeline 步骤
 
@@ -104,6 +106,16 @@ GUI 用户通常通过 praxdaily Sources 屏写这个文件，命令行用户也
 
 `<limit>` 取自配置；如果用户设置了别的 source id 但映射不到 autocli 命令，跳过它并在最终汇报里说明。
 
+如果设置了 `TRENDRADAR_OUTPUT`，先执行：
+
+```bash
+python3 -m prax.article_integrations ingest-trendradar \
+  "$TRENDRADAR_OUTPUT" \
+  --json-out "$VAULT/raw/trendradar-$DATE.json"
+```
+
+TrendRadar 与 AutoCLI 结果按 URL 和标题去重。TrendRadar 没有 URL 的热榜项只能做搜索线索，不能直接进入文章来源索引。
+
 ### Step 3：筛选 + 落盘为 markdown
 
 从每个抓回来的 json 里：
@@ -176,7 +188,7 @@ Notify(
 | 阶段 | 失败表现 | 应对 |
 |---|---|---|
 | Step 2 某个源 | autocli 超时 / 非零退出 | 跳过这个源，记录在最终汇报里；不整体失败 |
-| Step 2 全部失败 | 所有源都挂 | 停止 pipeline，报告用户检查 autocli / Chrome |
+| Step 2 全部失败 | 所有源都挂 | 尝试已有 vault；仍为空才停止并报告每个适配器状态 |
 | Step 3 AI 过滤后为空 | 今天真没 AI 新闻 | 仍然产出 digest（"今日无显著 AI 动态"），正常推送 |
 | Step 5 Notify 失败 | webhook 连不上 | 返回失败，但 wiki 已落盘，下次定时会覆盖 |
 

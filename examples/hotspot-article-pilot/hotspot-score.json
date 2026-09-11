@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-07-29T16:30:00+08:00",
+  "lookback_hours": 48,
+  "formula": "20*(.25*momentum+.20*cross_source+.20*audience_fit+.15*depth+.10*novelty+.10*verifiability-.15*risk_penalty)",
+  "selected": "agent-boundaries",
+  "candidates": [
+    {
+      "id": "agent-boundaries",
+      "title": "AI Agent 越界之后，自动写作系统该收走哪些权限",
+      "momentum": 5,
+      "cross_source": 5,
+      "audience_fit": 5,
+      "depth": 5,
+      "novelty": 5,
+      "verifiability": 5,
+      "risk_penalty": 1,
+      "score": 97,
+      "reason": "OpenAI、Hugging Face、NVIDIA 等第一方在一周内连续发布材料，既有事件事实，也有可落地的系统设计问题。"
+    },
+    {
+      "id": "open-secure-ai-alliance",
+      "title": "Open Secure AI Alliance 会改变开源安全协作吗",
+      "momentum": 5,
+      "cross_source": 4,
+      "audience_fit": 4,
+      "depth": 4,
+      "novelty": 4,
+      "verifiability": 4,
+      "risk_penalty": 1,
+      "score": 82,
+      "reason": "新鲜度高，但联盟仍处早期，现阶段容易写成成员名单和愿景复述。"
+    },
+    {
+      "id": "agent-memory",
+      "title": "Agent 长期记忆评测为何升温",
+      "momentum": 3,
+      "cross_source": 4,
+      "audience_fit": 4,
+      "depth": 5,
+      "novelty": 3,
+      "verifiability": 4,
+      "risk_penalty": 1,
+      "score": 74,
+      "reason": "适合技术深挖，但最近 48 小时的跨源热度低于安全事件。"
+    }
+  ]
+}

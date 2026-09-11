@@ -1,0 +1,21 @@
+{
+  "topic_id": "ai-search-build-or-buy",
+  "title": "AI 联网搜索应该自建、采购还是混合",
+  "track": "demand",
+  "status": "ready-for-deep-research",
+  "business_case": {
+    "actor": "正在为客户设计 AI 搜索的解决方案架构师或技术负责人",
+    "job_to_be_done": "交付一个答案新鲜、来源可查、成本可控的联网搜索能力",
+    "decision": "选择搜索 API、开源自建或混合架构，并确定引用和评测方案",
+    "cost_of_inaction": "延误交付，或上线后持续出现答案过期、无出处和成本失控"
+  },
+  "business_bridge": {
+    "source_signal": "截图中的作者自述正在为客户调研 AI 联网搜索方案；早期评论只作为继续验证的线索。",
+    "technical_delta": "联网检索把静态模型问答改成搜索、抓取、重排、生成和引用的实时链路，同时引入新鲜度、延迟、成本与来源可信度约束。",
+    "affected_workflow": "售前技术调研、方案架构、上线验收和后续质量回归。",
+    "business_decision": "搜索能力应采购 API、开源自建还是采用混合架构。",
+    "validation_method": "用固定查询集对三种架构测试覆盖率、新鲜度、引用正确性、延迟和单次成本。",
+    "success_metric": "达到客户约定的答案质量、可追溯性、时延和预算阈值。",
+    "no_fit_conditions": "知识范围固定、更新频率低且不需要外部实时信息时，不应为了热点强行加入联网搜索。"
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "profile": "selected",
+  "passed": true,
+  "score": 98,
+  "score_out_of_ten": 9.8,
+  "metrics": {
+    "content_chars": 9355,
+    "section_count": 16,
+    "researched_source_count": 20,
+    "rejected_or_duplicate_source_count": 0,
+    "cited_source_count": 14,
+    "cited_primary_source_count": 14,
+    "source_domain_count": 15,
+    "fact_checked_claim_count": 11,
+    "unresolved_claim_count": 0,
+    "accepted_evidence_run_count": 1,
+    "missing_or_invalid_evidence_artifacts": [],
+    "business_bridge_completeness": 1.0,
+    "missing_business_bridge_fields": [],
+    "visual_count": 3,
+    "unresolved_marker_count": 0,
+    "longest_paragraph_chars": 249,
+    "hype_phrase_count": 0,
+    "formulaic_style_count": 3,
+    "has_evidence_section": true,
+    "has_limitations_section": true,
+    "has_references_section": true,
+    "cited_source_ids": [
+      "S01",
+      "S02",
+      "S03",
+      "S05",
+      "S06",
+      "S07",
+      "S10",
+      "S11",
+      "S12",
+      "S13",
+      "S14",
+      "S15",
+      "S18",
+      "S20"
+    ],
+    "cited_primary_source_ids": [
+      "S01",
+      "S02",
+      "S03",
+      "S05",
+      "S06",
+      "S07",
+      "S10",
+      "S11",
+      "S12",
+      "S13",
+      "S14",
+      "S15",
+      "S18",
+      "S20"
+    ]
+  },
+  "category_scores": {
+    "volume": 10,
+    "structure": 13,
+    "sources": 25,
+    "evidence": 15,
+    "fact_check": 15,
+    "limitations": 10,
+    "editorial_hygiene": 10
+  },
+  "gates": [
+    {
+      "name": "content_chars",
+      "passed": true,
+      "actual": 9355,
+      "expected": "8000..15000"
+    },
+    {
+      "name": "section_count",
+      "passed": true,
+      "actual": 16,
+      "expected": "10..18 H2 sections"
+    },
+    {
+      "name": "researched_sources",
+      "passed": true,
+      "actual": 20,
+      "expected": ">=20"
+    },
+    {
+      "name": "cited_sources",
+      "passed": true,
+      "actual": 14,
+      "expected": ">=8"
+    },
+    {
+      "name": "cited_primary_sources",
+      "passed": true,
+      "actual": 14,
+      "expected": ">=4"
+    },
+    {
+      "name": "source_domains",
+      "passed": true,
+      "actual": 15,
+      "expected": ">=6"
+    },
+    {
+      "name": "fact_check_manifest",
+      "passed": true,
+      "actual": {
+        "checked": 11,
+        "unresolved": 0
+      },
+      "expected": ">=8 checked and 0 unresolved"
+    },
+    {
+      "name": "evidence_manifest",
+      "passed": true,
+      "actual": 1,
+      "expected": ">=1 reproducible run"
+    },
+    {
+      "name": "business_bridge",
+      "passed": true,
+      "actual": {
+        "completeness": 1.0,
+        "missing": []
+      },
+      "expected": "all signal-to-business fields present"
+    },
+    {
+      "name": "evidence_section",
+      "passed": true,
+      "actual": true,
+      "expected": "present"
+    },
+    {
+      "name": "limitations_section",
+      "passed": true,
+      "actual": true,
+      "expected": "present"
+    },
+    {
+      "name": "references_section",
+      "passed": true,
+      "actual": true,
+      "expected": "present"
+    },
+    {
+      "name": "visual",
+      "passed": true,
+      "actual": 3,
+      "expected": ">=1 table/diagram/image"
+    },
+    {
+      "name": "no_unresolved_markers",
+      "passed": true,
+      "actual": 0,
+      "expected": "0"
+    }
+  ],
+  "recommendations": []
+}

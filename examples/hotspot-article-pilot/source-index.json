@@ -1,0 +1,205 @@
+{
+  "generated_at": "2026-07-29T17:10:00+08:00",
+  "sources": [
+    {
+      "id": "S01",
+      "title": "OpenAI and Hugging Face partner to address security incident during model evaluation",
+      "url": "https://openai.com/index/hugging-face-model-evaluation-security-incident/",
+      "source_type": "official",
+      "published_at": "2026-07-21",
+      "accessed_at": "2026-07-29T16:40:00+08:00",
+      "supports": ["事件与 OpenAI 内部模型评测有关", "调查仍在继续", "评测环境未启用生产防护"],
+      "notes": "OpenAI 第一方初步说明；结论应保留“初步调查”限定。"
+    },
+    {
+      "id": "S02",
+      "title": "Security incident disclosure — July 2026",
+      "url": "https://huggingface.co/blog/security-incident-july-2026",
+      "source_type": "official",
+      "published_at": "2026-07-16",
+      "accessed_at": "2026-07-29T16:41:00+08:00",
+      "supports": ["Hugging Face 披露入侵", "公开模型、数据集和 Spaces 未发现被篡改证据", "事件响应包含凭据轮换"],
+      "notes": "受影响方第一方披露；影响评估尚未完全结束。"
+    },
+    {
+      "id": "S03",
+      "title": "Industry Leaders Unite in Open Secure AI Alliance for AI Safety and Security",
+      "url": "https://blogs.nvidia.com/blog/open-secure-ai-alliance/",
+      "source_type": "official",
+      "published_at": "2026-07-27",
+      "accessed_at": "2026-07-29T16:42:00+08:00",
+      "supports": ["联盟于 7 月 27 日宣布", "Agent 安全涉及身份、权限、harness、guardrail、日志和评测"],
+      "notes": "NVIDIA 发起方材料，联盟效果尚不能从公告推断。"
+    },
+    {
+      "id": "S04",
+      "title": "Linux Foundation and Industry Leaders Launch Akrites",
+      "url": "https://www.linuxfoundation.org/press/linux-foundation-and-industry-leaders-launch-akrites-to-defend-critical-open-source-software-against-ai-enabled-cyber-threats",
+      "source_type": "official",
+      "published_at": "2026-06-25",
+      "accessed_at": "2026-07-29T16:43:00+08:00",
+      "supports": ["Akrites 设立共享 SIRT 和协调漏洞披露流程", "AI 加快漏洞发现也提高协作压力"],
+      "notes": "基金会公告，适合支持协作流程，不用于证明联盟已经产生效果。"
+    },
+    {
+      "id": "S05",
+      "title": "CAISI Issues Request for Information About Securing AI Agent Systems",
+      "url": "https://www.nist.gov/news-events/news/2026/01/caisi-issues-request-information-about-securing-ai-agent-systems",
+      "source_type": "official",
+      "published_at": "2026-01-12",
+      "accessed_at": "2026-07-29T16:44:00+08:00",
+      "supports": ["Agent 风险来自模型输出与软件功能结合", "间接提示注入、数据投毒和目标错位均在范围内"],
+      "notes": "NIST/CAISI 对问题空间的官方表述。"
+    },
+    {
+      "id": "S06",
+      "title": "Strengthening AI Agent Hijacking Evaluations",
+      "url": "https://www.nist.gov/news-events/news/2025/01/technical-blog-strengthening-ai-agent-hijacking-evaluations",
+      "source_type": "official",
+      "published_at": "2025-01-17",
+      "accessed_at": "2026-07-29T16:45:00+08:00",
+      "supports": ["Agent hijacking 源于可信指令和不可信数据没有清晰分离", "评测需要持续更新并覆盖多次尝试"],
+      "notes": "NIST 技术博客，给出 AgentDojo 评测背景。"
+    },
+    {
+      "id": "S07",
+      "title": "Insights into AI Agent Security from a Large-Scale Red-Teaming Competition",
+      "url": "https://www.nist.gov/blogs/caisi-research-blog/insights-ai-agent-security-large-scale-red-teaming-competition",
+      "source_type": "official",
+      "published_at": "2026-03-23",
+      "accessed_at": "2026-07-29T16:46:00+08:00",
+      "supports": ["公开红队赛覆盖超过 25 万次攻击尝试", "所有 13 个目标模型都发现至少一种成功攻击"],
+      "notes": "结果说明需要持续评测，不能解释为每个模型在所有场景都同样脆弱。"
+    },
+    {
+      "id": "S08",
+      "title": "OWASP Top 10 for Agentic Applications for 2026",
+      "url": "https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/",
+      "source_type": "standard",
+      "published_at": "2025-12-09",
+      "accessed_at": "2026-07-29T16:47:00+08:00",
+      "supports": ["Agentic Top 10 由百余名专家协作", "风险框架覆盖能规划、行动和决策的 Agent 系统"],
+      "notes": "行业社区框架，不等同于强制标准。"
+    },
+    {
+      "id": "S09",
+      "title": "Secure AI Framework",
+      "url": "https://cloud.google.com/use-cases/secure-ai-framework",
+      "source_type": "documentation",
+      "published_at": "",
+      "accessed_at": "2026-07-29T16:48:00+08:00",
+      "supports": ["隔离边界、IAM、策略和日志是 AI 系统控制的一部分", "威胁模拟应在隔离环境进行"],
+      "notes": "云厂商框架，原则可迁移，产品建议存在厂商立场。"
+    },
+    {
+      "id": "S10",
+      "title": "Govern your agents",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern",
+      "source_type": "documentation",
+      "published_at": "2026-07-23",
+      "accessed_at": "2026-07-29T16:49:00+08:00",
+      "supports": ["治理包括可见性、身份与访问、安全合规、运行监督", "Agent Gateway 可用于受控连接和出口治理"],
+      "notes": "Google Cloud 产品文档，用于抽象控制面，不代表必须使用该产品。"
+    },
+    {
+      "id": "S11",
+      "title": "Least privilege for AI agents",
+      "url": "https://learn.microsoft.com/en-us/security/zero-trust/sfi/least-privilege-for-ai-agents",
+      "source_type": "documentation",
+      "published_at": "2026-07-15",
+      "accessed_at": "2026-07-29T16:50:00+08:00",
+      "supports": ["Agent 需要独立身份、范围、工具权限和审计", "未评审的工具和集成应默认拒绝"],
+      "notes": "微软安全模式文档。"
+    },
+    {
+      "id": "S12",
+      "title": "Reduce autonomous agentic AI risk",
+      "url": "https://learn.microsoft.com/en-us/security/zero-trust/sfi/manage-agentic-risk",
+      "source_type": "documentation",
+      "published_at": "2026-03-19",
+      "accessed_at": "2026-07-29T16:51:00+08:00",
+      "supports": ["确定性控制应独立于模型输出阻止禁用动作", "最小权限、最小行动和受治理记忆可降低风险"],
+      "notes": "把模型建议与执行层控制分开的直接依据。"
+    },
+    {
+      "id": "S13",
+      "title": "Defense in depth for autonomous AI agents",
+      "url": "https://www.microsoft.com/en-us/security/blog/2026/05/14/defense-in-depth-autonomous-ai-agents/",
+      "source_type": "official",
+      "published_at": "2026-05-14",
+      "accessed_at": "2026-07-29T16:52:00+08:00",
+      "supports": ["应用层决定动作、工具、数据、失败处理和人工介入", "独立 Agent 身份支持最小权限、撤销和可观测性"],
+      "notes": "微软安全博客，适合作为架构模式来源。"
+    },
+    {
+      "id": "S14",
+      "title": "Mitigate jailbreaks and prompt injections",
+      "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks",
+      "source_type": "documentation",
+      "published_at": "",
+      "accessed_at": "2026-07-29T16:53:00+08:00",
+      "supports": ["间接提示注入可藏在网页、邮件、文档和工具结果", "应筛查工具输出并用攻击样本红队测试"],
+      "notes": "Anthropic 平台文档；分类器是分层防护的一层，不应当作完整隔离。"
+    },
+    {
+      "id": "S15",
+      "title": "Designing AI agents to resist prompt injection",
+      "url": "https://openai.com/index/designing-agents-to-resist-prompt-injection/",
+      "source_type": "official",
+      "published_at": "",
+      "accessed_at": "2026-07-29T16:54:00+08:00",
+      "supports": ["不能把安全目标缩减成完美识别恶意输入", "即使操纵成功也应通过能力边界限制影响"],
+      "notes": "OpenAI 第一方防护思路，强调约束影响而非只做检测。"
+    },
+    {
+      "id": "S16",
+      "title": "CISA and UK NCSC Unveil Joint Guidelines for Secure AI System Development",
+      "url": "https://www.cisa.gov/news-events/alerts/2023/11/26/cisa-and-uk-ncsc-unveil-joint-guidelines-secure-ai-system-development",
+      "source_type": "official",
+      "published_at": "2023-11-26",
+      "accessed_at": "2026-07-29T16:55:00+08:00",
+      "supports": ["安全应覆盖 AI 系统设计、开发、部署和运行生命周期"],
+      "notes": "政府联合指南入口；原则性来源。"
+    },
+    {
+      "id": "S17",
+      "title": "MITRE ATLAS",
+      "url": "https://atlas.mitre.org/",
+      "source_type": "standard",
+      "published_at": "",
+      "accessed_at": "2026-07-29T16:56:00+08:00",
+      "supports": ["ATLAS 提供 AI 系统对手战术与技术知识库", "包含 LLM 提示注入和 Agent 工具数据投毒条目"],
+      "notes": "威胁建模词汇表，不是单一产品。"
+    },
+    {
+      "id": "S18",
+      "title": "Securing Open Source in the Age of AI: A Practical Guide",
+      "url": "https://openssf.org/resources/securing-open-source-in-the-age-of-ai-a-practical-guide/",
+      "source_type": "official",
+      "published_at": "",
+      "accessed_at": "2026-07-29T16:57:00+08:00",
+      "supports": ["AI 同时提高开发、攻击和报告速度", "幻觉、slopsquatting 和夸大严重性需要专门治理"],
+      "notes": "OpenSSF 与 CNCF 面向维护者的实践指南入口。"
+    },
+    {
+      "id": "S19",
+      "title": "Securing Agentic AI in Practice",
+      "url": "https://openssf.org/blog/2026/03/13/securing-agentic-ai-in-practice-from-openssf-guidance-to-real-world-implementation/",
+      "source_type": "official",
+      "published_at": "2026-03-13",
+      "accessed_at": "2026-07-29T16:58:00+08:00",
+      "supports": ["Agent 自主性、工具交互信任和上下文完整性是独特问题", "SAFE-MCP 等工作聚焦实际实现"],
+      "notes": "活动说明，主要用于确认问题范围。"
+    },
+    {
+      "id": "S20",
+      "title": "A practical guide to building agents",
+      "url": "https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf",
+      "source_type": "documentation",
+      "published_at": "",
+      "accessed_at": "2026-07-29T16:59:00+08:00",
+      "supports": ["工具风险可按读写、可逆性、权限和财务影响分级", "高风险动作应触发暂停或人工升级", "多层 guardrail 优于单层"],
+      "notes": "OpenAI 指南；具体实现仍需独立威胁模型。"
+    }
+  ]
+}

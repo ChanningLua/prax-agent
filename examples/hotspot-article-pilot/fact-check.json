@@ -1,0 +1,93 @@
+{
+  "generated_at": "2026-07-29T17:30:00+08:00",
+  "claims": [
+    {
+      "id": "C01",
+      "claim": "Hugging Face 于 2026 年 7 月 16 日披露入侵，OpenAI 于 7 月 21 日确认事件与其内部模型评测有关。",
+      "source_ids": ["S01", "S02"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": "双方均称调查仍在继续，本文不扩展未披露的归因。"
+    },
+    {
+      "id": "C02",
+      "claim": "Hugging Face 当时称未发现公开模型、数据集、Spaces 或软件供应链被篡改的证据。",
+      "source_ids": ["S02"],
+      "status": "qualified",
+      "included_in_article": true,
+      "caveat": "这是披露时点的调查结论，不代表永久排除后续发现。"
+    },
+    {
+      "id": "C03",
+      "claim": "NVIDIA 于 2026 年 7 月 27 日宣布 Open Secure AI Alliance，并把 Agent 安全描述为覆盖完整技术栈的问题。",
+      "source_ids": ["S03"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": "公告只能证明联盟目标，不能证明执行效果。"
+    },
+    {
+      "id": "C04",
+      "claim": "NIST 将间接提示注入解释为可信内部指令与不可信外部数据缺乏清晰分离所导致的劫持风险。",
+      "source_ids": ["S05", "S06"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": ""
+    },
+    {
+      "id": "C05",
+      "claim": "NIST 报告的一次公开红队竞赛包含超过 25 万次攻击尝试，并在 13 个目标模型上都找到至少一种成功攻击。",
+      "source_ids": ["S07"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": "不等于所有模型在所有任务或每次尝试中都会失败。"
+    },
+    {
+      "id": "C06",
+      "claim": "OWASP Agentic Top 10 由超过 100 名专家、研究人员和从业者协作形成。",
+      "source_ids": ["S08"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": "这是社区风险框架，不是强制标准。"
+    },
+    {
+      "id": "C07",
+      "claim": "微软的 Agent 最小权限模式要求独立身份、明确范围、工具权限和审计，并默认拒绝未评审工具。",
+      "source_ids": ["S11", "S12", "S13"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": ""
+    },
+    {
+      "id": "C08",
+      "claim": "Google 的 Agent 治理文档把可见性、身份与访问、安全合规和运行监督列为四个控制支柱。",
+      "source_ids": ["S10"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": "这是产品文档中的治理抽象，本文不据此推荐具体云产品。"
+    },
+    {
+      "id": "C09",
+      "claim": "Anthropic 文档把网页、邮件、文档和工具结果视为间接提示注入载体，并建议筛查工具输出和红队测试。",
+      "source_ids": ["S14"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": "筛查器是分层防护的一部分，不是完美检测器。"
+    },
+    {
+      "id": "C10",
+      "claim": "OpenAI 的防护文章强调，即便无法完美识别恶意输入，也应通过能力边界限制操纵成功后的影响。",
+      "source_ids": ["S15"],
+      "status": "supported",
+      "included_in_article": true,
+      "caveat": "这是对原文设计思想的概括。"
+    },
+    {
+      "id": "C11",
+      "claim": "OpenAI 的 Agent 构建指南建议按读写、可逆性、账户权限和财务影响评估工具风险，并对高风险功能暂停或升级人工。",
+      "source_ids": ["S20"],
+      "status": "verified",
+      "included_in_article": true,
+      "caveat": ""
+    }
+  ]
+}

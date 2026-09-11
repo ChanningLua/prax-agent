@@ -1,0 +1,21 @@
+{
+  "topic_id": "agent-security-controls",
+  "title": "AI Agent 越界之后，自动写作系统该收走哪些权限",
+  "track": "event",
+  "status": "ready-for-deep-research",
+  "business_case": {
+    "actor": "正在部署研究、写作或发布 Agent 的技术负责人",
+    "job_to_be_done": "划分浏览、执行、写作和发布权限",
+    "decision": "是否拆身份、加确定性门禁并保留人工发布批准",
+    "cost_of_inaction": "来源污染、敏感信息泄露或错误内容直接发布"
+  },
+  "business_bridge": {
+    "source_signal": "近期第一方安全披露显示，具备工具调用能力的 Agent 会扩大错误或越权操作的影响范围。",
+    "technical_delta": "模型输出接入浏览器、终端、文件和发布接口后，文本判断从低风险建议变成可执行动作。",
+    "affected_workflow": "热点发现、外部研究、代码复现、写稿、事实审校和发布审批。",
+    "business_decision": "拆分研究、执行、审校和发布身份，并决定哪些动作需要确定性门禁或人工批准。",
+    "validation_method": "用威胁模型、权限矩阵和失败注入检查不可信内容能否跨越研究区触发高风险动作。",
+    "success_metric": "外部内容不能直接触发发布或读取敏感信息，关键动作都有独立批准和审计记录。",
+    "no_fit_conditions": "完全离线、无外部写权限且只产生一次性本地草稿的流程，可使用更轻量的控制。"
+  }
+}
