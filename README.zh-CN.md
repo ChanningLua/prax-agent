@@ -1,600 +1,182 @@
-<div align="center">
-
 # Prax
 
-**让 Coding Agent 在真实、有界、可验证的工程环境中持续工作**
+**把工作交给 Agent，把关键决策留给人。**
 
-<br>
+Prax 是一个开源的 Agent 工作框架，让任务有明确范围、执行有章可循、结果有据可查。
+
+[English](README.md) · [简体中文](README.zh-CN.md) · [快速开始](#快速开始) · [核心理念](docs/CORE-PRINCIPLES.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
 
-[快速开始](#快速开始) · [为什么选 Prax](#为什么选-prax) · [使用示例](#使用示例) · [基准测试](#基准测试) · [集成路径](#集成路径) · [配置](#配置) · [架构](#架构) · [参与贡献](#参与贡献)
+## Prax 是什么？
 
-<br>
+你可以直接用 Prax 分析代码、修改文件、整理资料，也可以让它配合 Claude Code 或 Codex，完成需要多步执行和反复验收的任务。
 
-</div>
+它关注的不只是“Agent 能不能做”，还有：在哪个项目做、允许改什么、怎样判断完成，以及遇到问题时何时停下。Prax 通过任务配置、执行控制和结果记录，让这些工作便于检查和交接。
 
----
+**Prax Shift 是其中的持续工作模式，不是 Prax 的全部。** 除了编码托管，Prax 还提供技能扩展、工具接入、会话与记忆组件，以及知识整理和内容写作流程。
 
-## 快速开始
+## 可以用它做什么
 
-仓库工程任务可使用 [通用 Repository Harness](docs/repository-harness.md)：
-固定任务契约、限制执行预算、独立验收并保留恢复证据。项目规则留在仓库
-适配器中，Prax 核心保持可复用、可独立开源。
-
-**目标**：装上 Prax，配好 AI key，跑通第一个任务 —— 5 分钟内。不需要编程背景。
-
-> 你是老手？直接看文末 [老手一行命令](#老手一行命令)。
-
-### Step 1 · 装前置依赖
-
-Prax 需要 **Node.js**（CLI 外壳）+ **Python 3.10+**（运行时）。先看装没装：
-
-```bash
-node --version      # 应打印 v14 或更高
-python3 --version   # 应打印 Python 3.10 或更高
-```
-
-缺一个？装上：
-
-| 系统 | 安装命令 |
-|---|---|
-| **macOS** | `brew install node python@3.12`（没 Homebrew 先按 <https://brew.sh> 装）|
-| **Linux** | `sudo apt install nodejs python3 python3-pip`（Debian/Ubuntu）或 `sudo dnf install nodejs python3`（Fedora）|
-| **Windows** | 用 [WSL2](https://learn.microsoft.com/windows/wsl/install) 按 Linux 命令装。原生 Windows 暂不支持（0.5.x 路线图上） |
-
-### Step 2 · 装 Prax
-
-```bash
-npm install -g praxagent
-```
-
-验证：
-
-```bash
-prax --version
-```
-
-**应该看到**：
-
-```
-prax 0.5.0
-```
-
-（0.5.0 或更高都行。）
-
-**看到 `command not found`？**
-- macOS 用 Homebrew 装的 Node：跑 `export PATH=/opt/homebrew/bin:$PATH`，加到 `~/.zshrc`
-- Linux：确认 `npm prefix -g` 的 `bin/` 目录在 `$PATH` 上
-
-### Step 3 · 给 Prax 接一个 LLM 服务
-
-Prax 调用任何 LLM 都只需要两样东西：**接口地址（base_url）** 和 **API key**。
-官方 API、中转代理、自建网关都用同一套配置流程。
-
-1. 从你的服务面板拿到 `base_url` 和 key。
-
-2. 设环境变量（变量名随便起，shell 里能 `export` 就行；`LLM_BASE_URL` / `LLM_API_KEY` 是我们推荐的命名）：
-
-   ```bash
-   export LLM_BASE_URL="https://你的服务地址"
-   export LLM_API_KEY="你的 key"
-   ```
-
-3. 写 `~/.prax/models.yaml` 把它们串起来：
-
-   ```bash
-   mkdir -p ~/.prax
-   cat > ~/.prax/models.yaml <<'YAML'
-   providers:
-     default:
-       base_url_env: LLM_BASE_URL
-       api_key_env: LLM_API_KEY
-       format: openai          # 服务说 Anthropic 协议就改成 anthropic
-       models:
-         - name: <你的模型名>   # 服务面板/文档列出的精确模型 ID
-   default_model: <你的模型名>
-   YAML
-   ```
-
-   `<你的模型名>` 换成你服务实际暴露的 ID（跑服务的 `/v1/models` 端点或看面板列表）。
-
-4. 验证：
-
-   ```bash
-   prax providers
-   ```
-
-   会列出你的 provider 名 + 模型名 + 状态。`LLM_API_KEY` 设好时状态显示 `available`；若是 `missing-credentials`，说明环境变量没传进 Prax——重跑 `export`，确认 `echo $LLM_API_KEY` 能回显 key。
-
-### Step 4 · 第一个任务
-
-```bash
-mkdir -p ~/Desktop/prax-hello && cd ~/Desktop/prax-hello
-prax prompt "你是谁？用一句话回答。"
-```
-
-**应该打印**类似：
-
-```
-我是 Prax 这个智能体运行时里跑的 AI 助手，可以帮你执行代码、测试和自动化任务。
-```
-
-✅ Prax 跑起来了。
-
-### Step 5 · 让它真动文件（和普通 AI 聊天框的区别）
-
-```bash
-echo "hello world" > greeting.txt
-prax prompt "读 greeting.txt 里的内容，然后把它改成全大写再写回去"
-cat greeting.txt
-```
-
-**应该打印**：
-
-```
-HELLO WORLD
-```
-
-这就是 Prax 的核心能力——**读、写、跑测试、闭环验证**，不只是聊天。下面所有功能都建立在这之上。
-
-**卡在某步了？** 常见问题：
-
-| 症状 | 解决 |
-|---|---|
-| `Error: Model 'xxx' not found` | `~/.prax/models.yaml` 里的 `<你的模型名>` 和服务不匹配。看服务的 `/v1/models` 或面板取准确名字 |
-| `HTTP 401 / Unauthorized` | key 打错或过期。重新生成再 `export LLM_API_KEY` |
-| 静默退出没输出 | 端点不通。`curl -s "$LLM_BASE_URL"/...` 试一下，或换一个可用端点 |
-| 中文乱码 | `export LANG=zh_CN.UTF-8` 加到 shell 配置 |
-
----
-
-## 两种使用方式
-
-跑通 Step 5 以后就可以选使用场景了。
-
-### 方式 1 · 终端独立跑（你刚做的）
-
-命令行直接用 Prax ——自动化、cron 定时、CI/CD 都走这条路，不用开 IDE。
-
-```bash
-prax prompt "跑 pytest -q，修第一个失败，跑通了就停"
-prax prompt "读 README.md，给出 3 条具体改进建议"
-prax cron add --name daily-news --schedule "0 17 * * *" --prompt "..."   # 定时任务
-```
-
-挑你的角色看端到端真实案例：
-
-| 你的角色 | 教程 | 会搭出什么 |
+| 你的需求 | 使用方式 | Prax 如何帮助你 |
 |---|---|---|
-| **PM / 客服主管** | [support-digest](./docs/tutorials/support-digest.md) | 每日工单 PII 脱敏简报，纯本地处理 |
-| **内容创作者 / 知识库爱好者** | [ai-news-daily](./docs/tutorials/ai-news-daily.md) | 抓 X / 知乎 / Bilibili → 编译成 Obsidian wiki → 推简报 |
-| **发版经理** | [release-notes](./docs/tutorials/release-notes.md) | git 历史 → CHANGELOG + 发布公告 |
-| **DevEx / 技术写作** | [docs-audit](./docs/tutorials/docs-audit.md) | 每周"哪些文档没跟上代码"的 drift 报告 |
-| **工程 Lead** | [pr-triage](./docs/tutorials/pr-triage.md) | 对 PR 真跑测试对比 base 分支 |
+| 分析和修改代码 | Prax 自带的命令行 Agent 与交互会话 | 读取代码、编辑文件、执行命令，并保存会话记录 |
+| 托管一项编码任务 | Prax Shift，使用 Claude 或 Codex 执行编码 | 固定任务范围和验收条件，在约定的次数与时间内修复并检查结果 |
+| 只跑一次测试，不改代码 | 一次性验证模式 `verification` | 复用项目已有测试入口，分别记录各用例结果，不启动编码 Agent |
+| 复用团队的工作方法 | 技能（Skills）、自定义 Agent 与 MCP 工具 | 保存常用流程，连接项目需要的工具和服务 |
+| 整理资料、撰写内容 | 研究、知识整理与内容写作流程 | 生成草稿、来源记录、审查清单和质量报告 |
+| 稍后继续处理任务 | 运行记录、定时调度和通知 | 在条件允许时继续已配置的任务，保留原有范围与预算 |
 
-所有 5 个教程都自带示例数据——**不需要真 API / 真 PR** 就能跟着跑。
+这些使用方式的约束不同。普通对话和技能主要提供执行能力与流程指导；需要固定任务范围、限制执行预算并独立验收时，应使用 Repository Harness（仓库任务运行框架）或基于它的 Shift 模式。
 
-### 方式 2 · 集成到 Claude Code
-
-用 [Claude Code](https://claude.com/claude-code)，想在 IDE 里用 Prax 的 skill / 命令 / 验证 hook：
-
-```bash
-prax install --profile full
-```
-
-这会把 Prax 打包的 skill（4 个商用场景 + 1 个内容自动化流水线 + 4 个工程工作流）复制到 `~/.claude/`，注册 Prax 的 MCP server，并接入 hook 让 Claude Code 每次改代码时跑 Prax 的验证循环。
-
-验证：
-
-```bash
-prax doctor --target claude
-```
-
-然后重开 Claude Code。你会看到 `/prax-shift`，以及 `/prax-status`、`/prax-doctor`、`/prax-plan`、`/prax-verify` 等斜杠命令、`prax-planner` agent 和自动应用的 Prax 规则。
-
-撤销：`prax uninstall --target claude`。
-
-### 方式 3 · 集成到 Codex
-
-业务仓项目级接入（Codex repo skill，非全局插件）：
-
-```bash
-prax install --target codex --local
-prax doctor --target codex
-```
-
-仅写当前项目 `.codex/skills/prax-shift` 与 `.prax/codex-install.json`，不写
-`.agents/skills` 或用户插件/配置。doctor 在仓库内默认核对项目实例的路径、
-内容版本和隔离原生发现，旧全局插件不能掩盖本地缺失。不启动 worker 或调度。
-详见 [项目级安装与诊断](docs/codex-project-install.md)。
-
-如果明确需要所有项目共享的用户级个人插件：
-
-```bash
-prax install --target codex
-prax doctor --target codex --global
-```
-
-安装后新开一个 Codex 任务，从斜杠菜单选择 `prax-shift`，或者输入
-`$prax-shift`。它可以接班一个有界目标、汇报证据、继续运行；只有你
-明确要求时才会创建常驻调度。
-
-撤销：`prax uninstall --target codex`。
-
-### Prax Shift：把工作交出去，不把控制权交出去
-
-Prax Shift 是 Prax 的持续自主工作模式。Prax 持有持久状态、验收、
-预算、审批边界和证据；Claude 或 Codex 只是可替换的编码 worker。
-人在决策点保持 HITL，Agent 在有界执行中可以 AFK。推荐使用任务契约模式：
-技能帮助整理 `.prax/task.json`（目标、范围、验收、总预算），
-`.prax/harness.json` 固定 `worker: codex` 或 `claude`。
-
-下列命令用于 `code-check` 编码任务。只测试、不修代码时，使用
-[一次性验证模式](docs/verification-tasks.md)：经本次明确授权后，复用仓库已有
-测试入口执行一次并校验结构化证据；不启动编码 worker，不重试、恢复或定时运行。
-
-```bash
-prax shift plan --task .prax/task.json
-prax shift run --task .prax/task.json
-prax shift status --run-id <任务ID>
-prax shift pause --run-id <任务ID>
-prax shift resume --run-id <任务ID>
-```
-
-要定时运行，必须显式创建 `shift` 类型的任务：
-
-```bash
-prax cron add \
-  --name nightly-config-migration \
-  --schedule "0 1 * * *" \
-  --run-mode shift \
-  --task .prax/task.json
-prax cron install
-```
-
-调度器续跑同一个契约，不重置预算、不自动解除暂停。只有独立验收
-`PASS` 且 `verified=true` 才算成功；工作区或验收发生漂移就拒绝复用旧结果。
-Codex 默认 `workspace-write`；Claude 默认 `dontAsk`，不是同一种隔离机制。
-旧的 `shift "目标" --verify ...` / `--features` 仍保留，但不具备新任务模式
-全部的身份、互斥和墙钟监督保证；旧 prompt 型 Shift cron 必须迁移到 `--task`。
-
-完整模板与操作边界见 [Shift 闭环实用指南](docs/recipes/shift-closed-loop.md)。
-安装技能不会自动启动常驻服务，实际模型接班及定时运行需另行验收。
-
-### 老手一行命令
-
-```bash
-git clone https://github.com/ChanningLua/prax-agent.git && cd prax-agent
-pip install -e .
-export LLM_BASE_URL="https://你的服务地址"
-export LLM_API_KEY="你的 key"
-# 然后按 Step 3 写 ~/.prax/models.yaml
-prax prompt "跑 pytest -q，修失败，跑通就停"
-```
-
-> Prax 可以代你执行 shell 命令。默认使用 `workspace-write` 模式——项目外的文件不可触碰。使用 `--permission-mode read-only` 可安全浏览。
-
----
-
-## 为什么选 Prax
-
-**Prax 不是另一个绑定模型的 Agent 外壳——它是连接 Coding Agent 与真实代码库的 Environment Runtime。**
-
-### 核心理念：人在关键处决策，Agent 在其余时间持续工作
-
-Prax 将 **HITL（Human in the Loop）** 与 **AFK（Away From Keyboard）** 组合成一套自适应自治模型：人定义目标、边界与验收标准；Agent 在受控环境中持续执行和验证；遇到高风险、歧义、证据不足或环境故障时，系统停在决策点等待人类判断，随后从持久状态继续。
+## 核心理念
 
 > **Prax = Environment Runtime + Adaptive Autonomy Controller + Evidence Plane**
 
-**Agent 在哪里工作 · 人什么时候决策 · 结果如何被证明。**
+| 架构层 | 回答的问题 | 当前仓库任务中的作用 |
+|---|---|---|
+| **Environment Runtime · 环境运行时** | Agent 在哪个环境中工作？ | 核对仓库和分支，保存任务配置与运行状态，协调仓库占用并管理执行进程 |
+| **Adaptive Autonomy Controller · 自适应自治控制器** | 什么时候继续执行，什么时候需要人来处理？ | 限制修改范围、运行时间和尝试次数；遇到异常时停止，支持人工暂停和恢复 |
+| **Evidence Plane · 证据层** | 如何判断任务完成，依据在哪里？ | 收集测试结果、日志和报告，校验产物文件，保留可追溯的执行记录 |
 
-> **可信自治 = 真实状态 × 有界行动 × 可证结果**
+**人来定目标和权限，Agent 按约定执行，最后用结果验收。**
 
-模型负责思考与执行；Prax 负责让状态真实、动作受控、反馈可信、过程可恢复、结果有证据。它遵循一个简单的运行原则：**HITL at decisions，AFK in execution**。详见 [Prax 核心理念](./docs/CORE-PRINCIPLES.md)。
+HITL（Human in the Loop）指人在关键环节参与决策；AFK（Away From Keyboard）指人不必全程守在键盘前。两者可以结合：人先明确目标、权限和验收条件，Agent 在约定范围内执行；遇到无法继续的问题，再交回人来判断。
 
-<p align="center">
-  <img src="./docs/assets/capabilities.zh-CN.svg" alt="Agent Capabilities" width="800">
-</p>
+这个公式描述的是 Prax 的架构思路，并非三个独立产品。目前的执行控制基于明确规则，尚未实现自主学习的风险判断或统一审批平台。详见[核心理念](docs/CORE-PRINCIPLES.md)。
 
-### 验证优先架构
+## 快速开始
 
-<p align="center">
-  <img src="./docs/assets/verification-loop.svg" alt="Verification Loop" width="800">
-</p>
+本页以 `main` 分支的源码为准。已发布的软件包可能尚未包含这里介绍的新功能，建议先从源码安装。
 
-大多数工具发送 prompt 然后听天由命。Prax 运行 **测试-验证-修复循环**：执行测试套件、分析失败、编辑代码、重新运行直到测试通过。验证层是一等公民——不是事后补丁。
+### 安装 Prax
 
-**基准验证**: 10/10 仓库修复任务全部解决，平均 29.56 秒（对比同类框架基线 8/10）。
-
-### 基于经验的自我改进
-
-Prax 在会话和项目之间持续学习并自我改进：
-
-- **纠错检测** — 自动检测用户纠正错误的信号（支持中英文），提取问题-方案模式并应用到后续会话
-- **跨项目经验积累** — 在 `~/.prax/experiences.json` 构建全局经验库，提升所有仓库的工作效率
-- **结构化错误恢复** — 将失败方案加入黑名单并尝试替代方案，避免同一会话内重复犯错
-- **带置信度评分的持久记忆** — 两种后端（JSON/SQLite）追踪上下文、决策和学习到的模式
-- **时序知识图谱** — 跟踪实体关系及其跨会话的演变
-- **检查点/恢复** — 崩溃恢复确保长时间运行的任务不会丢失工作
-- **轨迹记录** — 从执行历史中学习，识别成功模式并避免失败模式
-
-这些能力已集成到核心运行时中——不是实验性插件。
-
-### 使用经验与记忆
-
-Prax 自动从你的工作中学习，并将知识应用到后续任务。以下是记忆系统的使用方式：
-
-#### 自动学习
-
-Prax 在以下场景捕获经验：
-
-- **纠错检测** — 当你纠正错误时（如"不对"、"重新来"、"that's wrong"），Prax 提取问题-方案模式并保存到 `.prax/solutions/`
-- **任务完成** — 置信度 ≥ 0.7 的事实被持久化到项目记忆
-- **工具失败** — 失败的方案在会话内被加入黑名单，避免重复
-- **验证成功** — 成功的测试-修复模式被记录为经验
-- **会话结束** — 上下文快照被保存，供下次会话恢复
-
-#### 查看记忆
-
-查看 Prax 学到了什么：
+需要 macOS 或 Linux，以及 Python 3.10+。按下面的方式安装 Prax 不需要 Node.js；Claude、Codex 和项目测试工具的依赖需另外准备。
 
 ```bash
-# 项目级记忆
-cat .prax/memory.json          # 事实和上下文（JSON 后端）
-cat .prax/memory.db            # 或 SQLite 后端
-ls .prax/solutions/            # 问题-方案模式
-
-# 全局跨项目经验
-cat ~/.prax/experiences.json   # 共享学习成果（JSON 后端）
-cat ~/.prax/experiences.db     # 或 SQLite 后端
-
-# 会话历史
-ls .prax/sessions/             # 历史对话记录
+git clone https://github.com/ChanningLua/prax-agent.git
+cd prax-agent
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/prax --version
+.venv/bin/prax shift --help
 ```
 
-#### 管理记忆
+最后两条命令只查看版本和帮助，不调用模型、执行测试或启动定时任务。能正常显示这些信息，说明命令可用，但还需要检查项目的实际执行条件。
 
-按需清理记忆：
+### 选择使用方式
+
+- **直接使用 Prax Agent**：配置模型接口地址和凭证，再使用 `prax prompt` 或 `prax repl`。见[使用入门](docs/getting-started.md#native-runtime)。
+- **在 Codex 中使用**：先把 Prax 安装到目标仓库的 `.prax/venv`，再安装项目技能并检查是否可用。见[项目接入](docs/getting-started.md#codex-project-setup)。
+- **让 Claude 执行编码任务**：在仓库配置中指定 `worker: "claude"`。通过命令行执行这类任务，无需先向 Claude 安装 Prax 技能。见[仓库任务配置](docs/repository-harness.md)。
+- **接入已有 E2E**：按[一次性验证协议](docs/verification-tasks.md)编写项目适配代码，调用现有测试系统并检查其报告。
+
+不要用示例覆盖项目已有的环境、配置、任务或适配代码。建议从一个小任务开始，先确认它的验收标准明确，相关测试也已能在本地运行。
+
+### Codex 项目级接入
+
+确认 Prax 已安装到**目标仓库**的 `.prax/venv`，在该仓库执行：
 
 ```bash
-# 清除项目记忆
-rm -rf .prax/memory.json .prax/solutions/
-
-# 清除全局经验
-rm -rf ~/.prax/experiences.json
-
-# 清除会话历史
-rm -rf .prax/sessions/
-
-# 完全重置
-rm -rf .prax/ ~/.prax/
+.prax/venv/bin/prax install --target codex --local --dry-run --json
+.prax/venv/bin/prax install --target codex --local --json
+.prax/venv/bin/prax doctor --target codex --json
 ```
 
-#### 记忆后端
+安装器负责管理 `.codex/skills/prax-shift/SKILL.md` 和 `.prax/codex-install.json`，不会写入 `.agents/skills`、用户级插件配置或插件市场配置。除了检查文件，它还会调用 Codex 的技能发现接口，确认该项目技能能被识别。
 
-Prax 支持两种记忆后端：
+这项发现检查在隔离环境中进行，**目前仅支持 macOS**，且需要已安装的 Codex CLI。条件不满足时会报告失败，不会改用全局插件。即使 doctor 检查通过，已经打开的 Codex 任务也不一定加载了新技能；请新开项目任务，选择属于该项目的 `prax-shift`。
 
-| 后端 | 存储 | 适用场景 | 搜索方式 |
-|------|------|---------|---------|
-| **local**（JSON） | `.prax/memory.json` + `~/.prax/experiences.json` | 零配置，小型项目 | 线性扫描 |
-| **sqlite** | `.prax/memory.db` + `~/.prax/experiences.db` | 中大型项目，全文搜索 | FTS5 索引 |
+[Codex 官方技能目录](https://learn.chatgpt.com/docs/build-skills)是 `.agents/skills`。Prax 目前使用兼容目录 `.codex/skills`，并在每次安装和诊断时检查当前 Codex 是否支持它。详见[项目级安装与诊断](docs/codex-project-install.md)。
 
-在 `.prax/config.yaml` 中配置：
+### Claude Code 集成
 
-```yaml
-memory:
-  backend: local  # 或 sqlite
-  local:
-    max_facts: 100
-    fact_confidence_threshold: 0.7
-    max_experiences: 500
-```
+Prax 也为 Claude 提供技能、命令、Agent、规则、钩子（hooks）和 MCP 配置。`prax install --target claude` 目前是**用户级安装**，可能改动 `~/.claude` 并影响其他项目，与 Codex 的 `--local` 不同。使用前请阅读[安装范围与注意事项](docs/getting-started.md#claude-integration)。
 
-#### 置信度
+## 把编码任务交给 Prax Shift
 
-- 置信度 ≥ **0.7** 的事实被持久化到记忆
-- 低置信度的观察仅保留在会话上下文中
+使用已安装的 Prax 技能时，可以直接这样描述任务：
 
-**双运行时路径** — 原生 CLI 用于自动化和 CI/CD，Claude Code 集成用于交互式开发。按需选择合适的工具。
+> 用 Prax Shift 修复解析器处理空输入时报错的问题。只改解析器，不改测试，用现有回归测试验收。最多让编码 Agent 尝试三次，总共不超过十分钟。不要提交或发布，先给我看计划。
 
-**跨会话持久记忆** — 关闭终端不会丢失上下文。两种记忆后端：JSON（零配置）、SQLite（全文搜索）。
+技能会帮助你把要求整理成两份配置，供你检查：
 
-**多模型编排** — OpenAI 兼容、Anthropic 兼容及自定义协议的任意 LLM，具备显式路由、降级链和成本追踪。会话中随时切换模型 `/model <你的模型名>`。
+- `.prax/harness.json`：由哪个编码 Agent 执行（`worker`）、需要遵守的项目规则，以及可选的适配器。
+- `.prax/task.json`：任务 ID、目标、实际仓库和分支、允许修改的文件、验收方法，以及总次数和时间限制。
 
-**安全内建** — 权限模式（`read-only`、`workspace-write`、`danger-full-access`）、Schema 校验、工作区边界、完整审计追踪。
-
-**为真实代码库而生** — 25+ 内置工具、中间件管线（循环检测、质量门禁）、多语言支持、交互式 REPL 模式。
-
-**透明可度量** — 实时成本追踪、会话历史与回放、内置基准测试套件、开放架构可扩展自定义组件。
-
----
-
-## 使用示例
-
-### 仓库修复
-
-```
-$ prax "run pytest -q, fix the failure, and stop when tests pass"
-▶ VerifyCommand {"command": "pytest -q"}
-  ✗ FAILED test_auth.py::test_login - AssertionError
-▶ Read {"file_path": "src/auth.py"}
-▶ Edit {"file_path": "src/auth.py", ...}
-▶ VerifyCommand {"command": "pytest -q"}
-  ✓ 1 passed in 0.12s
-Verification passed. Task complete.
-```
-
-### 一次性任务
+按实际项目填好配置后，使用项目环境中的 Prax 检查计划。如果只在源码目录安装了 Prax，请将下面的命令路径换成对应的绝对路径，避免误用旧的全局版本：
 
 ```bash
-prax "explain the authentication flow in login.py"
-prax "refactor auth.py error handling, replace requests with httpx"
-prax "analyze project architecture, list technical debt, prioritize by impact"
+.prax/venv/bin/prax shift plan --task .prax/task.json
 ```
 
-### 交互式 REPL
+`plan` 检查任务配置和当前仓库状态，**不跑测试，也不启动编码 Agent**。确认任务后，可以按需运行、查看、暂停或恢复任务；以下命令不需要全部依次执行：
 
 ```bash
-prax repl
-
-> analyze the codebase structure
-> fix the SQL injection in user_query.py
-> /model <你的模型名>
-> /cost
-Session: 12.4K tokens ($0.04)
+.prax/venv/bin/prax shift run --task .prax/task.json
+.prax/venv/bin/prax shift status --run-id <task-id>
+.prax/venv/bin/prax shift pause --run-id <task-id>
+.prax/venv/bin/prax shift resume --run-id <task-id>
 ```
 
-### 斜杠命令
+`code-check` 会先运行验收测试。如果已经通过，就无需调用编码 Agent；如果是功能问题，则在约定的次数和时间内尝试修复；如果是环境故障或仓库状态异常，则停止执行。
 
-```
-/model, /session list, /plan, /todo show, /doctor, /cost, /help
-```
+恢复任务前，Prax 会核对任务配置和此前保存的代码状态。已经用掉的次数和时间会继续计入总预算，不会重新清零。暂停只会停止执行，不会撤销已有修改。
 
----
+结果保存在 `.prax/harness-runs/<task-id>/`。`PASS` 且 `verified=true` 表示任务中指定的验收已通过，不代表已经部署、覆盖全部业务或通过所有平台测试。`status` 只读取已有结果，不会重新运行验收。
 
-## 基准测试
+如果需要定时继续任务，必须另行配置。Shift 的定时调度只处理同一个任务，不自动生成新任务、增加预算或解除人工暂停。见[持续工作指南](docs/recipes/shift-closed-loop.md)。
 
-<p align="center">
-  <img src="./docs/assets/benchmark-results.svg" alt="基准测试结果" width="800">
-</p>
+## 只测试，不改代码
 
-Prax 在仓库修复任务上达到 **10/10 成功率**，平均完成时间 **29.56 秒** — 比跨框架基线快 49%。
+“完整跑一次测试”和“修到测试通过”是两种任务。前者使用 `kind: "verification"`。
 
-| 指标 | Prax | 框架基线 | 提升 |
-|------|------|---------|------|
-| 成功率 | **10/10** (100%) | 8/10 (80%) | **+25%** |
-| 平均耗时 | **29.56s** | 58.44s | **-49%** |
-| 超时次数 | **0** | 2 | **-100%** |
+**Prax 管运行和证据，现有测试系统管实际测试。**
 
-**驱动因素：**
-- **验证优先架构** — 测试-验证-修复循环及早捕获错误
-- **质量门禁中间件** — 循环检测与收敛引导
-- **智能沙箱降级** — 验证命令绕过不必要的开销
+项目适配代码负责调用现有测试入口，确认本次获准测试的平台和用例，并检查测试系统生成的报告。Prax 则核对报告是否属于本次运行、退出码是否与结果一致，以及产物文件的路径和哈希是否有效。
 
-基准方法论：在真实仓库修复任务上运行 10 轮，保留会话状态。详见 [docs/BENCHMARKS.md](./docs/BENCHMARKS.md)。
+- 分别报告通过（`passed`）、失败（`failed`）、阻塞（`blocked`）和未执行（`not-executed`）。
+- 保留具体阻塞原因，不把“没运行”算作“业务测试失败”。
+- 覆盖情况仍标记为 `unknown`：统计跑了多少用例，不等于知道覆盖了多少业务功能。
+- 只运行一次，不启动编码 Agent，也不自动重跑、恢复或安排周期验证。
 
----
+仅凭进程正常退出，或输出了一段 JSON，不能判定测试通过。不同项目需要提供自己的适配代码，安装 Prax 不会自动接通所有 E2E 系统。见[一次性验证协议](docs/verification-tasks.md)。
 
-## 集成路径
+## 不止编码：扩展你的工作流
 
-Prax 提供两种运行路径——按需选择：
+除了仓库任务管理，Prax 还提供以下能力：
 
-| 特性 | 原生运行时 | Claude Code 集成 | Codex 集成 |
-|------|-----------|-----------------|------------|
-| 执行方式 | CLI 命令 | Claude Code | Codex |
-| 交互方式 | 命令行 REPL | 对话界面 | 对话界面 |
-| Shift worker | 直接 API | `claude -p` | `codex exec --json` |
-| 工具集成 | 25+ 内置工具 | Claude Code 工具 + Prax 扩展 | Codex 工具 + `prax-shift` skill |
-| 适用场景 | 自动化、CI/CD | 交互式开发、代码审查 | 交互式开发、受控无人值守 |
+- **技能与 Agent**：加载内置或项目自定义技能，按需读取操作指引，复用常用工作方法。技能用于指导行为，不能代替安全隔离。
+- **工具与 MCP**：连接本地工具和已配置的服务。每项接入都需要单独管理凭证和操作权限。
+- **模型与会话**：配置模型服务、选择模型并保存对话记录。Prax 自己使用的模型 API，与 Claude/Codex 编码 Agent 的登录认证相互独立。
+- **记忆组件**：保存纠错记录和经验，提供本地文件、SQLite 等存储方式。不同运行方式接入的记忆能力并不相同，不能认为每次对话都会使用所有后端；记录下来的推断也仍需核实。
+- **内容流程**：支持[批量撰写文章](docs/recipes/article-batch.md)、[整理来源并生成草稿](docs/recipes/hotspot-article.md)、[编写发布说明](docs/recipes/release-notes.md)、[检查文档是否跟上代码](docs/recipes/docs-audit.md)和[汇总工单](docs/recipes/support-digest.md)。外部工具需单独配置；内容质量检查不能保证每条事实都正确，也不包含自动发布授权。
 
-### Claude Code 集成优势
+## 使用前需要了解的限制
 
-- **IDE 原生体验** — 在 Claude Code 中直接使用 Prax 能力
-- **深度集成** — 通过 MCP Server 和 Hooks 实现深度集成
-- **安全防护** — 写入前密钥扫描、提交前质量检查
-- **会话持久化** — 自动保存会话状态，支持断点恢复
-- **双向协作** — Claude Code 的对话能力 + Prax 的验证循环
+- **Prax 不是操作系统沙箱。** 它在执行前后及关键步骤检查仓库变化，但不能阻止所有副作用，也不会自动回滚。测试和适配器都能执行代码，使用前必须确认它们可信。
+- **Claude 与 Codex 的权限机制不同。** Codex 编码任务默认使用 `workspace-write`，Claude 使用 `dontAsk`，二者不具备相同的隔离能力。
+- **验收是否可靠，取决于测试是否可靠。** 已识别出的零用例或全部跳过不能算通过；自定义验收脚本仍需自己保证判断正确。
+- **保存了状态，也可能无法直接恢复。** 进程被强制结束、子进程脱离管理、代码被外部修改或仓库被其他任务占用时，可能需要人工检查，再创建新任务。
+- **持续工作仍有明确限制。** 当前尚未提供自动生成每日任务、统一双向审批、自动发布到生产环境，或一键停止全部任务的全局开关。
+- **历史测试成绩不能代表所有场景。** [基准记录](docs/BENCHMARKS.md)只针对一组历史实验，不是通用排行榜，也不能代替当前版本的端到端验收。
 
-<p align="center">
-  <img src="./docs/assets/integration-paths.svg" alt="集成路径" width="800">
-</p>
+旧命令 `shift "goal" --verify ...` 和 `--features` 仍可兼容使用，但不具备 `shift run --task` 的全部保护措施。
 
-> 安装步骤参见上方的 [方式 2 · 集成到 Claude Code IDE](#方式-2--集成到-claude-code-ide)（`prax install --profile full` + `prax doctor --target claude`）。
+## 文档导航
 
----
-
-## 配置
-
-**模型** — 在项目中创建 `.prax/models.yaml`（或编辑快速开始 Step 3 用过的全局 `~/.prax/models.yaml`）：
-
-```yaml
-default_model: <你的模型名>
-
-providers:
-  default:
-    base_url_env: LLM_BASE_URL    # 任意环境变量名，在 Step 3 已声明
-    api_key_env: LLM_API_KEY
-    format: openai                # 端点说 Anthropic 协议就改成 anthropic
-    models:
-      - name: <你的模型名>         # 服务暴露的精确模型 ID
-```
-
-如果要同时接多个端点（例如 OpenAI 兼容 + Anthropic 兼容各一个），再加一项 `providers:` 条目，分别填各自的 `base_url_env` / `api_key_env` 和模型列表即可。每个 provider 也可以直接写死 `base_url`（不走 env），完整 schema 见 `core/llm_client.py`。
-
-**权限模式**
-
-| 模式 | 允许的操作 | 默认 |
-|------|-----------|------|
-| `read-only` | 不可写文件，不可执行 shell 命令 | |
-| `workspace-write` | 可修改项目内的文件 | ✓ |
-| `danger-full-access` | 无限制 | |
-
-```bash
-prax --permission-mode read-only "analyze security vulnerabilities"
-```
-
-**运行时路径**
-
-| 参数 | 行为 |
-|------|------|
-| `--runtime-path auto` | 如果安装了 `claude` 则使用 Claude CLI 桥接，否则使用原生运行时（默认） |
-| `--runtime-path native` | 始终使用原生运行时 |
-| `--runtime-path bridge` | 始终使用 Claude CLI 桥接；未安装 `claude` 时报错 |
-
-**数据目录**
-
-| 路径 | 内容 |
-|------|------|
-| `.prax/sessions/` | 对话历史 |
-| `.prax/memory.json` | 项目记忆（自动提取的事实，JSON 后端） |
-| `.prax/memory.db` | 项目记忆（SQLite 后端） |
-| `.prax/solutions/` | 纠错检测生成的问题-方案模式 |
-| `.prax/todos.json` | 当前任务列表 |
-| `.prax/agents/` | 自定义 Agent 定义 |
-| `.prax/models.yaml` | 模型配置 |
-| `.prax/config.yaml` | 项目级配置（记忆后端等） |
-| `~/.prax/` | 全局配置（跨项目） |
-| `~/.prax/experiences.json` | 全局跨项目经验（JSON 后端） |
-| `~/.prax/experiences.db` | 全局跨项目经验（SQLite 后端） |
-| `~/.prax/config.yaml` | 用户级配置 |
-
----
-
-## 架构
-
-<p align="center">
-  <img src="./docs/assets/architecture.svg" alt="Architecture" width="800">
-</p>
-
-核心模块：
-
-| 路径 | 职责 |
-|------|------|
-| `core/agent_loop.py` | 核心编排循环（最多 25 次迭代，熔断器） |
-| `core/middleware.py` | VerificationGuidance、LoopDetection、QualityGate 等 |
-| `tools/verify_command.py` | 有界验证（pytest、npm test、cargo test、go test） |
-| `tools/sandbox_bash.py` | 自动降级：验证命令绕过沙箱开销 |
-| `core/memory/` | 可插拔后端（JSON / SQLite） |
-| `core/llm_client.py` | Provider 注册表，多模型路由 |
-| `agents/` | Ralph（规划者）、Sisyphus（执行者）、Team（并行） |
-| `workflows/` | 任务分解与编排 |
-
----
+| 文档 | 内容 |
+|---|---|
+| [开始使用](docs/getting-started.md) | 安装 Prax、配置模型、接入 Claude 或 Codex |
+| [核心理念](docs/CORE-PRINCIPLES.md) | 产品方向、人与 Agent 的分工，以及当前实现情况 |
+| [Repository Harness](docs/repository-harness.md) | 任务配置、项目适配、状态恢复与验收结果 |
+| [Prax Shift](docs/prax-shift-spec.md) | 持续执行、任务交接与定时调度 |
+| [一次性验证](docs/verification-tasks.md) | 如何接入已有测试系统并检查报告 |
+| [Codex 项目接入](docs/codex-project-install.md) | 项目级安装、技能识别、文件保护与问题诊断 |
 
 ## 参与贡献
 
-欢迎贡献！详见 [CONTRIBUTING.md](CONTRIBUTING.md)：
-- 开发环境搭建
-- 代码风格规范
-- 测试要求
-- PR 流程
+见 [CONTRIBUTING.md](CONTRIBUTING.md)。欢迎提交改进建议、可复现的问题和针对性测试，并说明已验证的结果与尚未覆盖的情况。目前重点关注 Claude/Codex 的实际运行验证、跨平台隔离、记忆功能接入，以及可重复执行的评估测试。
 
-基准测试和可复现性相关工作，另见 [docs/BENCHMARKS.md](./docs/BENCHMARKS.md)。
-
----
-
-## 许可证
-
-MIT License — 详见 [LICENSE](LICENSE)。
+[MIT License](LICENSE)。

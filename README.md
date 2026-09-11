@@ -1,723 +1,178 @@
-<div align="center">
-
 # Prax
 
-**Keep coding agents working inside a truthful, bounded, and verifiable engineering environment**
+**Turn agent capability into work you can verify.**
 
-<br>
+An open-source runtime for agent-driven work: explicit boundaries, reusable workflows, and evidence-backed handoffs.
+
+[English](README.md) · [简体中文](README.zh-CN.md) · [Quick start](#quick-start) · [Core principles](docs/CORE-PRINCIPLES.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
 
-[Quick Start](#quick-start) · [Why Prax](#why-prax) · [Usage](#usage-examples) · [Results](#results) · [Integration Paths](#integration-paths) · [Configuration](#configuration) · [Architecture](#architecture) · [Contributing](#contributing)
+## What is Prax?
 
-<br>
+Prax helps you move from asking an agent to do something to running a workflow with a defined scope, a stopping condition, and a result you can inspect.
 
-</div>
+Use its native agent from the terminal, bring its workflows into Claude Code or Codex, or delegate a bounded repository task to a coding worker. Skills, tools, memory components, and content workflows extend the product beyond code repair.
 
----
+**Prax Shift is the continuous-work mode—not the whole product.** Keeping an agent busy is not the goal. Knowing what it may do, when it must stop, and what actually happened is.
 
-## Quick Start
+## What you can do
 
-For repository engineering with frozen task contracts, bounded workers, and
-independent acceptance, use the [repository harness](docs/repository-harness.md).
-Project policy stays in the repository; the Prax runtime remains reusable.
-
-**Goal**: install Prax, configure an AI key, run your first task — in under 5 minutes. No programming background required.
-
-> Already an experienced user? Jump to [One-liner for experienced users](#one-liner-for-experienced-users) below.
-
-### Step 1 · Install prerequisites
-
-Prax needs **Node.js** (for the CLI wrapper) and **Python 3.10+** (for the runtime). Check if you already have them:
-
-```bash
-node --version      # should print v14 or higher
-python3 --version   # should print Python 3.10 or higher
-```
-
-Missing one? Install:
-
-| OS | Install command |
-|---|---|
-| **macOS** | `brew install node python@3.12` (install [Homebrew](https://brew.sh) first if needed) |
-| **Linux** | `sudo apt install nodejs python3 python3-pip` (Debian/Ubuntu) or `sudo dnf install nodejs python3` (Fedora) |
-| **Windows** | Use [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux commands. Native Windows is not supported yet (on the roadmap). |
-
-### Step 2 · Install Prax
-
-```bash
-npm install -g praxagent
-```
-
-Verify:
-
-```bash
-prax --version
-```
-
-**Should print**:
-
-```
-prax 1.0.0
-```
-
-(1.0.0 or higher is fine.)
-
-**See `command not found`?**
-- macOS with Homebrew Node: run `export PATH=/opt/homebrew/bin:$PATH` then add it to `~/.zshrc`
-- Linux: confirm `npm prefix -g`'s `bin/` is on your `$PATH`
-
-### Step 3 · Point Prax at an LLM service
-
-Prax needs two things to call any LLM: an **endpoint URL** and an **API key**.
-The procedure is the same whether you use an official API or a third-party proxy.
-
-1. Get the `base_url` and `api_key` from your service's dashboard or docs.
-
-2. Export them as environment variables (the names are arbitrary — any name your shell can `export` works; `LLM_BASE_URL` / `LLM_API_KEY` is just our recommended convention):
-
-   ```bash
-   export LLM_BASE_URL="https://your-service-endpoint"
-   export LLM_API_KEY="your-key"
-   ```
-
-3. Wire them into Prax via `~/.prax/models.yaml`:
-
-   ```bash
-   mkdir -p ~/.prax
-   cat > ~/.prax/models.yaml <<'YAML'
-   providers:
-     default:
-       base_url_env: LLM_BASE_URL
-       api_key_env: LLM_API_KEY
-       format: openai          # use "anthropic" if your service speaks the Anthropic protocol
-       models:
-         - name: <your-model>  # the exact model name your service exposes
-   default_model: <your-model>
-   YAML
-   ```
-
-   Replace `<your-model>` with whatever model identifier your service supports (check the service's `/v1/models` endpoint or its dashboard).
-
-4. Verify it works:
-
-   ```bash
-   prax providers
-   ```
-
-   You should see your provider listed with the model name and a status. With `LLM_API_KEY` set the status reads `available`; if it shows `missing-credentials`, the env var didn't reach Prax — re-run the `export` and make sure `echo $LLM_API_KEY` echoes the key back.
-
-### Step 4 · Your first task
-
-```bash
-mkdir -p ~/Desktop/prax-hello && cd ~/Desktop/prax-hello
-prax prompt "你是谁？用一句话回答。"
-```
-
-**Should print** something like:
-
-```
-我是 Prax 这个智能体运行时里跑的 AI 助手，可以帮你执行代码、测试和自动化任务。
-```
-
-Congrats — Prax is working.
-
-### Step 5 · Prove it can touch files (the real power)
-
-```bash
-echo "hello world" > greeting.txt
-prax prompt "读 greeting.txt 里的内容，然后把它改成全大写再写回去"
-cat greeting.txt
-```
-
-**Should print**:
-
-```
-HELLO WORLD
-```
-
-That's the distinguishing capability — Prax doesn't just chat, it **reads, writes, runs tests, and verifies** in a loop. Everything below builds on this.
-
-**Got stuck at any step?** Common issues:
-
-| Symptom | Fix |
-|---|---|
-| `Error: Model 'xxx' not found` | The `<your-model>` name in `~/.prax/models.yaml` doesn't match what your service exposes. Check its `/v1/models` endpoint or dashboard. |
-| `HTTP 401 / Unauthorized` | Key typo or expired. Regenerate and re-export `LLM_API_KEY`. |
-| Silent exit with no output | Your endpoint is unreachable. Try `curl -s "$LLM_BASE_URL"/...` to confirm, or point `LLM_BASE_URL` at a healthy endpoint. |
-| Chinese characters look broken | Set `export LANG=zh_CN.UTF-8` in your shell rc. |
-
----
-
-## Two ways to use Prax
-
-Once Step 5 above works, you're ready to pick a usage mode.
-
-### Way 1 · Standalone from the terminal (what you just did)
-
-Use Prax directly at the shell prompt — perfect for automation, cron jobs, CI/CD, or just batching work without opening an IDE.
-
-```bash
-prax prompt "run pytest -q, fix the first failure, and stop when tests pass"
-prax prompt "read README.md and propose 3 concrete improvements as a checklist"
-prax cron add --name daily-news --schedule "0 17 * * *" --prompt "..."   # schedule recurring work
-```
-
-Pick a role-matched walkthrough to see a real-world pipeline end-to-end:
-
-| Your role | Tutorial | What you'll build |
+| Need | Prax capability | What you get |
 |---|---|---|
-| **PM / support lead** | [support-digest](./docs/tutorials/support-digest.md) | Daily PII-redacted ticket digest, local-only processing |
-| **Content creator / knowledge-base hobbyist** | [ai-news-daily](./docs/tutorials/ai-news-daily.md) | Scrape X/知乎/Bilibili → compile Obsidian wiki → send digest |
-| **Release manager** | [release-notes](./docs/tutorials/release-notes.md) | Git log → CHANGELOG + release announcement |
-| **DevEx / tech writer** | [docs-audit](./docs/tutorials/docs-audit.md) | Weekly "which docs drifted from the code?" report |
-| **Engineering lead** | [pr-triage](./docs/tutorials/pr-triage.md) | Per-PR triage that actually runs tests on both branches |
+| Work interactively | Native CLI / REPL with model providers, tools, and sessions | Code analysis, edits, commands, and reusable conversation context |
+| Hand off a coding task | Repository harness and Prax Shift with Claude or Codex workers | A frozen task, bounded repair attempts, independent acceptance, and a saved handoff |
+| Test without repairing | One-shot `verification` with a repository bridge | One test invocation, per-case accounting, and validated report artifacts; no coding worker |
+| Reuse team workflows | Skills, custom agents, MCP tools, and host integration assets | Project-specific procedures and service connections you configure |
+| Produce knowledge and content | Research, knowledge-compilation, article, and engineering recipes | Drafts, source records, review checklists, and quality reports |
+| Continue work later | Persistent task state, explicit scheduling, and notifications | Bounded continuation of a known task—not an unlimited autonomous backlog |
 
-All five tutorials start with sample data — no external API or real PR needed to follow along.
+These are distinct execution paths. A native prompt or a skill does **not** automatically gain the repository harness's contracts and guards.
 
-### Way 2 · Inside Claude Code
-
-If you use [Claude Code](https://claude.com/claude-code) and want Prax's skills, commands, and verification hooks available inside the IDE:
-
-```bash
-prax install --profile full
-```
-
-This copies Prax's bundled skills (4 commercial recipes + 1 content-automation pipeline + 4 developer workflows) into `~/.claude/`, registers Prax MCP servers, and wires hooks so Claude Code runs Prax's verification loop on every code change.
-
-Verify:
-
-```bash
-prax doctor --target claude
-```
-
-Now reopen your project in Claude Code. You'll see `/prax-shift` alongside
-`/prax-status`, `/prax-doctor`, `/prax-plan`, and `/prax-verify`, plus the
-`prax-planner` agent and Prax's automatically applied rules.
-
-To undo: `prax uninstall --target claude`.
-
-### Way 3 · Inside Codex
-
-For a project-scoped repository skill (not a user-global plugin):
-
-```bash
-prax install --target codex --local
-prax doctor --target codex
-```
-
-This manages only `.codex/skills/prax-shift` and `.prax/codex-install.json`.
-It does not write `.agents/skills`, user plugin configuration, or marketplaces.
-Inside a repository, doctor checks the project instance, content version and
-isolated native discovery; a healthy old global plugin cannot hide missing
-local assets. See [project installation and diagnosis](docs/codex-project-install.md).
-
-For an explicitly requested user-global personal plugin:
-
-```bash
-prax install --target codex
-prax doctor --target codex --global
-```
-
-Start a new Codex task after installation. Invoke `prax-shift` from the slash
-menu or type `$prax-shift`. It can accept a bounded handoff, report evidence,
-continue a run, or create a recurring schedule when explicitly requested.
-
-To undo: `prax uninstall --target codex`.
-
-### One-liner for experienced users
-
-```bash
-git clone https://github.com/ChanningLua/prax-agent.git && cd prax-agent
-pip install -e .
-export LLM_BASE_URL="https://your-service-endpoint"
-export LLM_API_KEY="your-key"
-# (then write ~/.prax/models.yaml as shown in Step 3 above)
-prax prompt "run pytest -q, fix the failure, and stop when tests pass"
-```
-
-> Prax can execute shell commands on your behalf. It defaults to `workspace-write` mode — files outside the project are off-limits. Use `--permission-mode read-only` for safe exploration.
-
----
-
-## Why Prax
-
-**Prax is not another model-specific agent wrapper—it is the Environment Runtime between coding agents and real repositories.**
-
-### Core principle: humans decide at the boundaries; agents keep working in between
-
-Prax combines **HITL (Human in the Loop)** and **AFK (Away From Keyboard)** as an adaptive autonomy model. Humans define intent, boundaries, and acceptance criteria; agents keep executing and verifying inside a controlled environment. When risk, ambiguity, insufficient evidence, or an unhealthy environment appears, the run parks for human judgment and later resumes from durable state.
+## The idea behind it
 
 > **Prax = Environment Runtime + Adaptive Autonomy Controller + Evidence Plane**
 
-**Where agents work · When humans decide · How outcomes are proved.**
-
-> **Reliable Autonomy = Truthful State × Bounded Action × Verifiable Outcome**
-
-The model reasons and acts. Prax keeps state truthful, actions bounded, feedback reliable, runs resumable, and outcomes evidence-backed. Its operating principle is simple: **HITL at decisions, AFK in execution**. Read the full [Prax Core Principles](./docs/CORE-PRINCIPLES.md).
-
-<p align="center">
-  <img src="./docs/assets/capabilities.svg" alt="Agent Capabilities" width="800">
-</p>
-
-### Experience-Based Self-Improvement
-
-Prax learns from experience and self-improves across sessions and projects:
-
-- **Correction Detection** — Automatically detects when users correct mistakes, extracts problem-solution patterns, and applies them in future sessions (multilingual support)
-- **Cross-Project Experience Accumulation** — Builds a global experience store at `~/.prax/experiences.json` that improves performance across all your repositories
-- **Structured Error Recovery** — Blacklists failing approaches and tries alternatives, preventing repeated mistakes within the same session
-- **Persistent Memory with Confidence Scoring** — Two backends (JSON/SQLite) track context, decisions, and learned patterns with decay over time
-- **Temporal Knowledge Graph** — Tracks entity relationships and their evolution across sessions
-- **Checkpoint/Resume** — Crash recovery ensures no work is lost, even during long-running tasks
-- **Trajectory Recording** — Learns from execution history to identify successful patterns and avoid failure modes
-
-These capabilities are production-ready and integrated into the core runtime — not experimental plugins.
-
-### Working with Experience & Memory
-
-Prax automatically learns from your work and applies that knowledge to future tasks. Here's how to work with its memory system:
-
-#### Automatic Learning
-
-Prax captures experience in these situations:
-
-- **Correction Detection** — When you correct a mistake (e.g., "that's wrong", "不对", "try again"), Prax extracts the problem-solution pattern and saves it to `.prax/solutions/`
-- **Task Completion** — Facts with confidence ≥ 0.7 are persisted to project memory
-- **Tool Failures** — Failed approaches are blacklisted within the session to avoid repetition
-- **Verification Success** — Successful test-fix patterns are recorded as experiences
-- **Session End** — Context snapshots are saved for the next session to resume
-
-#### Viewing Memory
-
-Check what Prax has learned:
-
-```bash
-# Project-specific memory
-cat .prax/memory.json          # Facts and context (JSON backend)
-cat .prax/memory.db            # Or SQLite backend
-ls .prax/solutions/            # Problem-solution patterns
-
-# Global cross-project experiences
-cat ~/.prax/experiences.json   # Shared learnings (JSON backend)
-cat ~/.prax/experiences.db     # Or SQLite backend
-
-# Session history
-ls .prax/sessions/             # Past conversation transcripts
-```
-
-#### Managing Memory
-
-Clean up memory when needed:
-
-```bash
-# Clear project memory
-rm -rf .prax/memory.json .prax/solutions/
-
-# Clear global experiences
-rm -rf ~/.prax/experiences.json
-
-# Clear session history
-rm -rf .prax/sessions/
-
-# Full reset
-rm -rf .prax/ ~/.prax/
-```
-
-#### Memory Backends
-
-Prax supports two memory backends:
-
-| Backend | Storage | Best For | Search |
-|---------|---------|----------|--------|
-| **local** (JSON) | `.prax/memory.json` + `~/.prax/experiences.json` | Zero-config, small projects | Linear scan |
-| **sqlite** | `.prax/memory.db` + `~/.prax/experiences.db` | Medium to large projects, full-text search | FTS5 index |
-
-Configure in `.prax/config.yaml`:
-
-```yaml
-memory:
-  backend: local  # or sqlite
-  local:
-    max_facts: 100
-    fact_confidence_threshold: 0.7
-    max_experiences: 500
-```
-
-#### Confidence & Decay
-
-- Facts with confidence ≥ **0.7** are persisted to memory
-- Lower-confidence observations are kept in session context only
-- Confidence scoring is static per fact (no time-based decay currently implemented)
-
-### Verification-First Architecture
-
-<p align="center">
-  <img src="./docs/assets/verification-loop.svg" alt="Verification Loop" width="800">
-</p>
-
-Most tools send a prompt and hope for the best. Prax runs a **test-verify-fix loop**: it executes your test suite, analyzes failures, edits code, and re-runs until tests pass. The verification layer is first-class — not an afterthought.
-
-**Benchmark-proven**: 10/10 repository repair tasks solved in 29.56s average (vs 8/10 baseline across peer frameworks).
-
-**Dual Runtime Paths** — Native CLI for automation and CI/CD, Claude Code integration for interactive development. Choose the right tool for the job.
-
-**Cross-Session Persistent Memory** — Context persists when you close the terminal. Two memory backends: JSON (zero-config) and SQLite (full-text search).
-
-**Multi-Model Orchestration** — OpenAI-compatible, Anthropic-compatible, and custom-protocol LLMs with explicit routing, fallback chains, and cost tracking. Switch models mid-session with `/model <your-model>`.
-
-**Security by Design** — Permission modes (`read-only`, `workspace-write`, `danger-full-access`), schema validation, workspace boundaries, and full audit trail.
-
-**Built for Real Codebases** — 25+ built-in tools, middleware pipeline (loop detection, quality gates), multi-language support, and interactive REPL mode.
-
-**Transparent & Measurable** — Real-time cost tracking, session history and replay, benchmark suite included, open architecture for custom extensions.
-
----
-
-## Usage Examples
-
-### Repository Repair
-
-```
-$ prax "run pytest -q, fix the failure, and stop when tests pass"
-▶ VerifyCommand {"command": "pytest -q"}
-  ✗ FAILED test_auth.py::test_login - AssertionError
-▶ Read {"file_path": "src/auth.py"}
-▶ Edit {"file_path": "src/auth.py", ...}
-▶ VerifyCommand {"command": "pytest -q"}
-  ✓ 1 passed in 0.12s
-Verification passed. Task complete.
-```
-
-### One-off Tasks
-
-```bash
-prax "explain the authentication flow in login.py"
-prax "refactor auth.py error handling, replace requests with httpx"
-prax "analyze project architecture, list technical debt, prioritize by impact"
-```
-
-### Interactive REPL
-
-```bash
-prax repl
-
-> analyze the codebase structure
-> fix the SQL injection in user_query.py
-> /model <your-model>
-> /cost
-Session: 12.4K tokens ($0.04)
-```
-
-### Slash Commands
-
-```
-/model, /session list, /plan, /todo show, /doctor, /cost, /help
-```
-
-### Scheduled Tasks & Notifications (new in 0.4)
-
-Prax can own scheduled work end-to-end. Declare channels in `.prax/notify.yaml`, jobs in `.prax/cron.yaml`, and `prax cron install` writes the system-level trigger for you (LaunchAgent on macOS, crontab line on Linux).
-
-```bash
-# 1. configure an outbound channel (Feishu / Lark / Email)
-cat > .prax/notify.yaml <<YAML
-channels:
-  daily-digest:
-    provider: feishu_webhook
-    url: "\${FEISHU_WEBHOOK_URL}"
-YAML
-
-# 2. schedule a daily job
-prax cron add \
-  --name ai-news-daily \
-  --schedule "0 17 * * *" \
-  --prompt "触发 ai-news-daily 技能" \
-  --notify-on failure \
-  --notify-channel daily-digest
-
-# 3. install the per-minute dispatcher
-prax cron install
-```
-
-See [docs/recipes/ai-news-daily.md](./docs/recipes/ai-news-daily.md) for the full AI-news-automation recipe.
-
-### Prax Shift — hand off the work, not the control
-
-Prax Shift is one Prax operating mode, not the whole product. Its recommended
-task path shares the repository harness: frozen intent → preflight acceptance
-→ bounded worker → independent verification → evidence or human handoff.
-Prepare `.prax/task.json` with the goal, scope, verifier and total budget;
-`.prax/harness.json` freezes `worker: codex` or `claude`. The bundled skill can
-prepare these files from a bounded handoff.
-
-The commands below are for `code-check` coding work. For tests without repairs,
-use [one-shot verification](docs/verification-tasks.md): delegate to the project's
-existing test entry once, require current authorization and structured evidence,
-and stop without a coding worker, retry, resume, or recurring schedule.
-
-```bash
-prax shift plan --task .prax/task.json
-prax shift run --task .prax/task.json
-prax shift status --run-id <task-id>
-prax shift pause --run-id <task-id>
-prax shift resume --run-id <task-id>
-```
-
-Only when recurring execution is explicitly wanted, schedule the same task:
-
-```bash
-prax cron add \
-  --name nightly-config-migration \
-  --schedule "0 1 * * *" \
-  --run-mode shift \
-  --task .prax/task.json
-prax cron install
-```
-
-Scheduled resumes cannot unpause or replenish a task's budget. Only a matching
-`PASS` with `verified=true` and exit 0 counts as success. Identity drift rejects
-reuse, repository locks prevent overlapping cooperating tasks, and a process
-supervisor bounds the worker's wall time. Codex defaults to `workspace-write`;
-Claude uses `dontAsk`, which denies unapproved operations but is not an OS sandbox.
-
-See the [closed-loop guide](docs/recipes/shift-closed-loop.md) and
-[runtime contract](docs/repository-harness.md). Installation does not activate
-a daemon or prove live Claude/Codex execution.
-
-**Compatibility mode:** `prax shift "goal" --verify ...` and `--features` remain
-available, with the legacy behavior below. They do **not** inherit all task-mode
-identity, repository-lock, or wall-supervisor guarantees. Legacy prompt-only
-Shift cron jobs must migrate to `--task`; ordinary prompt cron jobs are unchanged.
-
-- **Verifier** is an allowlisted test runner (`pytest`, `npm test`, `cargo test`, …) **or**
-  a repo-local script: `--verify "./scripts/verify.sh"` (relative, inside the repo, executable —
-  for e2e / build / curl-probe checks the runners can't express).
-- **Verifier verdicts**: `PASS` · `FEATURE-FAIL` · `HARNESS-ERROR`. Ordinary non-zero
-  exits are feature failures and feed the self-heal loop; a timeout, exec failure, or
-  explicit `HARNESS-ERROR` marker parks the window without blaming the feature or
-  consuming its cross-window retry budget.
-- **Terminal states**: `verified` · `max_iterations` · `stuck_no_progress` · `harness_error` ·
-  `executor_error` (a Claude/Codex worker crash is journalled + retried with backoff, never a naked
-  traceback) · `awaiting_approval` / `approval_rejected` (production-affecting goals gate
-  through the approval relay before any work is dispatched) · `approval_unconfigured`
-  (an explicit red-line feature was fail-closed because no relay is configured).
-- **Resumable** — each run journals to `.prax/runs/<id>/`; a window stopped by quota or crash
-  resumes from the journal with `--run-id <id>`.
-- **Networking** — spawned children inherit the **host network stack** (e.g. a system VPN /
-  clash TUN) by default: an inherited `HTTP(S)_PROXY` is stripped so children reach whatever
-  your own terminal reaches. Set `PRAX_KEEP_PROXY=1` to keep it (headless servers where the
-  proxy is the only egress).
-
-**Feature mode (`--features`)** — for a multi-feature plan, drop a
-`.prax/feature_list.json` (each item carries its own acceptance and an explicit
-`risk_category`) and run `prax shift --features` (no goal needed). The
-loop advances the highest-priority unfinished feature, marks it `done` **only**
-when verified, then moves to the next — stopping at the first feature it can't
-verify (rather than thrashing the rest). Done status persists, so a crashed /
-quota-stopped window resumes at the right feature. `--max-features N` caps how
-many advance per window.
-
-`.prax/feature_list.json`:
-
-```json
-{"features": [
-  {"id": "f1", "title": "login page", "acceptance": "pytest tests/test_login.py",
-   "risk_category": "mechanical", "priority": 1, "status": "pending"},
-  {"id": "f2", "title": "change pricing", "acceptance": "npm test",
-   "risk_category": "money", "priority": 2, "status": "pending"}
-]}
-```
-
-`risk_category` is mandatory for execution. `none` / `mechanical` may proceed under
-the normal complexity + verifier routing. `money`, `compliance`, `scope`, `revenue`,
-`production`, and any unknown non-empty value force the approval relay before the
-executor runs. A missing value becomes `unspecified` and fails closed. Each gated
-feature uses the stable approval ID `<run-id>-<feature-id>`, so approval of one
-feature cannot authorize another and a resumed feature polls its original decision.
-
-```bash
-prax shift --features --max-features 3 --notify ops
-```
-
-### Bundled Skills
-
-Skills live under `skills/` (bundled) or `.prax/skills/` (project-local) and inject prompt guidance when their triggers match. Content / writing helpers:
-
-| Skill | Triggers | Purpose |
+| Layer | Question | Current repository-task implementation |
 |---|---|---|
-| `browser-scrape` | `抓取` `scrape` `twitter` `zhihu` `bilibili` `autocli` | Drive [AutoCLI](https://github.com/nashsu/AutoCLI) to scrape 55+ sites reusing the user's Chrome login |
-| `knowledge-compile` | `整理` `compile` `wiki` `digest` `知识库` | Turn raw markdown into Obsidian-ready wiki (`index.md` + `topics/` + `daily-digest.md`) |
-| `ai-news-daily` | `ai-news-daily` `daily digest` `日报` | End-to-end pipeline: scrape → compile → notify |
-| `chinese-coding` | `中文` `注释` `文档` | Chinese comments/docs style guide |
+| **Environment Runtime** | Where does the agent work? | Repository identity, task and policy snapshots, adapter hooks, cooperative locks, and process supervision |
+| **Adaptive Autonomy Controller** | When can it continue, and when must it stop? | Explicit scope, cumulative budgets, failure classification, pause, and guarded resume |
+| **Evidence Plane** | What supports the result? | Independent verifier output, structured reports, artifact digests, journals, and saved results |
 
-Four additional **commercial recipes** (`pr-triage`, `release-notes`, `docs-audit`, `support-digest`) ship under `skills/` as well — see the [Commercial Use Cases](#commercial-use-cases-new-in-04) table below for what each one does. Project-local skills in `.prax/skills/` override bundled ones with the same name.
+**HITL at decisions. AFK in execution. Evidence at every boundary.**
 
-### Commercial Use Cases (new in 0.4)
+Humans define intent, authority, and acceptance. Agents execute within those limits. Blockers return to a human instead of silently expanding the task. Today this is rule-based control, not a learned risk policy or a universal approval system. The formula is an architectural direction, not three separately deployable products. See [core principles](docs/CORE-PRINCIPLES.md).
 
-Four recipes tuned for team/enterprise workflows — designed to ship **reviewable artefacts** (not "AI said so" hallucinations) and to keep destructive actions firmly in human hands.
+## Quick start
 
-| Case | Target user | Prax differentiator | Recipe |
-|---|---|---|---|
-| **PR Triage Bot** | Eng lead | *Actually* checks out the PR branch and runs tests via `VerifyCommand`; compares against base. No GitHub side-effects. | [`docs/recipes/pr-triage.md`](./docs/recipes/pr-triage.md) |
-| **Release Notes Generator** | Release manager | Reads git log + issue refs, groups by Conventional Commits into Keep-a-Changelog sections, idempotent per version. Writes files; never tags/pushes/publishes. | [`docs/recipes/release-notes.md`](./docs/recipes/release-notes.md) |
-| **Docs Freshness Audit** | DevEx / tech writer | Diffs recently-changed source vs doc mentions, outputs an evidence-cited drift report. Never edits docs itself. | [`docs/recipes/docs-audit.md`](./docs/recipes/docs-audit.md) |
-| **Support Ticket Digest** | PM / support lead | Zero external API calls; PII redaction runs before any LLM sees the data — compliance-grade local-only processing. | [`docs/recipes/support-digest.md`](./docs/recipes/support-digest.md) |
+This README describes the source on `main`. A published package can lag behind it; use a source checkout when trying the capabilities documented here.
 
-Each case is 10-minute deployable, works with the cron/notify plumbing above, and has hard contractual limits baked into its SKILL.md (no auto-approve, no auto-merge, no auto-refund, no auto-edit-docs) so the agent cannot drift.
+### Install the runtime
 
----
-
-## Results
-
-<p align="center">
-  <img src="./docs/assets/benchmark-results.svg" alt="Benchmark Results" width="800">
-</p>
-
-Prax achieves **10/10 success rate** on repository repair tasks, completing them in **29.56s average** — 49% faster than the cross-framework baseline.
-
-| Metric | Prax | Framework Baseline | Improvement |
-|--------|------|-------------------|-------------|
-| Success Rate | **10/10** (100%) | 8/10 (80%) | **+25%** |
-| Average Time | **29.56s** | 58.44s | **-49%** |
-| Timeouts | **0** | 2 | **-100%** |
-
-**What drives these results:**
-- **Verification-First Architecture** — Test-verify-fix loops catch errors early
-- **Quality Gate Middleware** — Loop detection and convergence guidance
-- **Smart Sandbox Downgrade** — Verification commands bypass unnecessary overhead
-- **Experience-Based Learning** — Correction detection, error pattern blacklisting, and cross-session memory accumulation
-
-Benchmark methodology: 10 repeated rounds on real repository-fix tasks with session state preserved. See [docs/BENCHMARKS.md](./docs/BENCHMARKS.md) for full details.
-
----
-
-## Integration Paths
-
-Prax separates its control plane from the model-specific worker:
-
-| Feature | Native Runtime | Claude Code | Codex |
-|---------|----------------|-------------|-------|
-| Execution | CLI commands | Claude Code | Codex |
-| Interaction | Command-line REPL | Conversation | Conversation |
-| Shift worker | Direct API | `claude -p` | `codex exec --json` |
-| Tool Integration | 25+ built-in tools | Claude tools + Prax extensions | Codex tools + `prax-shift` skill |
-| Use Cases | Automation, CI/CD | Interactive development, code review | Interactive work, bounded unattended runs |
-
-### Claude Code Integration Advantages
-
-- **IDE Native Experience** — Use Prax capabilities directly within Claude Code
-- **Seamless Integration** — Deep integration via MCP servers and Hooks
-- **Security Protection** — Pre-write secret scanning, pre-commit quality checks
-- **Session Persistence** — Auto-save session state, resume from breakpoints
-- **Bidirectional Collaboration** — Claude Code's conversational ability + Prax's verification loop
-
-<p align="center">
-  <img src="./docs/assets/integration-paths.svg" alt="Integration Paths" width="800">
-</p>
-
-> Install Claude assets with `prax install --target claude`, or the Codex plugin
-> with `prax install --target codex`.
-
----
-
-## Configuration
-
-**Models** — create `.prax/models.yaml` in your project (or edit the global `~/.prax/models.yaml` from Quick Start Step 3):
-
-```yaml
-default_model: <your-model>
-
-providers:
-  default:
-    base_url_env: LLM_BASE_URL    # any env var name; declared in Quick Start Step 3
-    api_key_env: LLM_API_KEY
-    format: openai                # use "anthropic" if your endpoint speaks the Anthropic protocol
-    models:
-      - name: <your-model>        # the model identifier your service exposes
-```
-
-To wire multiple endpoints (e.g. one OpenAI-compatible and one Anthropic-compatible), declare another `providers:` entry with its own `base_url_env` / `api_key_env` and list its models. Each provider can also override `base_url` directly instead of via env (see `core/llm_client.py` for the full schema).
-
-**Permission modes**
-
-| Mode | What it allows | Default |
-|------|---------------|---------|
-| `read-only` | No file writes, no shell commands | |
-| `workspace-write` | Modify files inside the project | ✓ |
-| `danger-full-access` | Unrestricted | |
+Use Python 3.10+ on macOS or Linux. Node.js is not required for this Python installation; a chosen coding host or project test tool may require its own dependencies.
 
 ```bash
-prax --permission-mode read-only "analyze security vulnerabilities"
+git clone https://github.com/ChanningLua/prax-agent.git
+cd prax-agent
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/prax --version
+.venv/bin/prax shift --help
 ```
 
-**Runtime paths**
+The last two commands check the CLI without a model request, test run, worker, or scheduler. They do not prove a project is ready for execution.
 
-| Flag | Behavior |
-|------|----------|
-| `--runtime-path auto` | Uses Claude CLI bridge if `claude` is installed, otherwise native runtime (default) |
-| `--runtime-path native` | Always use the native runtime |
-| `--runtime-path bridge` | Always use the Claude CLI bridge; fails if `claude` is not installed |
+### Choose your entry point
 
-**Data directory**
+- **Use Prax as an agent:** configure a model endpoint and credentials, then use `prax prompt` or `prax repl`. See [native setup](docs/getting-started.md#native-runtime).
+- **Use it inside Codex:** install into the target repository's `.prax/venv`, then run the project-scoped installer and doctor. See [project setup](docs/getting-started.md#codex-project-setup).
+- **Use Claude as a worker:** select `worker: "claude"` in the repository profile. Host skill installation is optional for CLI task execution. See [repository harness](docs/repository-harness.md).
+- **Connect an existing E2E system:** implement the project evidence bridge described in [one-shot verification](docs/verification-tasks.md).
 
-| Path | Content |
-|------|---------|
-| `.prax/sessions/` | Conversation history |
-| `.prax/memory.json` | Project memory (auto-extracted facts, JSON backend) |
-| `.prax/memory.db` | Project memory (SQLite backend) |
-| `.prax/solutions/` | Problem-solution patterns from correction detection |
-| `.prax/todos.json` | Current task list |
-| `.prax/agents/` | Custom agent definitions |
-| `.prax/models.yaml` | Model configuration |
-| `.prax/config.yaml` | Project-level configuration (memory backend, etc.) |
-| `~/.prax/` | Global config (cross-project) |
-| `~/.prax/experiences.json` | Global cross-project experiences (JSON backend) |
-| `~/.prax/experiences.db` | Global cross-project experiences (SQLite backend) |
-| `~/.prax/config.yaml` | User-level configuration |
+Do not replace an existing project profile, task, environment, or adapter with a sample. Start with a small task and an acceptance check that already works locally.
 
----
+### Codex project integration
 
-## Architecture
+With Prax already installed in the **target repository's** `.prax/venv`, run from that repository:
 
-<p align="center">
-  <img src="./docs/assets/architecture.svg" alt="Architecture" width="800">
-</p>
+```bash
+.prax/venv/bin/prax install --target codex --local --dry-run --json
+.prax/venv/bin/prax install --target codex --local --json
+.prax/venv/bin/prax doctor --target codex --json
+```
 
-Key modules:
+Prax manages `.codex/skills/prax-shift/SKILL.md` and `.prax/codex-install.json`. It does not write `.agents/skills`, user plugin configuration, or marketplaces. It checks native skill discovery instead of treating copied files as success.
 
-| Path | Role |
-|------|------|
-| `core/agent_loop.py` | Core orchestration cycle (25 iter max, circuit breaker) |
-| `core/middleware.py` | VerificationGuidance, LoopDetection, QualityGate, etc. |
-| `tools/verify_command.py` | Bounded verification (pytest, npm test, cargo test, go test) |
-| `tools/sandbox_bash.py` | Auto-downgrade: verify commands bypass sandbox overhead |
-| `core/memory/` | Pluggable backends (JSON / SQLite) |
-| `core/llm_client.py` | Provider registry, multi-model routing |
-| `agents/` | Ralph (planner), Sisyphus (executor), Team (parallel) |
-| `workflows/` | Task decomposition and orchestration |
-| `commands/orchestrate.py` · `core/orchestrator_loop.py` | Prax Shift engine (`prax shift`; `prax orchestrate` compatibility alias) — verifier-driven self-heal, stuck detection, crash survival, approval gate |
-| `core/agent_host.py` · `core/{claude,codex}_step_executor.py` | Replaceable Claude/Codex worker adapters; the loop and evidence contract stay model-independent |
-| `core/command_verifier.py` | Turns a verify command / repo `./script` into PASS / FEATURE-FAIL / HARNESS-ERROR |
-| `core/context_composer.py` | Builds each step: north star + constraints + learned memory + feature board |
-| `core/feature_list.py` · `core/feature_driver.py` | `--features` plan: load/persist feature_list.json, advance one verified item at a time |
-| `core/subprocess_env.py` | Spawns children on the host network stack (strips inherited proxy) |
+The current isolated discovery probe is **macOS-only** and depends on the installed Codex CLI. Missing support fails closed; it does not fall back to a global plugin. A successful doctor does not prove that an already-open task loaded the skill. Start a new project task and select its project-scoped `prax-shift` skill.
 
----
+The [official Codex skill directory](https://learn.chatgpt.com/docs/build-skills) is `.agents/skills`; Prax currently uses a separately probed `.codex/skills` compatibility path. This is not a guarantee for every host version. Details and maintenance limits are in [project installation and diagnosis](docs/codex-project-install.md).
+
+### Claude Code integration
+
+Prax also ships Claude skills, commands, agents, rules, hooks, and MCP configuration. The existing `prax install --target claude` installer is **user-scoped** and can change `~/.claude`; it is not equivalent to Codex `--local`. Review [setup and side effects](docs/getting-started.md#claude-integration) before using it.
+
+## Hand off work with Prax Shift
+
+A handoff can start in ordinary language:
+
+> Use Prax Shift to fix the empty-input parser bug. Limit changes to the parser, keep the tests frozen, and use the existing regression test as acceptance. Stop after three worker attempts or ten minutes. Do not commit or publish. Show me the plan first.
+
+The skill helps turn that request into two reviewable files:
+
+- `.prax/harness.json`: worker, policy files, and optional repository adapter.
+- `.prax/task.json`: task ID, goal, actual repositories and branches, editable scope, verifier, and total budget.
+
+Once those files describe the real project, use the checked project environment below. If you only installed the source runtime, substitute its absolute CLI path; do not use an unrelated global `prax`.
+
+```bash
+.prax/venv/bin/prax shift plan --task .prax/task.json
+```
+
+`plan` validates the contract and source identity. It starts **neither tests nor a worker**. After approving that specific coding task, use these commands as needed—not as one sequence:
+
+```bash
+.prax/venv/bin/prax shift run --task .prax/task.json
+.prax/venv/bin/prax shift status --run-id <task-id>
+.prax/venv/bin/prax shift pause --run-id <task-id>
+.prax/venv/bin/prax shift resume --run-id <task-id>
+```
+
+For `code-check`, acceptance runs first. If it already passes, no worker is needed. Otherwise, a feature failure can drive a bounded repair loop; an environment or identity failure stops it. Resuming requires matching guarded state and keeps the original cumulative budget. Pause is not rollback.
+
+Results live under `.prax/harness-runs/<task-id>/`. A `PASS` with `verified=true` supports the declared acceptance—not deployment, complete business coverage, or every platform. Reading `status` does not re-run acceptance.
+
+Scheduling is optional and explicit. Scheduled Shift continues the same task; it does not invent tomorrow's work, refill its budget, or clear an operator pause. See the [closed-loop guide](docs/recipes/shift-closed-loop.md).
+
+## Run tests without changing code
+
+Use `kind: "verification"` when the request is “run these tests once,” not “keep repairing until green.”
+
+**Prax owns the run and the evidence contract. Your test system owns test execution.**
+
+The repository bridge selects the existing public entry point, enforces current platform authorization, and validates the test system's own evidence. Prax checks the report's run identity, exit/status agreement, and artifact paths and hashes.
+
+- Report `passed`, `failed`, `blocked`, and `not-executed` separately.
+- Preserve a concrete blocker instead of turning missing execution into a test failure.
+- Keep coverage `unknown`; current execution accounting is not a complete feature-coverage inventory.
+- Stop after one invocation: no coding worker, automatic retry, resume, or recurring verification job.
+
+A zero exit code or a JSON-shaped stdout message is not enough. Integration is project-specific; installing Prax alone does not connect an arbitrary E2E system. See the [verification contract](docs/verification-tasks.md).
+
+## Extend the workflows
+
+Prax retains a native agent path alongside its repository control layer:
+
+- **Skills and agents:** bundled and project-local instructions for reusable procedures, with skill discovery and on-demand content access. These guide behavior, not enforce a security boundary.
+- **Tools and MCP:** connect local tools and configured services. Credentials and write authority remain explicit integration concerns.
+- **Models and sessions:** configurable providers, model routing, and saved conversation state. Native API configuration is separate from Claude/Codex worker authentication.
+- **Memory components:** local and SQLite backends, correction records, and experience storage exist; wiring varies by entry point. Do not assume every prompt uses every backend or that a stored inference is verified knowledge.
+- **Content workflows:** [article batches](docs/recipes/article-batch.md), [source-grounded drafts](docs/recipes/hotspot-article.md), [release notes](docs/recipes/release-notes.md), [documentation audits](docs/recipes/docs-audit.md), and [support digests](docs/recipes/support-digest.md). External tools are optional dependencies, and quality checks do not independently prove every fact or authorize publication.
+
+## Boundaries worth knowing
+
+- **Prax is not an OS sandbox.** Repository guards detect drift at boundaries; they cannot prevent every side effect or roll changes back. Tests and adapters are trusted executable inputs.
+- **Host permissions differ.** Codex workers default to `workspace-write`; Claude workers use `dontAsk`. Those are not equivalent isolation mechanisms.
+- **Verification is only as strong as its verifier.** Recognized empty/skipped test runs are rejected, but arbitrary scripts still require trustworthy acceptance logic.
+- **Durable state is not automatic recovery from everything.** Hard interruption, detached processes, source drift, or lost ownership can require inspection and a new authorized task.
+- **Long-running does not mean unlimited.** No built-in promise of autonomous daily task creation, universal approval integration, automatic production release, or a global kill switch.
+- **History is not a current benchmark.** The [benchmark notes](docs/BENCHMARKS.md) describe a narrow historical experiment, not a universal ranking or an end-to-end validation of this version.
+
+Legacy `shift "goal" --verify ...` and `--features` interfaces remain compatibility paths. They do not inherit all guarantees of `shift run --task`.
+
+## Documentation
+
+| Start here | Go deeper |
+|---|---|
+| [Getting started](docs/getting-started.md) | Runtime installation, native model configuration, and host setup |
+| [Core principles](docs/CORE-PRINCIPLES.md) | Product direction, HITL/AFK, and implemented boundaries |
+| [Repository harness](docs/repository-harness.md) | Contracts, adapters, checkpoints, result semantics, and trust model |
+| [Prax Shift](docs/prax-shift-spec.md) | Shared runtime, continuation, and scheduling limits |
+| [One-shot verification](docs/verification-tasks.md) | Existing-test-system integration and evidence protocol |
+| [Codex project integration](docs/codex-project-install.md) | Scope, discovery, file protection, and diagnostics |
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- Development setup
-- Code style guidelines
-- Testing requirements
-- PR process
+See [CONTRIBUTING.md](CONTRIBUTING.md). Prefer a small reproducible case, a focused test, and a clear statement of what the result does—and does not—prove. Improvements to host validation, portable isolation, memory integration, and repeatable evaluations are welcome.
 
-For benchmark and reproducibility work, also see [docs/BENCHMARKS.md](./docs/BENCHMARKS.md).
-
----
-
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
+[MIT License](LICENSE).
